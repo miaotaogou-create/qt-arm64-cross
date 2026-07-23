@@ -38,13 +38,17 @@ def toolkit_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def detect(distro: str = wsl.DEFAULT_DISTRO) -> EnvReport:
+def detect(distro: str = wsl.DEFAULT_DISTRO, on_line=None) -> EnvReport:
     items: list[CheckItem] = []
+    if on_line:
+        on_line("[detect] 检查 WSL…")
     if not wsl.wsl_available():
         return EnvReport(
             False,
             [CheckItem("wsl", "WSL", False, "安装 Windows 功能「适用于 Linux 的 Windows 子系统」")],
         )
+    if on_line:
+        on_line(f"[detect] 检查发行版 {distro}…")
     if not wsl.distro_exists(distro):
         return EnvReport(
             False,
@@ -53,10 +57,18 @@ def detect(distro: str = wsl.DEFAULT_DISTRO) -> EnvReport:
 
     tk = wsl.win_to_wsl(toolkit_root())
     lines: list[str] = []
+
+    def _cap(line: str) -> None:
+        lines.append(line)
+        if on_line:
+            on_line(line)
+
+    if on_line:
+        on_line("[detect] 在 WSL 中执行 env_check.sh…")
     code = wsl.run_wsl(
         f"sed -i 's/\\r$//' '{tk}/tools/env_check.sh' && bash '{tk}/tools/env_check.sh'",
         distro=distro,
-        on_line=lines.append,
+        on_line=_cap,
     )
     parsed: dict[str, str] = {}
     for line in lines:
