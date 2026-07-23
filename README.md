@@ -21,9 +21,9 @@ Windows GUI + WSL `Ubuntu-20.04`，把任意 Qt 工程（`.pro` / `CMakeLists.tx
 
 ## 启动（推荐）
 
-双击 **`QtArm64Cross.exe`** 即可（绿色单文件：内嵌 GUI、`tools/` 脚本与 Tcl/Tk，可单独拷到任意目录使用）。
+双击 **`QtArm64Cross.exe`** 即可（绿色单文件：内嵌 GUI、`tools/` 与 Tcl/Tk，可单独拷到任意目录）。
 
-仍依赖本机已装好的 WSL `Ubuntu-20.04` 与交叉编译环境（sysroot / Qt）；exe 本身不需再旁边带 `tools\` 文件夹。
+首次运行会把 Tcl/Tk 缓存到 `%LOCALAPPDATA%\QtArm64Cross\`（因本机 `C:\WINDOWS\TEMP` 下 Tcl 无法使用 `init.tcl`）。仍依赖本机 WSL `Ubuntu-20.04` 与交叉编译环境。
 
 重新打包：
 

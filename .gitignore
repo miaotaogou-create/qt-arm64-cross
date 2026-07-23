@@ -17,6 +17,11 @@ examples/**/qrc_*.cpp
 # PyInstaller 中间产物（保留根目录 QtArm64Cross.exe 供双击）
 build/
 *.spec
+*.smoke_ok
+_tcltest/
+_tcltest2/
+diag_tk.exe
+diag_tk.py
 
 # 编辑器
 .vscode/
