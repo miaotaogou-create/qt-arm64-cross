@@ -26,6 +26,8 @@ DEFAULTS: dict[str, Any] = {
     "plugins": "platforms/libqxcb.so platforms/libqoffscreen.so",
     "extra_pkgconfig": "",
     "extra_copy": "",
+    "share_dir": "",
+    "share_port": 8080,
 }
 
 

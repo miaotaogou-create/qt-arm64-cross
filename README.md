@@ -56,6 +56,7 @@ wsl -d Ubuntu-20.04 -u root bash /mnt/c/ZYL/workspace/projects/qt-arm64-cross/to
    - **插件**：默认 `platforms/libqxcb.so platforms/libqoffscreen.so`
 3. 勾选 **打运行包**（可选）→ **交叉编译**
 4. 日志流式输出；失败可 **复制日志**；成功用 **打开产物目录**
+5. **客户机下载**：在「HTTP 共享」里点 **用产物目录** → **启动共享**，把显示的 `http://本机IP:端口/` 给客户机（浏览器或 `wget`）。效果类似 Everything 的 HTTP 服务，无需再开 Everything。若客户机访问不通，检查 Windows 防火墙是否放行该端口。
 
 设置保存在 `%USERPROFILE%\.qt-arm64-cross\settings.json`。
 

@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 
 from crosskit import detect
 from crosskit.build import discover_build_files, merge_extra_pkgconfig
+from crosskit.httpshare import DirectoryShare, lan_ipv4
 from crosskit.wsl import win_to_wsl
 
 
@@ -27,6 +28,20 @@ def main() -> None:
     assert merge_extra_pkgconfig(False, "") == ""
     assert "libavcodec" in merge_extra_pkgconfig(True, "")
     assert merge_extra_pkgconfig(True, "libfoo").endswith("libfoo")
+
+    assert isinstance(lan_ipv4(), list)
+    share = DirectoryShare()
+    share.start(ROOT, 18765)
+    try:
+        assert share.running
+        assert share.urls()
+        import urllib.request
+
+        with urllib.request.urlopen("http://127.0.0.1:18765/README.md", timeout=3) as r:
+            assert b"Qt" in r.read(200)
+    finally:
+        share.stop()
+    assert not share.running
 
     print("selfcheck OK")
 
