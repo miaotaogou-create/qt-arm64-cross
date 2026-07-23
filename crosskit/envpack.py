@@ -14,6 +14,7 @@ def run_stream(args: list[str], on_line=None) -> int:
     """跑 Windows 命令并流式输出。"""
     proc_env = os.environ.copy()
     proc_env["PYTHONIOENCODING"] = "utf-8"
+    hidden = wsl._hidden_kwargs()
     proc = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
@@ -23,6 +24,7 @@ def run_stream(args: list[str], on_line=None) -> int:
         errors="replace",
         env=proc_env,
         bufsize=1,
+        **hidden,
     )
     assert proc.stdout is not None
     for line in proc.stdout:

@@ -10,6 +10,14 @@ from pathlib import Path
 DEFAULT_DISTRO = "Ubuntu-20.04"
 
 
+def _hidden_kwargs() -> dict:
+    """Windows 下隐藏黑框控制台（GUI 调 wsl/netsh 时）。"""
+    if os.name != "nt":
+        return {}
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    return {"creationflags": flags, "stdin": subprocess.DEVNULL}
+
+
 def win_to_wsl(path: str | Path) -> str:
     """C:\\foo\\bar → /mnt/c/foo/bar"""
     p = Path(path).resolve()
@@ -32,11 +40,12 @@ def distro_exists(distro: str = DEFAULT_DISTRO) -> bool:
         text=True,
         encoding="utf-16-le",
         errors="replace",
+        **_hidden_kwargs(),
     )
     # wsl -l 在部分环境是 utf-16；再兜底 utf-8
     names = r.stdout.replace("\x00", "")
     if distro not in names:
-        r2 = subprocess.run(["wsl", "-l", "-q"], capture_output=True)
+        r2 = subprocess.run(["wsl", "-l", "-q"], capture_output=True, **_hidden_kwargs())
         names = r2.stdout.decode("utf-16-le", errors="replace").replace("\x00", "")
         if distro not in names:
             names = r2.stdout.decode("utf-8", errors="replace")
@@ -79,6 +88,7 @@ def run_wsl(
         errors="replace",
         env=proc_env,
         bufsize=1,
+        **_hidden_kwargs(),
     )
     assert proc.stdout is not None
     for line in proc.stdout:

@@ -177,7 +177,7 @@ class App(tk.Tk):
         actions.pack(fill=tk.X, pady=(0, 8))
         primary_button(actions, "▶  交叉编译", self._on_build).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(actions, text="检测环境", command=self._on_detect).pack(side=tk.LEFT, padx=3)
-        ttk.Button(actions, text="打开产物", command=self._open_out).pack(side=tk.LEFT, padx=3)
+        ttk.Button(actions, text="打开产物文件夹", command=self._open_out).pack(side=tk.LEFT, padx=3)
         ttk.Button(actions, text="复制日志", command=self._copy_log).pack(side=tk.RIGHT, padx=3)
         ttk.Button(actions, text="清空", command=lambda: self.log.delete("1.0", tk.END)).pack(side=tk.RIGHT, padx=3)
 
@@ -804,7 +804,7 @@ class App(tk.Tk):
             if c.is_dir():
                 os.startfile(str(c))  # noqa: S606
                 return
-        messagebox.showinfo("提示", "尚未找到产物目录")
+        messagebox.showinfo("提示", "尚未找到产物文件夹（通常在工程下的 dist/arm64-kylin）")
 
     def _copy_log(self) -> None:
         text = self.log.get("1.0", tk.END)

@@ -8,6 +8,12 @@ import tempfile
 import time
 from pathlib import Path
 
+from . import wsl
+
+
+def _hidden() -> dict:
+    return wsl._hidden_kwargs()
+
 
 def wsl_usable() -> bool:
     """WSL 已可用（允许尚无任何发行版）。"""
@@ -18,6 +24,7 @@ def wsl_usable() -> bool:
             ["wsl", "-l", "-v"],
             capture_output=True,
             timeout=90,
+            **_hidden(),
         )
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -81,6 +88,7 @@ def _try_set_default_version(on_line=None) -> None:
             ["wsl", "--set-default-version", "2"],
             capture_output=True,
             timeout=60,
+            **_hidden(),
         )
         if on_line and r.returncode == 0:
             on_line("[wsl] 默认版本已设为 WSL2")
@@ -147,6 +155,7 @@ def _run_elevated_ps1(script: str, on_line=None) -> int:
             encoding="utf-8",
             errors="replace",
             timeout=600,
+            **_hidden(),
         )
         if on_line:
             for line in (r.stdout or "").splitlines():

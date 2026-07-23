@@ -9,6 +9,8 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from . import wsl
+
 # 短缓存，避免每次点「复制」都跑 PowerShell
 _eth_cache: tuple[float, list[str]] | None = None
 _ETH_TTL = 30.0
@@ -73,6 +75,7 @@ foreach ($ip in Get-NetIPAddress -AddressFamily IPv4) {
             encoding="utf-8",
             errors="replace",
             timeout=12,
+            **wsl._hidden_kwargs(),
         )
         for line in (r.stdout or "").splitlines():
             ip = line.strip()
@@ -236,8 +239,16 @@ def ensure_firewall_allow(port: int, on_line=None) -> bool:
         ],
     ]
     try:
-        subprocess.run(cmds[0], capture_output=True, timeout=15)
-        r = subprocess.run(cmds[1], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
+        subprocess.run(cmds[0], capture_output=True, timeout=15, **wsl._hidden_kwargs())
+        r = subprocess.run(
+            cmds[1],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+            **wsl._hidden_kwargs(),
+        )
         ok = r.returncode == 0
         if on_line:
             if ok:
