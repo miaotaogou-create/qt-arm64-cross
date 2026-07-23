@@ -8,7 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from crosskit import build as buildmod
-from crosskit import detect, settings, wsl
+from crosskit import detect, envpack, settings, wsl
 from crosskit.httpshare import DirectoryShare, guess_share_dir
 from gui.chrome import TitleChrome
 from gui.theme import C, apply_theme, card, mono_font, primary_button, ui_font
@@ -41,6 +41,12 @@ class App(tk.Tk):
         self.share_dir = tk.StringVar(value=self._cfg.get("share_dir", ""))
         self.share_port = tk.IntVar(value=int(self._cfg.get("share_port") or 8080))
         self.share_urls = tk.StringVar(value="未启动")
+        default_env = self._cfg.get("env_install_dir") or str(
+            Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WSL" / "Ubuntu-20.04"
+        )
+        self.env_install_dir = tk.StringVar(value=default_env)
+        self.env_slim = tk.BooleanVar(value=bool(self._cfg.get("env_slim_export", False)))
+        self.env_replace = tk.BooleanVar(value=bool(self._cfg.get("env_replace_on_import", False)))
         self.status = tk.StringVar(value="就绪")
         self.header_status = tk.StringVar(value="空闲")
 
@@ -144,6 +150,33 @@ class App(tk.Tk):
         ttk.Label(st, text="客户机访问", style="Muted.TLabel").pack(side=tk.LEFT)
         ttk.Label(st, textvariable=self.share_urls, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
         share.columnconfigure(1, weight=1)
+
+        # --- 环境包（发给同事）---
+        envp = card(body, "交叉编译环境包 · 导出 / 导入")
+        envp.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(
+            envp,
+            text="给同事：QtArm64Cross.exe + 本环境包。导入后即可交叉编译 app_mast 这类 Qt+FFmpeg 工程。",
+            style="Muted.TLabel",
+        ).grid(row=0, column=0, columnspan=4, sticky=tk.W, pady=(0, 6))
+        ttk.Label(envp, text="导入安装目录", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(envp, textvariable=self.env_install_dir).grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
+        ttk.Button(envp, text="浏览…", command=self._browse_env_install).grid(row=1, column=2, padx=2)
+        row_env = ttk.Frame(envp, style="Card.TFrame")
+        row_env.grid(row=2, column=0, columnspan=4, sticky=tk.W, pady=6)
+        ttk.Checkbutton(
+            row_env,
+            text="导出时去掉 Qt 源码缓存（可选，减小体积；交叉编译照常用）",
+            variable=self.env_slim,
+        ).pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Checkbutton(row_env, text="导入时覆盖已有同名发行版", variable=self.env_replace).pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Button(row_env, text="导出环境包…", command=self._on_export_env, style="Accent.TButton").pack(
+            side=tk.LEFT, padx=4
+        )
+        ttk.Button(row_env, text="导入环境包…", command=self._on_import_env, style="Primary.TButton").pack(
+            side=tk.LEFT, padx=4
+        )
+        envp.columnconfigure(1, weight=1)
 
         # --- 操作条 ---
         actions = ttk.Frame(body)
@@ -360,8 +393,109 @@ class App(tk.Tk):
                 "distro": self.distro.get().strip() or wsl.DEFAULT_DISTRO,
                 "share_dir": self.share_dir.get().strip(),
                 "share_port": int(self.share_port.get() or 8080),
+                "env_install_dir": self.env_install_dir.get().strip(),
+                "env_slim_export": bool(self.env_slim.get()),
+                "env_replace_on_import": bool(self.env_replace.get()),
             }
         )
+
+    def _browse_env_install(self) -> None:
+        d = filedialog.askdirectory(initialdir=self.env_install_dir.get() or os.path.expanduser("~"))
+        if d:
+            self.env_install_dir.set(d)
+
+    def _on_export_env(self) -> None:
+        if self._busy:
+            return
+        distro = self.distro.get().strip() or wsl.DEFAULT_DISTRO
+        path = filedialog.asksaveasfilename(
+            title="导出交叉编译环境包",
+            defaultextension=".tar.gz",
+            filetypes=[("环境包", "*.tar.gz"), ("未压缩 tar", "*.tar"), ("全部", "*.*")],
+            initialfile=f"{distro}-cross-env.tar.gz",
+        )
+        if not path:
+            return
+        slim = bool(self.env_slim.get())
+        tip = (
+            "将导出完整 WSL 发行版（含已安装的 Qt、sysroot、FFmpeg、交叉编译器）。\n"
+            + ("另：会删除 /opt/qt5142-cross 源码缓存以减小体积，不影响交叉编译。\n" if slim else "")
+            + "体积可能数 GB，耗时较长。继续？"
+        )
+        if not messagebox.askokcancel("导出环境包", tip):
+            return
+        self._persist()
+        low = path.lower()
+        compress = low.endswith(".tar.gz") or low.endswith(".tgz") or not low.endswith(".tar")
+
+        def work() -> None:
+            self._set_busy(True, "导出环境包…")
+            code = envpack.export_distro(
+                path,
+                distro=distro,
+                slim=slim,
+                compress=compress,
+                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+            )
+            self.after(
+                0,
+                lambda: (
+                    self._append_log(f"[env] 导出结束 exit={code}"),
+                    self._set_busy(False, "导出成功" if code == 0 else f"导出失败 exit={code}"),
+                ),
+            )
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_import_env(self) -> None:
+        if self._busy:
+            return
+        distro = self.distro.get().strip() or wsl.DEFAULT_DISTRO
+        archive = filedialog.askopenfilename(
+            title="选择环境包",
+            filetypes=[("环境包", "*.tar.gz;*.tgz;*.tar"), ("全部", "*.*")],
+        )
+        if not archive:
+            return
+        install_dir = self.env_install_dir.get().strip()
+        if not install_dir:
+            messagebox.showerror("错误", "请填写导入安装目录")
+            return
+        replace = bool(self.env_replace.get())
+        if wsl.distro_exists(distro) and not replace:
+            messagebox.showerror(
+                "错误",
+                f"本机已有发行版 {distro}。\n勾选「导入时覆盖已有同名发行版」或先改高级选项里的发行版名。",
+            )
+            return
+        if not messagebox.askokcancel(
+            "导入环境包",
+            f"将导入为 WSL 发行版「{distro}」\n安装到：{install_dir}\n"
+            + ("会先注销已有同名发行版。\n" if replace else "")
+            + "对方机器需已启用 WSL2。继续？",
+        ):
+            return
+        self._persist()
+
+        def work() -> None:
+            self._set_busy(True, "导入环境包…")
+            code = envpack.import_distro(
+                archive,
+                install_dir,
+                distro=distro,
+                replace=replace,
+                set_default=True,
+                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+            )
+            self.after(
+                0,
+                lambda: (
+                    self._append_log(f"[env] 导入结束 exit={code}"),
+                    self._set_busy(False, "导入成功" if code == 0 else f"导入失败 exit={code}"),
+                ),
+            )
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _on_detect(self) -> None:
         if self._busy:

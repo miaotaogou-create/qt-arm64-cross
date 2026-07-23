@@ -23,9 +23,25 @@ Windows GUI + WSL `Ubuntu-20.04`，把任意 Qt 工程（`.pro` / `CMakeLists.tx
 
 双击 **`QtArm64Cross.exe`** 即可（绿色单文件：内嵌 GUI、`tools/` 与 Tcl/Tk，可单独拷到任意目录）。
 
-首次运行会把 Tcl/Tk 缓存到 `%LOCALAPPDATA%\QtArm64Cross\`（因本机 `C:\WINDOWS\TEMP` 下 Tcl 无法使用 `init.tcl`）。仍依赖本机 WSL `Ubuntu-20.04` 与交叉编译环境。
+首次运行会把 Tcl/Tk 缓存到 `%LOCALAPPDATA%\QtArm64Cross\`。交叉编译依赖本机 WSL 发行版（默认 `Ubuntu-20.04`）及其中的工具链/Qt。
 
-重新打包：
+### 换机 / 发给同事（推荐）
+
+环境太大，**不打进 exe**。交付两样东西即可：
+
+1. `QtArm64Cross.exe`
+2. 环境包（在本机 GUI「交叉编译环境包」→ **导出环境包**，得到 `.tar.gz`）
+
+对方机器：
+
+1. 已启用 WSL2（`wsl --status` 能跑）
+2. 双击 exe → **导入环境包** → 选中该 `.tar.gz`
+3. 点 **检测环境**，确认交叉编译器 / sysroot / Qt 为 OK
+4. 打开工程目录交叉编译；编 **app_mast 同类**（Qt Widgets + FFmpeg）时勾选「附加 FFmpeg」
+
+导出默认是**完整环境**（与本机已验证工具链一致：交叉编译器、`/opt/arm64-rootfs`、已安装的 Qt 前缀、sysroot 内 FFmpeg）。可选勾选去掉 `/opt/qt5142-cross`（仅当初编 Qt 的源码缓存，不影响交叉编译）。
+
+重新打包 GUI：
 
 ```powershell
 pip install pyinstaller

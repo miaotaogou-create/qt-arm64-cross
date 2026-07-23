@@ -28,6 +28,9 @@ DEFAULTS: dict[str, Any] = {
     "extra_copy": "",
     "share_dir": "",
     "share_port": 8080,
+    "env_install_dir": "",
+    "env_slim_export": False,
+    "env_replace_on_import": False,
 }
 
 
