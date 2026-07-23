@@ -223,6 +223,47 @@ def card(parent: tk.Misc, title: str) -> ttk.LabelFrame:
     return box
 
 
+def check_button(parent: tk.Misc, text: str, variable: tk.BooleanVar, *, bg: str | None = None) -> tk.Frame:
+    """勾选显示对号（clam 主题默认是 Motif 风格的「×」，容易误解）。"""
+    bg = bg or C["surface"]
+    row = tk.Frame(parent, bg=bg, cursor="hand2")
+    box = tk.Label(
+        row,
+        text="",
+        width=2,
+        bg=C["surface2"],
+        fg="#FFFFFF",
+        font=ui_font(9, "bold"),
+        relief="flat",
+        bd=0,
+        highlightthickness=1,
+        highlightbackground=C["border_strong"],
+        highlightcolor=C["primary"],
+        padx=1,
+        pady=0,
+    )
+    box.pack(side=tk.LEFT)
+    lab = tk.Label(row, text=text, bg=bg, fg=C["text"], font=ui_font(9))
+    lab.pack(side=tk.LEFT, padx=(6, 0))
+
+    def paint(*_a) -> None:
+        on = bool(variable.get())
+        box.configure(
+            text="✓" if on else "",
+            bg=C["primary"] if on else C["surface2"],
+            highlightbackground=C["primary"] if on else C["border_strong"],
+        )
+
+    def toggle(_e=None) -> None:
+        variable.set(not bool(variable.get()))
+
+    for w in (row, box, lab):
+        w.bind("<Button-1>", toggle)
+    variable.trace_add("write", paint)
+    paint()
+    return row
+
+
 def action_button(parent: tk.Misc, text: str, command, *, variant: str = "normal") -> tk.Button:
     """带 hover / 按下 / 松开视觉反馈的按钮（比 ttk 在 Windows 上更可靠）。"""
     palettes = {

@@ -11,7 +11,17 @@ from crosskit import build as buildmod
 from crosskit import detect, envpack, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
 from gui.chrome import TitleChrome
-from gui.theme import C, EqualTabs, action_button, apply_theme, card, make_scrollable, mono_font, primary_button
+from gui.theme import (
+    C,
+    EqualTabs,
+    action_button,
+    apply_theme,
+    card,
+    check_button,
+    make_scrollable,
+    mono_font,
+    primary_button,
+)
 
 
 class App(tk.Tk):
@@ -147,10 +157,8 @@ class App(tk.Tk):
         opts.pack(fill=tk.X, pady=(0, 8))
         flags = ttk.Frame(opts, style="Card.TFrame")
         flags.pack(fill=tk.X)
-        ttk.Checkbutton(flags, text="打运行包", variable=self.do_bundle).pack(side=tk.LEFT, padx=(0, 14))
-        ttk.Checkbutton(flags, text="附加 FFmpeg", variable=self.use_ffmpeg).pack(
-            side=tk.LEFT, padx=(0, 14)
-        )
+        check_button(flags, "打运行包", self.do_bundle).pack(side=tk.LEFT, padx=(0, 14))
+        check_button(flags, "附加 FFmpeg", self.use_ffmpeg).pack(side=tk.LEFT, padx=(0, 14))
         self._adv_btn = ttk.Button(flags, text="高级 ▸", command=self._toggle_advanced, style="Accent.TButton")
         self._adv_btn.pack(side=tk.LEFT)
 
@@ -264,8 +272,8 @@ class App(tk.Tk):
 
         opts = ttk.Frame(envp, style="Card.TFrame")
         opts.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
-        ttk.Checkbutton(opts, text="导出时去掉 Qt 源码缓存", variable=self.env_slim).pack(side=tk.LEFT, padx=(0, 14))
-        ttk.Checkbutton(opts, text="覆盖已有同名发行版", variable=self.env_replace).pack(side=tk.LEFT)
+        check_button(opts, "导出时去掉 Qt 源码缓存", self.env_slim).pack(side=tk.LEFT, padx=(0, 14))
+        check_button(opts, "覆盖已有同名发行版", self.env_replace).pack(side=tk.LEFT)
         envp.columnconfigure(1, weight=1)
 
         rare = card(pad, "从零搭建（一般不用）")
