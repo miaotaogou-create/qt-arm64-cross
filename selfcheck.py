@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 
 from crosskit import detect
 from crosskit.build import discover_build_files, merge_extra_pkgconfig
-from crosskit.httpshare import DirectoryShare, best_lan_ipv4, lan_ipv4
+from crosskit.httpshare import DirectoryShare, best_lan_ipv4, ethernet_ipv4, lan_ipv4
 from crosskit.wsl import win_to_wsl
 
 
@@ -31,6 +31,10 @@ def main() -> None:
 
     assert isinstance(lan_ipv4(), list)
     assert best_lan_ipv4()
+    eth = ethernet_ipv4()
+    assert isinstance(eth, list)
+    if eth:
+        assert best_lan_ipv4() in eth
     share = DirectoryShare()
     share.start(ROOT, 18765)
     try:
