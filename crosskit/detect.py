@@ -29,8 +29,11 @@ class EnvReport:
 
 
 def toolkit_root() -> Path:
-    # 打包成 exe 后：exe 与 tools/ 同级，按可执行文件目录定位
+    # 绿色单文件 exe：tools/ 打进包内，运行时在 _MEIPASS
     if getattr(sys, "frozen", False):
+        mei = getattr(sys, "_MEIPASS", None)
+        if mei:
+            return Path(mei)
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent
 

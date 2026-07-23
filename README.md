@@ -21,9 +21,11 @@ Windows GUI + WSL `Ubuntu-20.04`，把任意 Qt 工程（`.pro` / `CMakeLists.tx
 
 ## 启动（推荐）
 
-双击仓库根目录的 **`QtArm64Cross.exe`**（须与 `tools\` 同级，不要单独挪走 exe）。
+双击 **`QtArm64Cross.exe`** 即可（绿色单文件：内嵌 GUI、`tools/` 脚本与 Tcl/Tk，可单独拷到任意目录使用）。
 
-重新打包 exe：
+仍依赖本机已装好的 WSL `Ubuntu-20.04` 与交叉编译环境（sysroot / Qt）；exe 本身不需再旁边带 `tools\` 文件夹。
+
+重新打包：
 
 ```powershell
 pip install pyinstaller
@@ -88,12 +90,12 @@ CMake 示例把 `BUILD_SYSTEM=cmake`、`CMAKE_FILE=CMakeLists.txt`、`PROJECT=..
 
 ```
 qt-arm64-cross/
-  QtArm64Cross.exe       # 双击启动（与 tools/ 同级）
+  QtArm64Cross.exe       # 绿色单文件，双击即可
   build_exe.ps1          # 重新打包 exe
   run.py                 # 开发用入口
-  crosskit/              # WSL 编排、检测、设置
+  crosskit/              # WSL 编排、检测、设置、HTTP 共享
   gui/                   # tkinter 界面
-  tools/
+  tools/                 # 源码侧工具链脚本（也会打进 exe）
     cross_build.sh       # 通用交叉编译
     bundle.sh            # 通用运行包
     env_check.sh
