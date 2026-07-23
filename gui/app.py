@@ -275,7 +275,7 @@ class App(tk.Tk):
         st.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(8, 2))
         self._http_dot = tk.Canvas(st, width=12, height=12, bg=C["surface"], highlightthickness=0)
         self._http_dot.pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(st, text="客户机访问", style="Muted.TLabel").pack(side=tk.LEFT)
+        ttk.Label(st, text="推荐地址", style="Muted.TLabel").pack(side=tk.LEFT)
         ttk.Label(st, textvariable=self.share_urls, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
         share.columnconfigure(1, weight=1)
 
@@ -336,13 +336,18 @@ class App(tk.Tk):
             messagebox.showerror("错误", f"无法监听端口 {port}: {e}")
             return
         urls = self._share.urls()
-        self.share_urls.set("  |  ".join(urls) if urls else f"http://127.0.0.1:{port}/")
+        primary = self._share.primary_url()
+        self.share_urls.set(primary or f"http://127.0.0.1:{port}/")
         self._set_http_dot(True)
         self._persist()
         self._append_log(f"[http] 共享已启动: {directory}")
-        for u in urls:
-            self._append_log(f"[http] {u}")
-        self._append_log("[http] 客户机示例: wget http://<本机IP>:%d/<包名>.tar.gz" % port)
+        self._append_log(f"[http] 推荐地址: {primary}")
+        if len(urls) > 1:
+            self._append_log(f"[http] 本机另有 {len(urls) - 1} 个网卡地址，客户机连不上时再查日志")
+            for u in urls:
+                if u != primary:
+                    self._append_log(f"[http]   备选 {u}")
+        self._append_log("[http] 客户机示例: wget <地址><包名>.tar.gz")
         self._set_busy(False, f"HTTP 共享中 :{port}")
         self.header_status.set(f"共享 :{port}")
 
@@ -358,13 +363,12 @@ class App(tk.Tk):
         self._set_busy(False, "就绪")
 
     def _share_copy_url(self) -> None:
-        urls = self._share.urls()
-        if not urls:
+        url = self._share.primary_url()
+        if not url:
             messagebox.showinfo("提示", "请先启动共享")
             return
-        text = "\n".join(urls)
         self.clipboard_clear()
-        self.clipboard_append(text)
+        self.clipboard_append(url)
         self.status.set("下载地址已复制")
 
     def _on_close(self) -> None:

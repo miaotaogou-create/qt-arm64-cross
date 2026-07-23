@@ -8,8 +8,22 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 
+def default_route_ipv4() -> str | None:
+    """经默认网关出网时本机绑定的 IPv4。"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        if ip and not ip.startswith("127."):
+            return ip
+    except OSError:
+        pass
+    return None
+
+
 def lan_ipv4() -> list[str]:
-    """本机局域网 IPv4（排除回环）。"""
+    """本机全部非回环 IPv4（含虚拟网卡）。"""
     found: list[str] = []
     try:
         hostname = socket.gethostname()
@@ -19,17 +33,51 @@ def lan_ipv4() -> list[str]:
                 found.append(ip)
     except OSError:
         pass
-    # 连外网路由探测一次，常能拿到真正上网的网卡 IP
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        if ip and not ip.startswith("127.") and ip not in found:
-            found.insert(0, ip)
-    except OSError:
-        pass
+    route = default_route_ipv4()
+    if route and route not in found:
+        found.insert(0, route)
     return found
+
+
+def _score_ip(ip: str) -> int:
+    """越大越像客户机能连上的局域网地址（压低 WSL/虚拟交换机）。"""
+    try:
+        a, b, _c, d = (int(x) for x in ip.split("."))
+    except ValueError:
+        return -100
+    if ip.startswith("127."):
+        return -100
+    score = 0
+    if a == 192 and b == 168:
+        score += 60
+        if d == 1:
+            score -= 40
+    elif a == 10:
+        score += 55
+        if d == 1:
+            score -= 35
+    elif a == 172 and 16 <= b <= 31:
+        score += 15
+        if b == 30:
+            score -= 20
+        if d == 1:
+            score -= 30
+    return score
+
+
+def best_lan_ipv4() -> str:
+    """挑一条最可能给客户机用的 IPv4。"""
+    candidates = lan_ipv4()
+    if not candidates:
+        return default_route_ipv4() or "127.0.0.1"
+    ranked = sorted(candidates, key=_score_ip, reverse=True)
+    best = ranked[0]
+    route = default_route_ipv4()
+    if route and route in candidates:
+        # 默认路由不差太多就信它；否则用评分更高的（避免 WSL 抢第一）
+        if _score_ip(route) >= _score_ip(best) - 10:
+            return route
+    return best
 
 
 def guess_share_dir(project: str, app_name: str = "") -> Path | None:
@@ -72,7 +120,6 @@ class DirectoryShare:
         if not path.is_dir():
             raise FileNotFoundError(f"目录不存在: {path}")
         handler = partial(SimpleHTTPRequestHandler, directory=str(path))
-        # 允许地址复用，方便快速重启
         ThreadingHTTPServer.allow_reuse_address = True
         httpd = ThreadingHTTPServer(("0.0.0.0", int(port)), handler)
         self._httpd = httpd
@@ -99,7 +146,14 @@ class DirectoryShare:
         self.directory = None
         self.port = 0
 
+    def primary_url(self) -> str:
+        """给客户机的一条推荐地址。"""
+        if not self.running:
+            return ""
+        return f"http://{best_lan_ipv4()}:{self.port}/"
+
     def urls(self) -> list[str]:
+        """全部网卡地址（仅日志排错用）。"""
         if not self.running:
             return []
         ips = lan_ipv4() or ["127.0.0.1"]

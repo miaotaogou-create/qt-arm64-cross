@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 
 from crosskit import detect
 from crosskit.build import discover_build_files, merge_extra_pkgconfig
-from crosskit.httpshare import DirectoryShare, lan_ipv4
+from crosskit.httpshare import DirectoryShare, best_lan_ipv4, lan_ipv4
 from crosskit.wsl import win_to_wsl
 
 
@@ -30,11 +30,14 @@ def main() -> None:
     assert merge_extra_pkgconfig(True, "libfoo").endswith("libfoo")
 
     assert isinstance(lan_ipv4(), list)
+    assert best_lan_ipv4()
     share = DirectoryShare()
     share.start(ROOT, 18765)
     try:
         assert share.running
         assert share.urls()
+        assert share.primary_url().startswith("http://")
+        assert share.primary_url().count("\n") == 0
         import urllib.request
 
         with urllib.request.urlopen("http://127.0.0.1:18765/README.md", timeout=3) as r:
