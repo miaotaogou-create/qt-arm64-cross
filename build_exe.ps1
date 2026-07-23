@@ -47,8 +47,7 @@ Write-Host "=== smoke in repo ==="
 Invoke-Smoke $exe $root
 
 Write-Host "=== portable smoke (empty dir) ==="
-$tmp = Join-Path $env:TEMP "qtarm-empty-smoke"
-if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
+$tmp = Join-Path $env:TEMP ("qtarm-empty-smoke-" + [guid]::NewGuid().ToString("N").Substring(0,8))
 New-Item -ItemType Directory -Path $tmp | Out-Null
 Copy-Item $exe (Join-Path $tmp "QtArm64Cross.exe")
 Invoke-Smoke (Join-Path $tmp "QtArm64Cross.exe") $tmp

@@ -1,4 +1,4 @@
-"""tkinter 主界面：选工程、检测、编译、看日志。"""
+"""主界面：工程选择、交叉编译、HTTP 共享、日志。"""
 from __future__ import annotations
 
 import os
@@ -10,16 +10,18 @@ from tkinter import filedialog, messagebox, ttk
 from crosskit import build as buildmod
 from crosskit import detect, settings, wsl
 from crosskit.httpshare import DirectoryShare, guess_share_dir
+from gui.theme import C, apply_theme, card, mono_font, primary_button, ui_font
 
 
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Qt ARM64 交叉编译工具")
-        self.geometry("960x760")
-        self.minsize(800, 600)
+        self.geometry("1040x820")
+        self.minsize(900, 680)
         self._busy = False
         self._share = DirectoryShare()
+        self._advanced_open = False
         self._cfg = settings.load()
 
         self.project = tk.StringVar(value=self._cfg.get("project", ""))
@@ -36,113 +38,217 @@ class App(tk.Tk):
         self.distro = tk.StringVar(value=self._cfg.get("distro", wsl.DEFAULT_DISTRO))
         self.share_dir = tk.StringVar(value=self._cfg.get("share_dir", ""))
         self.share_port = tk.IntVar(value=int(self._cfg.get("share_port") or 8080))
-        self.share_urls = tk.StringVar(value="（未启动）")
+        self.share_urls = tk.StringVar(value="未启动")
         self.status = tk.StringVar(value="就绪")
+        self.header_status = tk.StringVar(value="空闲")
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        apply_theme(self)
         self._build_ui()
         if self.project.get():
             self._refresh_build_files()
         if not self.share_dir.get():
             self._fill_share_from_project()
+        self._set_http_dot(False)
 
     def _build_ui(self) -> None:
-        pad = {"padx": 8, "pady": 4}
-        top = ttk.Frame(self)
-        top.pack(fill=tk.X, **pad)
+        # --- 顶栏 ---
+        header = tk.Frame(self, bg=C["header_top"], height=72)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
+        # 轻微渐变感：上下两条色带
+        tk.Frame(header, bg=C["header_bot"], height=3).pack(side=tk.BOTTOM, fill=tk.X)
+        inner = tk.Frame(header, bg=C["header_top"])
+        inner.pack(fill=tk.BOTH, expand=True, padx=22, pady=12)
+        left = tk.Frame(inner, bg=C["header_top"])
+        left.pack(side=tk.LEFT, fill=tk.Y)
+        tk.Label(
+            left,
+            text="Qt ARM64 交叉编译",
+            bg=C["header_top"],
+            fg="#FFFFFF",
+            font=ui_font(16, "bold"),
+        ).pack(anchor=tk.W)
+        tk.Label(
+            left,
+            text="Windows · WSL Ubuntu-20.04 · 麒麟 ARM64 交付",
+            bg=C["header_top"],
+            fg="#99F6E4",
+            font=ui_font(9),
+        ).pack(anchor=tk.W, pady=(2, 0))
+        right = tk.Frame(inner, bg=C["header_top"])
+        right.pack(side=tk.RIGHT)
+        self._status_pill = tk.Label(
+            right,
+            textvariable=self.header_status,
+            bg=C["accent_soft"],
+            fg=C["primary"],
+            font=ui_font(9, "bold"),
+            padx=12,
+            pady=5,
+        )
+        self._status_pill.pack()
 
-        ttk.Label(top, text="工程目录").grid(row=0, column=0, sticky=tk.W)
-        ttk.Entry(top, textvariable=self.project, width=70).grid(row=0, column=1, sticky=tk.EW)
-        ttk.Button(top, text="浏览…", command=self._browse_project).grid(row=0, column=2)
+        body = ttk.Frame(self, style="TFrame")
+        body.pack(fill=tk.BOTH, expand=True, padx=16, pady=12)
+
+        # --- 工程 ---
+        proj = card(body, "工程")
+        proj.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(proj, text="工程目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(proj, textvariable=self.project).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
+        ttk.Button(proj, text="浏览…", command=self._browse_project).grid(row=0, column=2, padx=2)
         recent = self._cfg.get("recent_projects") or []
         if recent:
-            mb = ttk.Menubutton(top, text="最近")
-            menu = tk.Menu(mb, tearoff=0)
+            mb = ttk.Menubutton(proj, text="最近")
+            menu = tk.Menu(mb, tearoff=0, bg=C["surface"], fg=C["text"], activebackground=C["accent_soft"])
             for p in recent:
                 menu.add_command(label=p, command=lambda x=p: self._set_project(x))
             mb["menu"] = menu
-            mb.grid(row=0, column=3, padx=4)
+            mb.grid(row=0, column=3, padx=2)
 
-        ttk.Label(top, text="构建文件").grid(row=1, column=0, sticky=tk.W)
-        self.build_combo = ttk.Combobox(top, textvariable=self.build_file, width=67)
-        self.build_combo.grid(row=1, column=1, sticky=tk.EW)
-        ttk.Button(top, text="刷新", command=self._refresh_build_files).grid(row=1, column=2)
+        ttk.Label(proj, text="构建文件", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
+        self.build_combo = ttk.Combobox(proj, textvariable=self.build_file)
+        self.build_combo.grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
+        ttk.Button(proj, text="刷新", command=self._refresh_build_files).grid(row=1, column=2, padx=2)
 
-        ttk.Label(top, text="系统").grid(row=2, column=0, sticky=tk.W)
-        sysf = ttk.Frame(top)
-        sysf.grid(row=2, column=1, sticky=tk.W)
+        ttk.Label(proj, text="构建系统", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
+        sysf = ttk.Frame(proj, style="Card.TFrame")
+        sysf.grid(row=2, column=1, sticky=tk.W, padx=8)
         for v, t in (("auto", "自动"), ("qmake", "qmake"), ("cmake", "CMake")):
-            ttk.Radiobutton(sysf, text=t, value=v, variable=self.build_system).pack(side=tk.LEFT, padx=4)
+            ttk.Radiobutton(sysf, text=t, value=v, variable=self.build_system).pack(side=tk.LEFT, padx=(0, 12))
+        proj.columnconfigure(1, weight=1)
 
-        opts = ttk.LabelFrame(self, text="选项")
-        opts.pack(fill=tk.X, **pad)
-        ttk.Label(opts, text="应用名").grid(row=0, column=0, sticky=tk.W, padx=4)
-        ttk.Entry(opts, textvariable=self.app_name, width=20).grid(row=0, column=1, sticky=tk.W)
-        ttk.Label(opts, text="产物路径").grid(row=0, column=2, sticky=tk.W, padx=4)
-        ttk.Entry(opts, textvariable=self.out_bin, width=28).grid(row=0, column=3, sticky=tk.W)
-        ttk.Label(opts, text="并行(-j)").grid(row=0, column=4, sticky=tk.W, padx=4)
-        ttk.Spinbox(opts, from_=0, to=64, textvariable=self.jobs, width=5).grid(row=0, column=5)
-        ttk.Label(opts, text="0=自动").grid(row=0, column=6, sticky=tk.W)
-        ttk.Checkbutton(opts, text="打运行包", variable=self.do_bundle).grid(row=0, column=7, padx=8)
-        ttk.Checkbutton(
-            opts,
-            text="附加 FFmpeg",
-            variable=self.use_ffmpeg,
-        ).grid(row=0, column=8, padx=8)
+        # --- 选项 ---
+        opts = card(body, "编译选项")
+        opts.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(opts, text="应用名", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(opts, textvariable=self.app_name, width=18).grid(row=0, column=1, sticky=tk.W, padx=6)
+        ttk.Label(opts, text="产物路径", style="Card.TLabel").grid(row=0, column=2, sticky=tk.W, padx=(12, 0))
+        ttk.Entry(opts, textvariable=self.out_bin, width=28).grid(row=0, column=3, sticky=tk.W, padx=6)
+        ttk.Label(opts, text="并行 -j", style="Card.TLabel").grid(row=0, column=4, sticky=tk.W, padx=(12, 0))
+        ttk.Spinbox(opts, from_=0, to=64, textvariable=self.jobs, width=5).grid(row=0, column=5, sticky=tk.W, padx=6)
+        ttk.Label(opts, text="0 = 自动", style="Muted.TLabel").grid(row=0, column=6, sticky=tk.W)
 
-        ttk.Label(opts, text="插件").grid(row=1, column=0, sticky=tk.W, padx=4)
-        ttk.Entry(opts, textvariable=self.plugins, width=70).grid(row=1, column=1, columnspan=7, sticky=tk.EW, pady=2)
-        ttk.Label(opts, text="其他 pkg-config").grid(row=2, column=0, sticky=tk.W, padx=4)
-        ttk.Entry(opts, textvariable=self.extra_pkg, width=70).grid(row=2, column=1, columnspan=7, sticky=tk.EW)
-        ttk.Label(opts, text="EXTRA_COPY").grid(row=3, column=0, sticky=tk.W, padx=4)
-        ttk.Entry(opts, textvariable=self.extra_copy, width=70).grid(row=3, column=1, columnspan=7, sticky=tk.EW)
-        ttk.Label(opts, text="发行版").grid(row=4, column=0, sticky=tk.W, padx=4)
-        ttk.Entry(opts, textvariable=self.distro, width=20).grid(row=4, column=1, sticky=tk.W)
+        flags = ttk.Frame(opts, style="Card.TFrame")
+        flags.grid(row=1, column=0, columnspan=7, sticky=tk.W, pady=(6, 2))
+        ttk.Checkbutton(flags, text="打运行包", variable=self.do_bundle).pack(side=tk.LEFT, padx=(0, 16))
+        ttk.Checkbutton(flags, text="附加 FFmpeg", variable=self.use_ffmpeg).pack(side=tk.LEFT, padx=(0, 16))
+        self._adv_btn = ttk.Button(flags, text="高级选项 ▸", command=self._toggle_advanced, style="Accent.TButton")
+        self._adv_btn.pack(side=tk.LEFT)
 
-        share = ttk.LabelFrame(self, text="客户机下载（HTTP 共享，替代 Everything）")
-        share.pack(fill=tk.X, **pad)
-        ttk.Label(share, text="共享目录").grid(row=0, column=0, sticky=tk.W, padx=4)
-        ttk.Entry(share, textvariable=self.share_dir, width=55).grid(row=0, column=1, sticky=tk.EW, padx=2)
+        self._adv = ttk.Frame(opts, style="Card.TFrame")
+        ttk.Label(self._adv, text="插件", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.plugins).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=3)
+        ttk.Label(self._adv, text="其他 pkg-config", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.extra_pkg).grid(row=1, column=1, sticky=tk.EW, padx=8, pady=3)
+        ttk.Label(self._adv, text="EXTRA_COPY", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.extra_copy).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=3)
+        ttk.Label(self._adv, text="发行版", style="Card.TLabel").grid(row=3, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.distro, width=22).grid(row=3, column=1, sticky=tk.W, padx=8, pady=3)
+        self._adv.columnconfigure(1, weight=1)
+
+        # --- HTTP ---
+        share = card(body, "客户机下载 · HTTP 共享")
+        share.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(share, text="共享目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(share, textvariable=self.share_dir).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
         ttk.Button(share, text="浏览…", command=self._browse_share).grid(row=0, column=2, padx=2)
-        ttk.Button(share, text="用产物目录", command=self._fill_share_from_project).grid(row=0, column=3, padx=2)
-        ttk.Label(share, text="端口").grid(row=1, column=0, sticky=tk.W, padx=4, pady=4)
-        ttk.Spinbox(share, from_=1, to=65535, textvariable=self.share_port, width=8).grid(
-            row=1, column=1, sticky=tk.W, padx=2
+        ttk.Button(share, text="用产物目录", command=self._fill_share_from_project, style="Accent.TButton").grid(
+            row=0, column=3, padx=2
         )
-        sf = ttk.Frame(share)
-        sf.grid(row=1, column=2, columnspan=2, sticky=tk.W)
-        ttk.Button(sf, text="启动共享", command=self._share_start).pack(side=tk.LEFT, padx=2)
-        ttk.Button(sf, text="停止", command=self._share_stop).pack(side=tk.LEFT, padx=2)
-        ttk.Button(sf, text="复制地址", command=self._share_copy_url).pack(side=tk.LEFT, padx=2)
-        ttk.Label(share, text="客户机访问").grid(row=2, column=0, sticky=tk.NW, padx=4)
-        ttk.Label(share, textvariable=self.share_urls, wraplength=720, justify=tk.LEFT).grid(
-            row=2, column=1, columnspan=3, sticky=tk.W, padx=2, pady=4
-        )
+
+        ttk.Label(share, text="端口", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
+        row1 = ttk.Frame(share, style="Card.TFrame")
+        row1.grid(row=1, column=1, columnspan=3, sticky=tk.EW, padx=8)
+        ttk.Spinbox(row1, from_=1, to=65535, textvariable=self.share_port, width=8).pack(side=tk.LEFT)
+        ttk.Button(row1, text="启动共享", command=self._share_start, style="Accent.TButton").pack(side=tk.LEFT, padx=(10, 4))
+        ttk.Button(row1, text="停止", command=self._share_stop).pack(side=tk.LEFT, padx=2)
+        ttk.Button(row1, text="复制地址", command=self._share_copy_url).pack(side=tk.LEFT, padx=2)
+
+        st = ttk.Frame(share, style="Card.TFrame")
+        st.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(6, 2))
+        self._http_dot = tk.Canvas(st, width=12, height=12, bg=C["surface"], highlightthickness=0)
+        self._http_dot.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(st, text="客户机访问", style="Muted.TLabel").pack(side=tk.LEFT)
+        ttk.Label(st, textvariable=self.share_urls, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
         share.columnconfigure(1, weight=1)
 
-        btns = ttk.Frame(self)
-        btns.pack(fill=tk.X, **pad)
-        for text, cmd in (
-            ("检测环境", self._on_detect),
-            ("安装工具链+sysroot", lambda: self._on_install("setup_cross_focal.sh")),
-            ("编译 Qt 5.14.2", lambda: self._on_install("build_qt5142_arm64_cross.sh")),
-            ("交叉编译", self._on_build),
-            ("打开产物目录", self._open_out),
-            ("复制日志", self._copy_log),
-            ("清空日志", lambda: self.log.delete("1.0", tk.END)),
-        ):
-            ttk.Button(btns, text=text, command=cmd).pack(side=tk.LEFT, padx=3)
+        # --- 操作条 ---
+        actions = ttk.Frame(body)
+        actions.pack(fill=tk.X, pady=(0, 10))
+        primary_button(actions, "▶  交叉编译", self._on_build).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(actions, text="检测环境", command=self._on_detect).pack(side=tk.LEFT, padx=3)
+        ttk.Button(actions, text="打开产物", command=self._open_out).pack(side=tk.LEFT, padx=3)
+        ttk.Button(actions, text="安装工具链", command=lambda: self._on_install("setup_cross_focal.sh")).pack(
+            side=tk.LEFT, padx=3
+        )
+        ttk.Button(actions, text="编译 Qt 5.14.2", command=lambda: self._on_install("build_qt5142_arm64_cross.sh")).pack(
+            side=tk.LEFT, padx=3
+        )
+        ttk.Button(actions, text="复制日志", command=self._copy_log).pack(side=tk.RIGHT, padx=3)
+        ttk.Button(actions, text="清空日志", command=lambda: self.log.delete("1.0", tk.END)).pack(side=tk.RIGHT, padx=3)
 
-        self.env_box = tk.Text(self, height=6, wrap=tk.WORD)
-        self.env_box.pack(fill=tk.X, padx=8, pady=4)
+        # --- 环境 / 日志 ---
+        mid = ttk.Frame(body)
+        mid.pack(fill=tk.BOTH, expand=True)
+        env_card = card(mid, "环境状态")
+        env_card.pack(fill=tk.X, pady=(0, 10))
+        self.env_box = tk.Text(
+            env_card,
+            height=4,
+            wrap=tk.WORD,
+            bg=C["surface2"],
+            fg=C["text"],
+            relief=tk.FLAT,
+            font=mono_font(9),
+            insertbackground=C["text"],
+            highlightthickness=1,
+            highlightbackground=C["border"],
+            highlightcolor=C["primary"],
+            padx=8,
+            pady=6,
+        )
+        self.env_box.pack(fill=tk.X)
 
-        self.log = tk.Text(self, wrap=tk.WORD)
-        self.log.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
-        scroll = ttk.Scrollbar(self.log, command=self.log.yview)
+        log_card = card(mid, "构建日志")
+        log_card.pack(fill=tk.BOTH, expand=True)
+        log_wrap = tk.Frame(log_card, bg=C["log_border"])
+        log_wrap.pack(fill=tk.BOTH, expand=True)
+        self.log = tk.Text(
+            log_wrap,
+            wrap=tk.WORD,
+            bg=C["log_bg"],
+            fg=C["log_fg"],
+            insertbackground=C["log_fg"],
+            relief=tk.FLAT,
+            font=mono_font(9),
+            padx=10,
+            pady=8,
+            highlightthickness=0,
+        )
+        scroll = ttk.Scrollbar(log_wrap, command=self.log.yview)
         self.log.configure(yscrollcommand=scroll.set)
+        self.log.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        ttk.Label(self, textvariable=self.status).pack(anchor=tk.W, padx=8, pady=4)
-        top.columnconfigure(1, weight=1)
+        foot = ttk.Frame(self)
+        foot.pack(fill=tk.X, padx=16, pady=(0, 10))
+        ttk.Label(foot, textvariable=self.status, style="Status.TLabel").pack(side=tk.LEFT)
+
+    def _toggle_advanced(self) -> None:
+        self._advanced_open = not self._advanced_open
+        if self._advanced_open:
+            self._adv.grid(row=2, column=0, columnspan=7, sticky=tk.EW, pady=(8, 0))
+            self._adv_btn.configure(text="高级选项 ▾")
+        else:
+            self._adv.grid_forget()
+            self._adv_btn.configure(text="高级选项 ▸")
+
+    def _set_http_dot(self, on: bool) -> None:
+        self._http_dot.delete("all")
+        color = C["ok"] if on else C["idle"]
+        self._http_dot.create_oval(2, 2, 10, 10, fill=color, outline=color)
 
     def _set_project(self, path: str) -> None:
         self.project.set(path)
@@ -181,22 +287,26 @@ class App(tk.Tk):
             messagebox.showerror("错误", f"无法监听端口 {port}: {e}")
             return
         urls = self._share.urls()
-        self.share_urls.set("\n".join(urls) if urls else f"http://127.0.0.1:{port}/")
+        self.share_urls.set("  |  ".join(urls) if urls else f"http://127.0.0.1:{port}/")
+        self._set_http_dot(True)
         self._persist()
         self._append_log(f"[http] 共享已启动: {directory}")
         for u in urls:
             self._append_log(f"[http] {u}")
         self._append_log("[http] 客户机示例: wget http://<本机IP>:%d/<包名>.tar.gz" % port)
-        self.status.set(f"HTTP 共享中 :{port}")
+        self._set_busy(False, f"HTTP 共享中 :{port}")
+        self.header_status.set(f"共享 :{port}")
 
     def _share_stop(self) -> None:
         if not self._share.running:
-            self.share_urls.set("（未启动）")
+            self.share_urls.set("未启动")
+            self._set_http_dot(False)
             return
         self._share.stop()
-        self.share_urls.set("（未启动）")
+        self.share_urls.set("未启动")
+        self._set_http_dot(False)
         self._append_log("[http] 共享已停止")
-        self.status.set("就绪")
+        self._set_busy(False, "就绪")
 
     def _share_copy_url(self) -> None:
         urls = self._share.urls()
@@ -223,7 +333,6 @@ class App(tk.Tk):
             self.build_combo.current(0)
             self._parse_build_combo()
         elif self.build_file.get():
-            # 保持原值；若是 kind: path 形式则解析
             self._parse_build_combo()
 
     def _parse_build_combo(self) -> tuple[str, str]:
@@ -244,7 +353,23 @@ class App(tk.Tk):
 
     def _set_busy(self, busy: bool, msg: str = "") -> None:
         self._busy = busy
-        self.status.set(msg or ("忙碌…" if busy else "就绪"))
+        text = msg or ("忙碌…" if busy else "就绪")
+        self.status.set(text)
+        if busy:
+            self.header_status.set("工作中")
+            self._status_pill.configure(bg="#FEF3C7", fg=C["warn"])
+        elif "共享" in text:
+            self.header_status.set(text.replace("HTTP ", ""))
+            self._status_pill.configure(bg=C["accent_soft"], fg=C["primary"])
+        elif text.startswith("成功"):
+            self.header_status.set("成功")
+            self._status_pill.configure(bg="#DCFCE7", fg=C["ok"])
+        elif text.startswith("失败"):
+            self.header_status.set("失败")
+            self._status_pill.configure(bg="#FEE2E2", fg=C["err"])
+        else:
+            self.header_status.set("空闲" if text == "就绪" else text)
+            self._status_pill.configure(bg=C["accent_soft"], fg=C["primary"])
 
     def _persist(self) -> None:
         kind, path = self._parse_build_combo()
