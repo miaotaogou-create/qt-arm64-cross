@@ -40,8 +40,9 @@ class App(tk.Tk):
         self.distro = tk.StringVar(value=self._cfg.get("distro", wsl.DEFAULT_DISTRO))
         self.share_dir = tk.StringVar(value=self._cfg.get("share_dir", ""))
         self.share_port = tk.IntVar(value=int(self._cfg.get("share_port") or 8080))
-        self.share_urls = tk.StringVar(value="未启动")
-        self.share_local = tk.StringVar(value="")
+        self.share_urls = tk.StringVar(value="—")
+        self.share_local = tk.StringVar(value="—")
+        self.share_state = tk.StringVar(value="未启动")
         default_env = self._cfg.get("env_install_dir") or str(
             Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WSL" / "Ubuntu-20.04"
         )
@@ -298,30 +299,41 @@ class App(tk.Tk):
         )
         ttk.Button(row1, text="停止", command=self._share_stop).pack(side=tk.LEFT, padx=2)
 
-        st = ttk.Frame(share, style="Card.TFrame")
-        st.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(10, 2))
-        self._http_dot = tk.Canvas(st, width=12, height=12, bg=C["surface"], highlightthickness=0)
+        # 地址区：两行三列对齐（标签 | 地址 | 按钮）
+        box = ttk.Frame(share, style="Card.TFrame")
+        box.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(12, 2))
+        box.columnconfigure(1, weight=1)
+
+        head = ttk.Frame(box, style="Card.TFrame")
+        head.grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=(0, 8))
+        self._http_dot = tk.Canvas(head, width=12, height=12, bg=C["surface"], highlightthickness=0)
         self._http_dot.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(head, textvariable=self.share_state, style="Muted.TLabel").pack(side=tk.LEFT)
 
-        urls = ttk.Frame(st, style="Card.TFrame")
-        urls.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        row_local = ttk.Frame(urls, style="Card.TFrame")
-        row_local.pack(fill=tk.X, pady=1)
-        ttk.Label(row_local, text="本机测试", style="Muted.TLabel").pack(side=tk.LEFT)
-        ttk.Label(row_local, textvariable=self.share_local, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
-        ttk.Button(row_local, text="打开", command=self._share_open_local).pack(side=tk.LEFT, padx=2)
+        ttk.Label(box, text="本机测试", style="Card.TLabel", width=10).grid(row=1, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(box, textvariable=self.share_local, state="readonly").grid(
+            row=1, column=1, sticky=tk.EW, padx=8, pady=4
+        )
+        btns_local = ttk.Frame(box, style="Card.TFrame")
+        btns_local.grid(row=1, column=2, sticky=tk.E, pady=4)
+        ttk.Button(btns_local, text="打开", command=self._share_open_local, width=8).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btns_local, text="自检", command=self._share_probe_local, width=8).pack(side=tk.LEFT, padx=2)
 
-        row_lan = ttk.Frame(urls, style="Card.TFrame")
-        row_lan.pack(fill=tk.X, pady=1)
-        ttk.Label(row_lan, text="同事下载", style="Muted.TLabel").pack(side=tk.LEFT)
-        ttk.Label(row_lan, textvariable=self.share_urls, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
-        ttk.Button(row_lan, text="复制地址", command=self._share_copy_url).pack(side=tk.LEFT, padx=2)
+        ttk.Label(box, text="局域网地址", style="Card.TLabel", width=10).grid(row=2, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(box, textvariable=self.share_urls, state="readonly").grid(
+            row=2, column=1, sticky=tk.EW, padx=8, pady=4
+        )
+        btns_lan = ttk.Frame(box, style="Card.TFrame")
+        btns_lan.grid(row=2, column=2, sticky=tk.E, pady=4)
+        ttk.Button(btns_lan, text="复制", command=self._share_copy_url, width=8).pack(side=tk.LEFT, padx=2)
+
         share.columnconfigure(1, weight=1)
 
         ttk.Label(
             pad,
-            text="先点「打开」用本机 127.0.0.1 自测；再把「同事下载」地址发给客户机（网线同网段）。"
-            "若同事仍打不开，多半是防火墙，启动时会尝试自动放行端口。",
+            text="先「自检」确认服务正常，再「打开」本机页。"
+            "若浏览器报 ERR_EMPTY_RESPONSE，多半是代理劫持了 127.0.0.1——请绕过 localhost。"
+            "客户机请用「局域网地址」（有线同网段）。",
             style="Muted.TLabel",
             justify=tk.LEFT,
             wraplength=720,
@@ -405,30 +417,41 @@ class App(tk.Tk):
         ensure_firewall_allow(port, on_line=self._append_log)
         primary = self._share.primary_url()
         local = self._share.local_url()
-        self.share_urls.set(primary or "(无以太网地址)")
+        self.share_urls.set(primary or "—")
         self.share_local.set(local or f"http://127.0.0.1:{port}/")
+        self.share_state.set(f"运行中 · 端口 {port}")
         self._set_http_dot(True)
         self._persist()
         self._append_log(f"[http] 共享已启动: {directory}")
-        self._append_log(f"[http] 本机测试: {local}  （浏览器打开可验证，类似 Everything）")
+        self._append_log(f"[http] 本机测试: {local}")
         eth = ethernet_ipv4()
         if eth:
-            self._append_log(f"[http] 同事下载: {primary}")
+            self._append_log(f"[http] 局域网地址: {primary}")
         else:
-            self._append_log(f"[http] 未检测到有线网卡，同事地址退回: {primary}")
-        self._append_log("[http] 客户机示例: wget <同事下载地址><包名>.tar.gz")
+            self._append_log(f"[http] 未检测到有线网卡，局域网地址退回: {primary}")
+        ok, detail = self._share.probe_local()
+        self._append_log(f"[http] 本机自检: {detail}")
+        if not ok:
+            messagebox.showwarning(
+                "本机自检失败",
+                "服务已启动，但本机探测未通过。\n"
+                "若浏览器也打不开，请换端口（如 18080），并确认代理绕过 127.0.0.1。",
+            )
+        self._append_log("[http] 客户机示例: wget <局域网地址><包名>.tar.gz")
         self._set_busy(False, f"HTTP 共享中 :{port}")
         self.header_status.set(f"共享 :{port}")
 
     def _share_stop(self) -> None:
         if not self._share.running:
-            self.share_urls.set("未启动")
-            self.share_local.set("")
+            self.share_urls.set("—")
+            self.share_local.set("—")
+            self.share_state.set("未启动")
             self._set_http_dot(False)
             return
         self._share.stop()
-        self.share_urls.set("未启动")
-        self.share_local.set("")
+        self.share_urls.set("—")
+        self.share_local.set("—")
+        self.share_state.set("未启动")
         self._set_http_dot(False)
         self._append_log("[http] 共享已停止")
         self._set_busy(False, "就绪")
@@ -440,17 +463,40 @@ class App(tk.Tk):
             return
         self.clipboard_clear()
         self.clipboard_append(url)
-        self.status.set("同事下载地址已复制")
+        self.status.set("局域网地址已复制")
 
     def _share_open_local(self) -> None:
         url = self._share.local_url()
         if not url:
             messagebox.showinfo("提示", "请先启动共享")
             return
+        # 先自检，避免代理导致空页
+        ok, detail = self._share.probe_local()
+        self._append_log(f"[http] 打开前自检: {detail}")
+        if not ok:
+            messagebox.showwarning(
+                "本机自检失败",
+                f"{detail}\n\n服务进程可能未真正响应，或端口冲突。请换端口后重试。",
+            )
+            return
         try:
             os.startfile(url)  # noqa: S606
         except OSError as e:
             messagebox.showerror("错误", f"无法打开浏览器: {e}")
+
+    def _share_probe_local(self) -> None:
+        if not self._share.running:
+            messagebox.showinfo("提示", "请先启动共享")
+            return
+        ok, detail = self._share.probe_local()
+        self._append_log(f"[http] 自检: {detail}")
+        if ok:
+            messagebox.showinfo("自检通过", f"本机服务正常（已绕过系统代理）。\n{detail}")
+        else:
+            messagebox.showerror(
+                "自检失败",
+                f"{detail}\n\n可换端口（如 18080）后重试；浏览器打不开时请让代理绕过 localhost。",
+            )
 
     def _on_close(self) -> None:
         self._persist()

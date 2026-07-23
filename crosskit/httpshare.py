@@ -151,6 +151,25 @@ def guess_share_dir(project: str, app_name: str = "") -> Path | None:
     return root
 
 
+class _ShareHandler(SimpleHTTPRequestHandler):
+    """目录列表；异常也回正文，避免浏览器只看到空响应。"""
+
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, fmt: str, *args) -> None:
+        # 不往 stderr 打，GUI 无控制台时无意义
+        return
+
+    def handle_one_request(self) -> None:
+        try:
+            super().handle_one_request()
+        except Exception:
+            try:
+                self.send_error(500, "internal error")
+            except Exception:
+                pass
+
+
 class DirectoryShare:
     """后台线程跑 ThreadingHTTPServer。"""
 
@@ -170,9 +189,12 @@ class DirectoryShare:
         path = Path(directory).resolve()
         if not path.is_dir():
             raise FileNotFoundError(f"目录不存在: {path}")
-        handler = partial(SimpleHTTPRequestHandler, directory=str(path))
+        handler = partial(_ShareHandler, directory=str(path))
         ThreadingHTTPServer.allow_reuse_address = True
-        httpd = ThreadingHTTPServer(("0.0.0.0", int(port)), handler)
+        try:
+            httpd = ThreadingHTTPServer(("0.0.0.0", int(port)), handler)
+        except OSError as e:
+            raise OSError(f"端口 {port} 无法监听（可能被占用）: {e}") from e
         self._httpd = httpd
         self.directory = path
         self.port = int(port)
@@ -215,6 +237,23 @@ class DirectoryShare:
             return []
         ips = lan_ipv4() or ["127.0.0.1"]
         return [f"http://{ip}:{self.port}/" for ip in ips]
+
+    def probe_local(self) -> tuple[bool, str]:
+        """绕过系统代理探测本机服务是否真在响应。"""
+        url = self.local_url()
+        if not url:
+            return False, "未启动"
+        try:
+            import urllib.request
+
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(url, timeout=5) as r:
+                body = r.read(64)
+                if r.status == 200 and body:
+                    return True, f"OK HTTP {r.status}"
+                return False, f"异常 HTTP {r.status} 空正文={not body}"
+        except Exception as e:
+            return False, f"{type(e).__name__}: {e}"
 
 
 def ensure_firewall_allow(port: int, on_line=None) -> bool:
