@@ -196,7 +196,7 @@ class App(tk.Tk):
 
         actions = ttk.Frame(top)
         actions.pack(fill=tk.X, pady=(0, 8))
-        primary_button(actions, "▶  交叉编译", self._on_build).pack(side=tk.LEFT, padx=(0, 8))
+        primary_button(actions, "交叉编译", self._on_build).pack(side=tk.LEFT, padx=(0, 8))
         action_button(actions, "检测环境", self._on_detect).pack(side=tk.LEFT, padx=3)
         action_button(actions, "打开产物文件夹", self._open_out).pack(side=tk.LEFT, padx=3)
         action_button(actions, "复制日志", self._copy_log).pack(side=tk.RIGHT, padx=3)
