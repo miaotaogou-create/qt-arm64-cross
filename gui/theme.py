@@ -169,19 +169,6 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         bordercolor=C["border"],
         arrowcolor=C["muted"],
     )
-    style.configure("TNotebook", background=C["bg"], borderwidth=0)
-    style.configure(
-        "TNotebook.Tab",
-        background=C["surface2"],
-        foreground=C["muted"],
-        padding=(18, 8),
-        font=ui_font(10),
-    )
-    style.map(
-        "TNotebook.Tab",
-        background=[("selected", C["surface"])],
-        foreground=[("selected", C["primary"])],
-    )
     return style
 
 
@@ -192,6 +179,72 @@ def card(parent: tk.Misc, title: str) -> ttk.LabelFrame:
 
 def primary_button(parent: tk.Misc, text: str, command) -> ttk.Button:
     return ttk.Button(parent, text=text, command=command, style="Primary.TButton")
+
+
+class EqualTabs:
+    """等宽分段页签（避开 ttk.Notebook 选中态高低不一）。"""
+
+    def __init__(self, parent: tk.Misc, labels: list[str]) -> None:
+        self._idx = 0
+        self._btns: list[tk.Label] = []
+        self._pages: list[ttk.Frame] = []
+
+        self.bar = tk.Frame(parent, bg=C["bg"])
+        self.bar.pack(fill=tk.X, padx=2, pady=(0, 8))
+        rail = tk.Frame(self.bar, bg=C["border"], padx=1, pady=1)
+        rail.pack(anchor=tk.W)
+
+        self.host = ttk.Frame(parent, style="TFrame")
+        self.host.pack(fill=tk.BOTH, expand=True)
+
+        cell_w = max(8, max(len(t) for t in labels) + 2)
+        for i, text in enumerate(labels):
+            btn = tk.Label(
+                rail,
+                text=text,
+                width=cell_w,
+                anchor=tk.CENTER,
+                bg=C["surface2"],
+                fg=C["muted"],
+                font=ui_font(10),
+                padx=4,
+                pady=8,
+                cursor="hand2",
+            )
+            btn.pack(side=tk.LEFT)
+            btn.bind("<Button-1>", lambda _e, n=i: self.select(n))
+            self._btns.append(btn)
+
+            page = ttk.Frame(self.host, style="TFrame")
+            page.place(relx=0, rely=0, relwidth=1, relheight=1)
+            self._pages.append(page)
+
+        self.select(0)
+
+    def page(self, index: int) -> ttk.Frame:
+        return self._pages[index]
+
+    def select(self, index: int) -> None:
+        self._idx = index
+        for i, (btn, page) in enumerate(zip(self._btns, self._pages)):
+            on = i == index
+            btn.configure(
+                bg=C["surface"] if on else C["surface2"],
+                fg=C["primary"] if on else C["muted"],
+                font=ui_font(10, "bold" if on else "normal"),
+            )
+            if on:
+                page.lift()
+
+    def select_by_widget(self, widget: tk.Misc) -> None:
+        """兼容旧 Notebook.select(0) 写法：传页 frame 或下标。"""
+        if isinstance(widget, int):
+            self.select(widget)
+            return
+        for i, p in enumerate(self._pages):
+            if p is widget:
+                self.select(i)
+                return
 
 
 def make_scrollable(parent: tk.Misc):

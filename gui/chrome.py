@@ -17,10 +17,11 @@ SWP_NOZORDER = 0x0004
 SWP_FRAMECHANGED = 0x0020
 SWP_SHOWWINDOW = 0x0040
 
-# 窗控统一尺寸（避免 Unicode 字形粗细不一致）
-_BTN_W = 46
-_BTN_H = 40
-_ICON = 10  # 半宽，图标约 20×20
+# 窗控：小图标 + 固定点击区（勿 fill=Y 拉满标题栏高度）
+_BTN_W = 36
+_BTN_H = 28
+_ICON = 6  # 半宽，图标约 12×12
+_STROKE = 1.25
 
 
 def _hwnd(root: tk.Tk) -> int:
@@ -55,18 +56,19 @@ def _paint_icon(cv: tk.Canvas, kind: str, color: str) -> None:
     cv.delete("icon")
     cx, cy = _BTN_W // 2, _BTN_H // 2
     s = _ICON
-    w = 1.6
+    w = _STROKE
     if kind == "min":
-        cv.create_line(cx - s, cy + 1, cx + s, cy + 1, fill=color, width=w, tags="icon")
+        cv.create_line(cx - s, cy + 1, cx + s, cy + 1, fill=color, width=w, tags="icon", capstyle=tk.ROUND)
     elif kind == "max":
         cv.create_rectangle(cx - s, cy - s, cx + s, cy + s, outline=color, width=w, tags="icon")
     elif kind == "restore":
-        # 两层方框，视觉重量与 max 接近
-        cv.create_rectangle(cx - s + 3, cy - s - 1, cx + s + 1, cy + s - 3, outline=color, width=w, tags="icon")
-        cv.create_rectangle(cx - s - 1, cy - s + 3, cx + s - 3, cy + s + 1, outline=color, width=w, fill=C["header_top"], tags="icon")
+        cv.create_rectangle(cx - s + 2, cy - s - 1, cx + s + 1, cy + s - 3, outline=color, width=w, tags="icon")
+        cv.create_rectangle(
+            cx - s - 1, cy - s + 2, cx + s - 3, cy + s + 1, outline=color, width=w, fill=C["header_top"], tags="icon"
+        )
     elif kind == "close":
-        cv.create_line(cx - s, cy - s, cx + s, cy + s, fill=color, width=w, tags="icon")
-        cv.create_line(cx + s, cy - s, cx - s, cy + s, fill=color, width=w, tags="icon")
+        cv.create_line(cx - s, cy - s, cx + s, cy + s, fill=color, width=w, tags="icon", capstyle=tk.ROUND)
+        cv.create_line(cx + s, cy - s, cx - s, cy + s, fill=color, width=w, tags="icon", capstyle=tk.ROUND)
 
 
 class TitleChrome:
@@ -133,7 +135,7 @@ class TitleChrome:
         self.status_pill.pack(side=tk.LEFT, padx=(0, 8), pady=10)
 
         winbtns = tk.Frame(right, bg=C["header_top"])
-        winbtns.pack(side=tk.RIGHT)
+        winbtns.pack(side=tk.RIGHT, padx=(0, 6), pady=12)
         self._btn_min = self._chrome_btn(winbtns, "min", self.minimize)
         self._btn_max = self._chrome_btn(winbtns, "max", self.toggle_max)
         self._btn_close = self._chrome_btn(
@@ -199,22 +201,21 @@ class TitleChrome:
             highlightthickness=0,
             cursor="hand2",
         )
-        cv.pack(side=tk.LEFT, fill=tk.Y)
+        cv.pack(side=tk.LEFT)
         _paint_icon(cv, kind, idle_fg)
         cv._icon_kind = kind  # type: ignore[attr-defined]
 
         def enter(_e, b=hover_bg, f=hover_fg):
             cv.configure(bg=b)
             k = getattr(cv, "_icon_kind", kind)
-            # 还原图标底色要跟悬停底一致
             if k == "restore":
                 cv.delete("icon")
                 cx, cy = _BTN_W // 2, _BTN_H // 2
                 s = _ICON
-                w = 1.6
-                cv.create_rectangle(cx - s + 3, cy - s - 1, cx + s + 1, cy + s - 3, outline=f, width=w, tags="icon")
+                w = _STROKE
+                cv.create_rectangle(cx - s + 2, cy - s - 1, cx + s + 1, cy + s - 3, outline=f, width=w, tags="icon")
                 cv.create_rectangle(
-                    cx - s - 1, cy - s + 3, cx + s - 3, cy + s + 1, outline=f, width=w, fill=b, tags="icon"
+                    cx - s - 1, cy - s + 2, cx + s - 3, cy + s + 1, outline=f, width=w, fill=b, tags="icon"
                 )
             else:
                 _paint_icon(cv, k, f)

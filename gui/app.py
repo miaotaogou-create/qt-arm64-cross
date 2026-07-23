@@ -11,7 +11,7 @@ from crosskit import build as buildmod
 from crosskit import detect, envpack, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, guess_share_dir
 from gui.chrome import TitleChrome
-from gui.theme import C, apply_theme, card, make_scrollable, mono_font, primary_button
+from gui.theme import C, EqualTabs, apply_theme, card, make_scrollable, mono_font, primary_button
 
 
 class App(tk.Tk):
@@ -69,20 +69,10 @@ class App(tk.Tk):
         shell = ttk.Frame(self, style="TFrame")
         shell.pack(fill=tk.BOTH, expand=True, padx=12, pady=(8, 0))
 
-        nb = ttk.Notebook(shell)
-        nb.pack(fill=tk.BOTH, expand=True)
-        self._nb = nb
-
-        tab_build = ttk.Frame(nb, style="TFrame")
-        tab_env = ttk.Frame(nb, style="TFrame")
-        tab_share = ttk.Frame(nb, style="TFrame")
-        nb.add(tab_build, text="  编译  ")
-        nb.add(tab_env, text="  环境准备  ")
-        nb.add(tab_share, text="  下载共享  ")
-
-        self._build_tab_compile(tab_build)
-        self._build_tab_env(tab_env)
-        self._build_tab_share(tab_share)
+        self._nb = EqualTabs(shell, ["编译", "环境准备", "下载共享"])
+        self._build_tab_compile(self._nb.page(0))
+        self._build_tab_env(self._nb.page(1))
+        self._build_tab_share(self._nb.page(2))
 
         foot = ttk.Frame(self)
         foot.pack(fill=tk.X, padx=14, pady=(4, 8))
