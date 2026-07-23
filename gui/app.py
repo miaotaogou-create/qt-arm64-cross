@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox, ttk
 from crosskit import build as buildmod
 from crosskit import detect, settings, wsl
 from crosskit.httpshare import DirectoryShare, guess_share_dir
+from gui.chrome import TitleChrome
 from gui.theme import C, apply_theme, card, mono_font, primary_button, ui_font
 
 
@@ -23,6 +24,7 @@ class App(tk.Tk):
         self._share = DirectoryShare()
         self._advanced_open = False
         self._cfg = settings.load()
+        self._chrome: TitleChrome | None = None
 
         self.project = tk.StringVar(value=self._cfg.get("project", ""))
         self.build_file = tk.StringVar(value=self._cfg.get("build_file", ""))
@@ -52,42 +54,11 @@ class App(tk.Tk):
         self._set_http_dot(False)
 
     def _build_ui(self) -> None:
-        # --- 顶栏 ---
-        header = tk.Frame(self, bg=C["header_top"], height=72)
-        header.pack(fill=tk.X)
-        header.pack_propagate(False)
-        # 轻微渐变感：上下两条色带
-        tk.Frame(header, bg=C["header_bot"], height=3).pack(side=tk.BOTTOM, fill=tk.X)
-        inner = tk.Frame(header, bg=C["header_top"])
-        inner.pack(fill=tk.BOTH, expand=True, padx=22, pady=12)
-        left = tk.Frame(inner, bg=C["header_top"])
-        left.pack(side=tk.LEFT, fill=tk.Y)
-        tk.Label(
-            left,
-            text="Qt ARM64 交叉编译",
-            bg=C["header_top"],
-            fg="#FFFFFF",
-            font=ui_font(16, "bold"),
-        ).pack(anchor=tk.W)
-        tk.Label(
-            left,
-            text="Windows · WSL Ubuntu-20.04 · 麒麟 ARM64 交付",
-            bg=C["header_top"],
-            fg="#99F6E4",
-            font=ui_font(9),
-        ).pack(anchor=tk.W, pady=(2, 0))
-        right = tk.Frame(inner, bg=C["header_top"])
-        right.pack(side=tk.RIGHT)
-        self._status_pill = tk.Label(
-            right,
-            textvariable=self.header_status,
-            bg=C["accent_soft"],
-            fg=C["primary"],
-            font=ui_font(9, "bold"),
-            padx=12,
-            pady=5,
-        )
-        self._status_pill.pack()
+        # --- 自定义标题栏（与主题一体，去掉系统白顶栏）---
+        self._chrome = TitleChrome(self, on_close=self._on_close)
+        self._chrome.build(self)
+        self._status_pill = self._chrome.status_pill
+        self._status_pill.configure(textvariable=self.header_status)
 
         body = ttk.Frame(self, style="TFrame")
         body.pack(fill=tk.BOTH, expand=True, padx=16, pady=12)
