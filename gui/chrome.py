@@ -120,22 +120,32 @@ class TitleChrome:
             font=ui_font(8),
         ).pack(anchor=tk.W)
 
+        # 状态字与窗控同一行、垂直居中（避免各自 pady 导致高低不一）
         right = tk.Frame(bar, bg=C["header_top"])
         right.pack(side=tk.RIGHT, fill=tk.Y)
 
+        cluster = tk.Frame(right, bg=C["header_top"])
+        cluster.place(relx=1.0, rely=0.5, anchor="e", x=-6)
+
+        status_wrap = tk.Frame(cluster, bg=C["header_top"], height=_BTN_H)
+        status_wrap.pack(side=tk.LEFT, padx=(0, 8))
+        status_wrap.pack_propagate(False)
         self.status_pill = tk.Label(
-            right,
+            status_wrap,
             text="空闲",
             bg=C["header_top"],
             fg="#99F6E4",
             font=ui_font(9),
-            padx=8,
-            pady=2,
+            padx=6,
+            pady=0,
         )
-        self.status_pill.pack(side=tk.LEFT, padx=(0, 10), pady=12)
+        self.status_pill.place(relx=0.5, rely=0.5, anchor="center")
+        # 先量字宽再固定包裹宽度
+        self.status_pill.update_idletasks()
+        status_wrap.configure(width=max(36, self.status_pill.winfo_reqwidth() + 4))
 
-        winbtns = tk.Frame(right, bg=C["header_top"])
-        winbtns.pack(side=tk.RIGHT, padx=(0, 6), pady=12)
+        winbtns = tk.Frame(cluster, bg=C["header_top"])
+        winbtns.pack(side=tk.LEFT)
         self._btn_min = self._chrome_btn(winbtns, "min", self.minimize)
         self._btn_max = self._chrome_btn(winbtns, "max", self.toggle_max)
         self._btn_close = self._chrome_btn(
