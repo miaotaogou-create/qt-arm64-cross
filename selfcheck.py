@@ -8,19 +8,25 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+from crosskit import detect
+from crosskit.build import discover_build_files, merge_extra_pkgconfig
 from crosskit.wsl import win_to_wsl
-from crosskit.build import discover_build_files
 
 
 def main() -> None:
     w = win_to_wsl(r"C:\ZYL\workspace\projects\qt-arm64-cross")
     assert w == "/mnt/c/ZYL/workspace/projects/qt-arm64-cross", w
+    assert detect.toolkit_root() == ROOT, detect.toolkit_root()
 
     qfiles = discover_build_files(ROOT / "examples" / "hello_qmake")
     assert any(k == "qmake" and p.endswith(".pro") for k, p in qfiles), qfiles
 
     cfiles = discover_build_files(ROOT / "examples" / "hello_cmake")
     assert any(k == "cmake" for k, p in cfiles), cfiles
+
+    assert merge_extra_pkgconfig(False, "") == ""
+    assert "libavcodec" in merge_extra_pkgconfig(True, "")
+    assert merge_extra_pkgconfig(True, "libfoo").endswith("libfoo")
 
     print("selfcheck OK")
 

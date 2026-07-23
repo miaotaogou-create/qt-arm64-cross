@@ -1,6 +1,7 @@
 """环境检测与安装命令提示。"""
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -28,6 +29,9 @@ class EnvReport:
 
 
 def toolkit_root() -> Path:
+    # 打包成 exe 后：exe 与 tools/ 同级，按可执行文件目录定位
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent
 
 

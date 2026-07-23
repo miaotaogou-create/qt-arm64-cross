@@ -14,6 +14,10 @@ examples/**/.qmake.stash
 examples/**/moc_*.cpp
 examples/**/qrc_*.cpp
 
+# PyInstaller 中间产物（保留根目录 QtArm64Cross.exe 供双击）
+build/
+*.spec
+
 # 编辑器
 .vscode/
 .idea/

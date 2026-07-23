@@ -19,11 +19,18 @@ Windows GUI + WSL `Ubuntu-20.04`，把任意 Qt 工程（`.pro` / `CMakeLists.tx
 
 ## 首次安装
 
-在仓库根目录启动 GUI：
+## 启动（推荐）
+
+双击仓库根目录的 **`QtArm64Cross.exe`**（须与 `tools\` 同级，不要单独挪走 exe）。
+
+重新打包 exe：
 
 ```powershell
-python run.py
+pip install pyinstaller
+.\build_exe.ps1
 ```
+
+开发调试仍可用：`python run.py`
 
 1. 点 **检测环境**
 2. 若缺交叉编译器 / sysroot：点 **安装工具链+sysroot**（WSL root，需能拉 apt；脚本默认代理 `http://127.0.0.1:7897`，可按本机改 `PROXY_URL`）
@@ -43,7 +50,8 @@ wsl -d Ubuntu-20.04 -u root bash /mnt/c/ZYL/workspace/projects/qt-arm64-cross/to
 2. 需要时填写：
    - **应用名**：产物可执行文件名（默认取 `.pro` 名或目录名）
    - **产物路径**：如 `bin/release/app_mast`（可空，脚本会按常见路径查找）
-   - **EXTRA_PKGCONFIG**：工程额外依赖，例如 app_mast 填 `libavformat libavcodec libavutil libswscale`
+   - **附加 FFmpeg**：勾选后自动链接 `libavformat/libavcodec/libavutil/libswscale`（多数视频工程需要；纯 Widgets 可不勾）
+   - **其他 pkg-config**：FFmpeg 以外的额外包名（空格分隔）
    - **EXTRA_COPY**：打包时额外拷贝，格式 `源:目标`，空格分隔
    - **插件**：默认 `platforms/libqxcb.so platforms/libqoffscreen.so`
 3. 勾选 **打运行包**（可选）→ **交叉编译**
@@ -67,9 +75,9 @@ CMake 示例把 `BUILD_SYSTEM=cmake`、`CMAKE_FILE=CMakeLists.txt`、`PROJECT=..
 - 构建文件：`app_mast.pro`
 - 应用名：`app_mast`
 - 产物路径：`bin/release/app_mast`
-- EXTRA_PKGCONFIG：`libavformat libavcodec libavutil libswscale`
+- **勾选「附加 FFmpeg」**
 - EXTRA_COPY（可选）：`src/core/config/app_config.json:config/app_config.json`
-- 插件可按需加上：`sqldrivers/libqsqlite.so audio/libqtaudio_alsa.so mediaservice/libgstmediaplayer.so`
+- 插件可按需加上：`sqldrivers/libqsqlite.so`
 
 本工具**不会**默认跑 mediamtx / 桌面安装补丁等 app_mast 专属步骤。
 
@@ -79,7 +87,9 @@ CMake 示例把 `BUILD_SYSTEM=cmake`、`CMAKE_FILE=CMakeLists.txt`、`PROJECT=..
 
 ```
 qt-arm64-cross/
-  run.py                 # GUI 入口
+  QtArm64Cross.exe       # 双击启动（与 tools/ 同级）
+  build_exe.ps1          # 重新打包 exe
+  run.py                 # 开发用入口
   crosskit/              # WSL 编排、检测、设置
   gui/                   # tkinter 界面
   tools/

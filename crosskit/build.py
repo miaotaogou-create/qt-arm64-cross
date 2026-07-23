@@ -5,6 +5,19 @@ from pathlib import Path
 
 from . import detect, wsl
 
+# 勾选「附加 FFmpeg」时注入的 pkg-config 包名
+FFMPEG_PKGCONFIG = "libavformat libavcodec libavutil libswscale"
+
+
+def merge_extra_pkgconfig(use_ffmpeg: bool, extra: str = "") -> str:
+    parts: list[str] = []
+    if use_ffmpeg:
+        parts.extend(FFMPEG_PKGCONFIG.split())
+    for p in (extra or "").split():
+        if p not in parts:
+            parts.append(p)
+    return " ".join(parts)
+
 
 def discover_build_files(project: str | Path) -> list[tuple[str, str]]:
     """返回 [(kind, relative_path), ...] kind=qmake|cmake"""
@@ -39,6 +52,7 @@ def build(
     plugins: str,
     extra_pkgconfig: str,
     extra_copy: str,
+    use_ffmpeg: bool = False,
     distro: str = wsl.DEFAULT_DISTRO,
     on_line=None,
 ) -> int:
@@ -53,7 +67,7 @@ def build(
         "JOBS": str(jobs if jobs > 0 else "$(nproc)"),
         "DO_BUNDLE": "1" if do_bundle else "0",
         "PLUGINS": plugins.strip(),
-        "EXTRA_PKGCONFIG": extra_pkgconfig.strip(),
+        "EXTRA_PKGCONFIG": merge_extra_pkgconfig(use_ffmpeg, extra_pkgconfig),
         "EXTRA_COPY": extra_copy.strip(),
     }
     # jobs 不能是 $(nproc) 字符串进 export；空则让脚本自己 nproc

@@ -27,6 +27,7 @@ class App(tk.Tk):
         self.out_bin = tk.StringVar(value=self._cfg.get("out_bin", ""))
         self.jobs = tk.IntVar(value=int(self._cfg.get("jobs") or 0))
         self.do_bundle = tk.BooleanVar(value=bool(self._cfg.get("do_bundle", True)))
+        self.use_ffmpeg = tk.BooleanVar(value=bool(self._cfg.get("use_ffmpeg", False)))
         self.plugins = tk.StringVar(value=self._cfg.get("plugins", ""))
         self.extra_pkg = tk.StringVar(value=self._cfg.get("extra_pkgconfig", ""))
         self.extra_copy = tk.StringVar(value=self._cfg.get("extra_copy", ""))
@@ -75,13 +76,18 @@ class App(tk.Tk):
         ttk.Spinbox(opts, from_=0, to=64, textvariable=self.jobs, width=5).grid(row=0, column=5)
         ttk.Label(opts, text="0=自动").grid(row=0, column=6, sticky=tk.W)
         ttk.Checkbutton(opts, text="打运行包", variable=self.do_bundle).grid(row=0, column=7, padx=8)
+        ttk.Checkbutton(
+            opts,
+            text="附加 FFmpeg",
+            variable=self.use_ffmpeg,
+        ).grid(row=0, column=8, padx=8)
 
         ttk.Label(opts, text="插件").grid(row=1, column=0, sticky=tk.W, padx=4)
-        ttk.Entry(opts, textvariable=self.plugins, width=70).grid(row=1, column=1, columnspan=6, sticky=tk.EW, pady=2)
-        ttk.Label(opts, text="EXTRA_PKGCONFIG").grid(row=2, column=0, sticky=tk.W, padx=4)
-        ttk.Entry(opts, textvariable=self.extra_pkg, width=70).grid(row=2, column=1, columnspan=6, sticky=tk.EW)
+        ttk.Entry(opts, textvariable=self.plugins, width=70).grid(row=1, column=1, columnspan=7, sticky=tk.EW, pady=2)
+        ttk.Label(opts, text="其他 pkg-config").grid(row=2, column=0, sticky=tk.W, padx=4)
+        ttk.Entry(opts, textvariable=self.extra_pkg, width=70).grid(row=2, column=1, columnspan=7, sticky=tk.EW)
         ttk.Label(opts, text="EXTRA_COPY").grid(row=3, column=0, sticky=tk.W, padx=4)
-        ttk.Entry(opts, textvariable=self.extra_copy, width=70).grid(row=3, column=1, columnspan=6, sticky=tk.EW)
+        ttk.Entry(opts, textvariable=self.extra_copy, width=70).grid(row=3, column=1, columnspan=7, sticky=tk.EW)
         ttk.Label(opts, text="发行版").grid(row=4, column=0, sticky=tk.W, padx=4)
         ttk.Entry(opts, textvariable=self.distro, width=20).grid(row=4, column=1, sticky=tk.W)
 
@@ -160,6 +166,7 @@ class App(tk.Tk):
                 "out_bin": self.out_bin.get(),
                 "jobs": int(self.jobs.get() or 0),
                 "do_bundle": bool(self.do_bundle.get()),
+                "use_ffmpeg": bool(self.use_ffmpeg.get()),
                 "plugins": self.plugins.get(),
                 "extra_pkgconfig": self.extra_pkg.get(),
                 "extra_copy": self.extra_copy.get(),
@@ -234,6 +241,7 @@ class App(tk.Tk):
                 plugins=self.plugins.get(),
                 extra_pkgconfig=self.extra_pkg.get(),
                 extra_copy=self.extra_copy.get(),
+                use_ffmpeg=bool(self.use_ffmpeg.get()),
                 distro=self.distro.get().strip() or wsl.DEFAULT_DISTRO,
                 on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
             )
