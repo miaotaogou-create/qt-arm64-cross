@@ -30,6 +30,7 @@ class App(tk.Tk):
         self.build_file = tk.StringVar(value=self._cfg.get("build_file", ""))
         self.build_system = tk.StringVar(value=self._cfg.get("build_system", "auto"))
         self.app_name = tk.StringVar(value=self._cfg.get("app_name", ""))
+        self.out_dir = tk.StringVar(value=self._cfg.get("out_dir", ""))
         self.out_bin = tk.StringVar(value=self._cfg.get("out_bin", ""))
         self.jobs = tk.IntVar(value=int(self._cfg.get("jobs") or 0))
         self.do_bundle = tk.BooleanVar(value=bool(self._cfg.get("do_bundle", True)))
@@ -67,6 +68,7 @@ class App(tk.Tk):
             self.build_file,
             self.build_system,
             self.app_name,
+            self.out_dir,
             self.out_bin,
             self.jobs,
             self.do_bundle,
@@ -126,10 +128,10 @@ class App(tk.Tk):
         self.build_combo.grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
         ttk.Button(proj, text="刷新", command=self._refresh_build_files).grid(row=1, column=2, padx=2)
 
-        ttk.Label(proj, text="产物路径", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(proj, textvariable=self.out_bin).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=4)
-        ttk.Button(proj, text="浏览…", command=self._browse_out_bin).grid(row=2, column=2, padx=2)
-        ttk.Label(proj, text="可空=自动找可执行文件", style="Muted.TLabel").grid(
+        ttk.Label(proj, text="产物目录", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(proj, textvariable=self.out_dir).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=4)
+        ttk.Button(proj, text="浏览…", command=self._browse_out_dir).grid(row=2, column=2, padx=2)
+        ttk.Label(proj, text="可空=默认工程下 dist/arm64-kylin", style="Muted.TLabel").grid(
             row=3, column=1, sticky=tk.W, padx=8, pady=(0, 2)
         )
         proj.columnconfigure(1, weight=1)
@@ -153,25 +155,28 @@ class App(tk.Tk):
             ttk.Radiobutton(sysf, text=t, value=v, variable=self.build_system).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Label(self._adv, text="应用名", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=3)
         ttk.Entry(self._adv, textvariable=self.app_name, width=18).grid(row=1, column=1, sticky=tk.W, padx=8)
-        ttk.Label(self._adv, text="并行 -j", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=3)
+        ttk.Label(self._adv, text="可执行文件", style="Card.TLabel").grid(row=1, column=2, sticky=tk.W, padx=(8, 0))
+        ttk.Entry(self._adv, textvariable=self.out_bin, width=24).grid(row=1, column=3, sticky=tk.W, padx=8)
+        ttk.Label(self._adv, text="可空=编译后自动找", style="Muted.TLabel").grid(row=2, column=3, sticky=tk.W, padx=8)
+        ttk.Label(self._adv, text="并行 -j", style="Card.TLabel").grid(row=3, column=0, sticky=tk.W, pady=3)
         ttk.Spinbox(self._adv, from_=0, to=64, textvariable=self.jobs, width=5).grid(
-            row=2, column=1, sticky=tk.W, padx=8
+            row=3, column=1, sticky=tk.W, padx=8
         )
-        ttk.Label(self._adv, text="0=自动", style="Muted.TLabel").grid(row=2, column=2, sticky=tk.W)
-        ttk.Label(self._adv, text="插件", style="Card.TLabel").grid(row=3, column=0, sticky=tk.W, pady=3)
+        ttk.Label(self._adv, text="0=自动", style="Muted.TLabel").grid(row=3, column=2, sticky=tk.W)
+        ttk.Label(self._adv, text="插件", style="Card.TLabel").grid(row=4, column=0, sticky=tk.W, pady=3)
         ttk.Entry(self._adv, textvariable=self.plugins).grid(
-            row=3, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
-        )
-        ttk.Label(self._adv, text="其他 pkg-config", style="Card.TLabel").grid(row=4, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.extra_pkg).grid(
             row=4, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
         )
-        ttk.Label(self._adv, text="EXTRA_COPY", style="Card.TLabel").grid(row=5, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.extra_copy).grid(
+        ttk.Label(self._adv, text="其他 pkg-config", style="Card.TLabel").grid(row=5, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.extra_pkg).grid(
             row=5, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
         )
-        ttk.Label(self._adv, text="发行版", style="Card.TLabel").grid(row=6, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.distro, width=22).grid(row=6, column=1, sticky=tk.W, padx=8, pady=3)
+        ttk.Label(self._adv, text="EXTRA_COPY", style="Card.TLabel").grid(row=6, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.extra_copy).grid(
+            row=6, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
+        )
+        ttk.Label(self._adv, text="发行版", style="Card.TLabel").grid(row=7, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.distro, width=22).grid(row=7, column=1, sticky=tk.W, padx=8, pady=3)
         self._adv.columnconfigure(1, weight=1)
 
         actions = ttk.Frame(top)
@@ -365,28 +370,13 @@ class App(tk.Tk):
         if d:
             self._set_project(d)
 
-    def _browse_out_bin(self) -> None:
-        init = self.out_bin.get().strip() or self.project.get().strip() or os.path.expanduser("~")
-        if init and Path(init).is_file():
-            init = str(Path(init).parent)
-        elif init and not Path(init).is_dir():
+    def _browse_out_dir(self) -> None:
+        init = self.out_dir.get().strip() or self.project.get().strip() or os.path.expanduser("~")
+        if init and not Path(init).is_dir():
             init = self.project.get().strip() or os.path.expanduser("~")
-        path = filedialog.askopenfilename(
-            title="选择产物可执行文件（可空=编译后自动找）",
-            initialdir=init,
-            filetypes=[("全部", "*.*")],
-        )
-        if path:
-            # 若在工程目录下，记相对路径更稳
-            proj = self.project.get().strip()
-            try:
-                if proj:
-                    rel = Path(path).resolve().relative_to(Path(proj).resolve())
-                    self.out_bin.set(str(rel).replace("\\", "/"))
-                    return
-            except ValueError:
-                pass
-            self.out_bin.set(path)
+        d = filedialog.askdirectory(title="选择产物目录（如 dist/arm64-kylin）", initialdir=init)
+        if d:
+            self.out_dir.set(d)
 
     def _browse_share(self) -> None:
         d = filedialog.askdirectory(
@@ -396,9 +386,15 @@ class App(tk.Tk):
             self.share_dir.set(d)
 
     def _fill_share_from_project(self) -> None:
+        out = self.out_dir.get().strip()
+        if out and Path(out).is_dir():
+            self.share_dir.set(out)
+            return
         g = guess_share_dir(self.project.get().strip(), self.app_name.get())
         if g is not None:
             self.share_dir.set(str(g))
+            if not self.out_dir.get().strip():
+                self.out_dir.set(str(g))
 
     def _share_start(self) -> None:
         if self._share.running:
@@ -569,6 +565,7 @@ class App(tk.Tk):
                 "build_file": f"{kind}: {path}" if path else "",
                 "build_system": self.build_system.get(),
                 "app_name": self.app_name.get(),
+                "out_dir": self.out_dir.get().strip(),
                 "out_bin": self.out_bin.get(),
                 "jobs": int(self.jobs.get() or 0),
                 "do_bundle": bool(self.do_bundle.get()),
@@ -835,6 +832,10 @@ class App(tk.Tk):
         threading.Thread(target=work, daemon=True).start()
 
     def _open_out(self) -> None:
+        out = self.out_dir.get().strip()
+        if out and Path(out).is_dir():
+            os.startfile(out)  # noqa: S606
+            return
         proj = Path(self.project.get().strip())
         name = self.app_name.get().strip()
         candidates = []
@@ -842,12 +843,15 @@ class App(tk.Tk):
             candidates.append(proj / "dist" / "arm64-kylin" / name)
         candidates += [
             proj / "dist" / "arm64-kylin",
+            proj / "dist",
             proj / "bin" / "release",
             proj / "build-arm64",
             proj,
         ]
         for c in candidates:
             if c.is_dir():
+                if not self.out_dir.get().strip():
+                    self.out_dir.set(str(c))
                 os.startfile(str(c))  # noqa: S606
                 return
         messagebox.showinfo("提示", "尚未找到产物文件夹（通常在工程下的 dist/arm64-kylin）")
