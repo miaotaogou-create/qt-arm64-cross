@@ -16,6 +16,12 @@ _eth_cache: tuple[float, list[str]] | None = None
 _ETH_TTL = 30.0
 
 
+def clear_ethernet_cache() -> None:
+    """追加/删除网卡 IP 后立刻失效，避免共享页仍显示旧地址。"""
+    global _eth_cache
+    _eth_cache = None
+
+
 def default_route_ipv4() -> str | None:
     """经默认网关出网时本机绑定的 IPv4。"""
     try:

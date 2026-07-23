@@ -8,7 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from crosskit import build as buildmod
-from crosskit import detect, envpack, settings, wsl, wsl_setup
+from crosskit import detect, envpack, netip, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
 from gui.chrome import TitleChrome
 from gui.theme import (
@@ -54,6 +54,10 @@ class App(tk.Tk):
         self.share_urls = tk.StringVar(value="—")
         self.share_local = tk.StringVar(value="—")
         self.share_state = tk.StringVar(value="未启动")
+        self.eth_add_ip = tk.StringVar(value=self._cfg.get("eth_add_ip", ""))
+        self.eth_add_mask = tk.StringVar(value=self._cfg.get("eth_add_mask") or "255.255.255.0")
+        self.eth_list = tk.StringVar(value="（尚未刷新）")
+        self.eth_pick = tk.StringVar(value="")
         default_env = self._cfg.get("env_install_dir") or str(
             Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WSL" / "Ubuntu-20.04"
         )
@@ -76,6 +80,7 @@ class App(tk.Tk):
             self._fill_share_from_project()
         self._set_http_dot(False)
         self.after(600, self._maybe_resume_pending_import)
+        self.after(200, self._refresh_eth_list)
         # 字段一改就记，下次打开不用重配
         for var in (
             self.project,
@@ -93,6 +98,8 @@ class App(tk.Tk):
             self.distro,
             self.share_dir,
             self.share_port,
+            self.eth_add_ip,
+            self.eth_add_mask,
             self.env_install_dir,
             self.env_slim,
             self.env_replace,
@@ -358,6 +365,29 @@ class App(tk.Tk):
             wraplength=720,
         ).pack(anchor=tk.W, pady=(10, 0))
 
+        eth = card(pad, "有线网卡 IP（追加地址）")
+        eth.pack(fill=tk.X, pady=(12, 0))
+        ttk.Label(
+            eth,
+            text="对应 Windows「高级 → IP 设置 → 添加」：在已有地址外再挂一个，不改网关。需 UAC 授权。",
+            style="Muted.TLabel",
+            wraplength=720,
+            justify=tk.LEFT,
+        ).pack(anchor=tk.W, pady=(0, 8))
+        ttk.Label(eth, textvariable=self.eth_list, style="Card.TLabel", justify=tk.LEFT).pack(anchor=tk.W)
+        row_e = ttk.Frame(eth, style="Card.TFrame")
+        row_e.pack(fill=tk.X, pady=(10, 0))
+        ttk.Label(row_e, text="附加 IP", style="Card.TLabel").pack(side=tk.LEFT)
+        ttk.Entry(row_e, textvariable=self.eth_add_ip, width=16).pack(side=tk.LEFT, padx=(6, 12))
+        ttk.Label(row_e, text="掩码", style="Card.TLabel").pack(side=tk.LEFT)
+        ttk.Entry(row_e, textvariable=self.eth_add_mask, width=14).pack(side=tk.LEFT, padx=(6, 12))
+        action_button(row_e, "添加 IP", self._on_add_eth_ip, variant="accent").pack(side=tk.LEFT, padx=2)
+        action_button(row_e, "删除所选", self._on_remove_eth_ip).pack(side=tk.LEFT, padx=2)
+        action_button(row_e, "刷新", self._refresh_eth_list).pack(side=tk.LEFT, padx=2)
+        ttk.Label(eth, text="删除时在下方列表选一个已有地址：", style="Muted.TLabel").pack(anchor=tk.W, pady=(8, 2))
+        self.eth_combo = ttk.Combobox(eth, textvariable=self.eth_pick, state="readonly", width=48)
+        self.eth_combo.pack(anchor=tk.W)
+
     def _toggle_advanced(self) -> None:
         self._advanced_open = not self._advanced_open
         if self._advanced_open:
@@ -507,6 +537,93 @@ class App(tk.Tk):
         self.clipboard_clear()
         self.clipboard_append(url)
         self.status.set("局域网地址已复制")
+
+    def _refresh_eth_list(self) -> None:
+        adapters = netip.list_ethernet_adapters()
+        if not adapters:
+            self.eth_list.set("未检测到物理以太网卡")
+            self.eth_combo["values"] = ()
+            self.eth_pick.set("")
+            return
+        lines: list[str] = []
+        picks: list[str] = []
+        for a in adapters:
+            ip_s = ", ".join(f"{x.address}/{x.prefix}" for x in a.ips) or "（无 IPv4）"
+            lines.append(f"{a.name} [{a.status}]  ifIndex={a.if_index}  {ip_s}")
+            for x in a.ips:
+                picks.append(f"{x.address}  ({a.name})")
+        self.eth_list.set("\n".join(lines))
+        self.eth_combo["values"] = picks
+        if picks:
+            cur = self.eth_pick.get()
+            if cur not in picks:
+                self.eth_pick.set(picks[0])
+        else:
+            self.eth_pick.set("")
+
+    def _on_add_eth_ip(self) -> None:
+        if self._busy:
+            return
+        ip = self.eth_add_ip.get().strip()
+        mask = self.eth_add_mask.get().strip() or "255.255.255.0"
+        if not ip:
+            messagebox.showerror("错误", "请填写要附加的 IP")
+            return
+        self._persist()
+        self._nb.select(0)
+
+        def work() -> None:
+            self._set_busy(True, "添加网卡 IP…")
+            status, msg = netip.add_ethernet_ipv4(
+                ip,
+                mask,
+                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+            )
+            self.after(
+                0,
+                lambda: (
+                    self._append_log(f"[net] {msg}"),
+                    self._refresh_eth_list(),
+                    self._set_busy(False, "就绪" if status in ("ok", "exists") else f"失败: {msg}"),
+                    messagebox.showinfo("网卡 IP", msg)
+                    if status in ("ok", "exists")
+                    else messagebox.showerror("网卡 IP", msg),
+                ),
+            )
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_remove_eth_ip(self) -> None:
+        if self._busy:
+            return
+        pick = self.eth_pick.get().strip()
+        if not pick:
+            messagebox.showinfo("提示", "请先在列表中选一个要删除的地址")
+            return
+        ip = pick.split()[0]
+        if not messagebox.askyesno("确认", f"从有线网卡删除附加地址 {ip}？"):
+            return
+        self._nb.select(0)
+
+        def work() -> None:
+            self._set_busy(True, "删除网卡 IP…")
+            status, msg = netip.remove_ethernet_ipv4(
+                ip,
+                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+            )
+            self.after(
+                0,
+                lambda: (
+                    self._append_log(f"[net] {msg}"),
+                    self._refresh_eth_list(),
+                    self._set_busy(False, "就绪" if status == "ok" else f"失败: {msg}"),
+                    messagebox.showinfo("网卡 IP", msg)
+                    if status == "ok"
+                    else messagebox.showerror("网卡 IP", msg),
+                ),
+            )
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _share_open_local(self) -> None:
         url = self._share.local_url()
@@ -676,6 +793,8 @@ class App(tk.Tk):
                 "distro": self.distro.get().strip() or wsl.DEFAULT_DISTRO,
                 "share_dir": self.share_dir.get().strip(),
                 "share_port": int(self.share_port.get() or 8080),
+                "eth_add_ip": self.eth_add_ip.get().strip(),
+                "eth_add_mask": self.eth_add_mask.get().strip() or "255.255.255.0",
                 "env_install_dir": self.env_install_dir.get().strip(),
                 "env_slim_export": bool(self.env_slim.get()),
                 "env_replace_on_import": bool(self.env_replace.get()),

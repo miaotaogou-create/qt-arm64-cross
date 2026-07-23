@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT))
 from crosskit import detect
 from crosskit.build import discover_build_files, merge_extra_pkgconfig
 from crosskit.httpshare import DirectoryShare, best_lan_ipv4, ethernet_ipv4, lan_ipv4
+from crosskit.netip import mask_to_prefix
 from crosskit.wsl import win_to_wsl
 
 
@@ -28,6 +29,15 @@ def main() -> None:
     assert merge_extra_pkgconfig(False, "") == ""
     assert "libavcodec" in merge_extra_pkgconfig(True, "")
     assert merge_extra_pkgconfig(True, "libfoo").endswith("libfoo")
+
+    assert mask_to_prefix("255.255.255.0") == 24
+    assert mask_to_prefix("24") == 24
+    assert mask_to_prefix("/16") == 16
+    try:
+        mask_to_prefix("255.0.255.0")
+        raise AssertionError("expected invalid mask")
+    except ValueError:
+        pass
 
     assert isinstance(lan_ipv4(), list)
     assert best_lan_ipv4()

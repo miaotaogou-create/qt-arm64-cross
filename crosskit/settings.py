@@ -29,6 +29,8 @@ DEFAULTS: dict[str, Any] = {
     "extra_copy": "",
     "share_dir": "",
     "share_port": 18080,
+    "eth_add_ip": "",
+    "eth_add_mask": "255.255.255.0",
     "env_install_dir": "",
     "env_slim_export": False,
     "env_replace_on_import": False,
