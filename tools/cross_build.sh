@@ -195,6 +195,19 @@ check_glibc "${OUT_BIN}"
 log "产物: ${PROJECT}/${OUT_BIN}"
 
 if [[ "${DO_BUNDLE}" == "1" ]]; then
+  # 增量 make 常跳过链接 → POST_LINK/POST_BUILD 不跑 → 旁路资源（theme 等）缺失。
+  # 打可部署包前强制重链一次，让工程自己的部署步骤落到可执行文件旁。
+  log "打运行包：强制重链以触发工程 POST_LINK / POST_BUILD"
+  rm -f "${OUT_BIN}"
+  if [[ "${BUILD_SYSTEM}" == "qmake" ]]; then
+    make -j"${JOBS}"
+  else
+    cmake --build "${BUILD_DIR}" -j"${JOBS}"
+  fi
+  resolve_out_bin
+  file "${OUT_BIN}"
+  check_glibc "${OUT_BIN}"
+
   win_to_unix_nl "${TOOLKIT}/tools/bundle.sh"
   chmod +x "${TOOLKIT}/tools/bundle.sh"
   export PROJECT APP_NAME OUT_BIN ROOTFS QT_PREFIX

@@ -169,6 +169,11 @@ class App(tk.Tk):
         check_button(flags, "附加 FFmpeg", self.use_ffmpeg).pack(side=tk.LEFT, padx=(0, 14))
         self._adv_btn = ttk.Button(flags, text="高级 ▸", command=self._toggle_advanced, style="Accent.TButton")
         self._adv_btn.pack(side=tk.LEFT)
+        ttk.Label(
+            opts,
+            text="运行包=可执行文件 + 其旁路资源（由工程 .pro/CMake 部署）+ Qt 依赖；解压即可用。",
+            style="Muted.TLabel",
+        ).pack(anchor=tk.W, pady=(6, 0))
 
         self._adv = ttk.Frame(opts, style="Card.TFrame")
         ttk.Label(self._adv, text="构建系统", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=3)

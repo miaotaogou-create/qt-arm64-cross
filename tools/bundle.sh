@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# 通用运行包：可执行文件 + Qt 插件 + 依赖 so + run.sh
+# 通用运行包：可执行文件 + 旁路资源 + Qt 插件 + 依赖 so + run.sh
+# 旁路资源（theme/config 等）须由工程 .pro / CMakeLists.txt 在编译时放到可执行文件同目录；
+# 本脚本只打包输出目录里已有内容，不解析工程源码树。
 # 环境变量：PROJECT APP_NAME OUT_BIN ROOTFS QT_PREFIX
 # 可选：BUNDLE_DIR PLUGINS EXTRA_COPY（src:dst 空格分隔，相对 PROJECT）
 set -euo pipefail
@@ -22,32 +24,32 @@ cd "${PROJECT}"
 [[ -x "${OUT_BIN}" ]] || { echo "missing ${OUT_BIN}" >&2; exit 1; }
 
 rm -rf "${BUNDLE_DIR}"
-mkdir -p "${BUNDLE_DIR}/lib" "${BUNDLE_DIR}/plugins" "${BUNDLE_DIR}/config"
+mkdir -p "${BUNDLE_DIR}/lib" "${BUNDLE_DIR}/plugins"
 cp "${OUT_BIN}" "${BUNDLE_DIR}/${APP_NAME}"
 chmod 755 "${BUNDLE_DIR}/${APP_NAME}"
 
-# app_mast 类工程：皮肤与配置放在可执行文件同级（见 qmake POST_LINK / bundle_from_sysroot）
-if [[ -d theme ]]; then
-  cp -a theme "${BUNDLE_DIR}/"
-  log "已复制 theme/"
-fi
-if [[ -f src/core/config/app_config.json ]]; then
-  cp -f src/core/config/app_config.json "${BUNDLE_DIR}/config/app_config.json"
-  log "已复制 config/app_config.json"
-elif [[ -d config ]]; then
-  cp -a config/. "${BUNDLE_DIR}/config/"
-  log "已复制 config/"
-fi
-# 若编译输出目录旁已有 theme/config（POST_LINK 产物），一并带上
+# 只打包「编译输出目录里、可执行文件旁」已有的东西。
+# theme/config 等定制资源由工程 .pro / CMakeLists.txt 的 POST_LINK、POST_BUILD、install 负责落到此处；
+# 本工具不猜测工程源码树布局。
 out_dir="$(dirname "${OUT_BIN}")"
-if [[ -d "${out_dir}/theme" && ! -d "${BUNDLE_DIR}/theme" ]]; then
-  cp -a "${out_dir}/theme" "${BUNDLE_DIR}/"
-  log "已从 ${out_dir}/theme 复制"
-fi
-if [[ -f "${out_dir}/config/app_config.json" && ! -f "${BUNDLE_DIR}/config/app_config.json" ]]; then
-  cp -f "${out_dir}/config/app_config.json" "${BUNDLE_DIR}/config/app_config.json"
-  log "已从 ${out_dir}/config 复制"
-fi
+out_base="$(basename "${OUT_BIN}")"
+shopt -s nullglob
+for item in "${out_dir}"/*; do
+  name="$(basename "${item}")"
+  [[ "${name}" == "${out_base}" ]] && continue
+  [[ "${name}" == "${APP_NAME}" ]] && continue
+  if [[ -d "${item}" ]]; then
+    cp -a "${item}" "${BUNDLE_DIR}/"
+    log "旁路目录: ${name}/"
+  elif [[ -f "${item}" ]]; then
+    case "${name}" in
+      *.o|*.obj|*.cpp|*.h|*.hpp|Makefile*|*.stash|*.prl|*.pc) continue ;;
+    esac
+    cp -a "${item}" "${BUNDLE_DIR}/"
+    log "旁路文件: ${name}"
+  fi
+done
+shopt -u nullglob
 
 if [[ -n "${EXTRA_COPY}" ]]; then
   local_pair=
