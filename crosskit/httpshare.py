@@ -200,9 +200,53 @@ class DirectoryShare:
             return ""
         return f"http://{best_lan_ipv4()}:{self.port}/"
 
+    def local_url(self) -> str:
+        """本机自测地址（与 Everything 一样可用 127.0.0.1）。"""
+        if not self.running:
+            return ""
+        return f"http://127.0.0.1:{self.port}/"
+
     def urls(self) -> list[str]:
         """全部网卡地址（仅日志排错用）。"""
         if not self.running:
             return []
         ips = lan_ipv4() or ["127.0.0.1"]
         return [f"http://{ip}:{self.port}/" for ip in ips]
+
+
+def ensure_firewall_allow(port: int, on_line=None) -> bool:
+    """尝试为共享端口放行入站（同事连不上时常见原因是防火墙）。"""
+    name = f"QtArm64Cross-HTTP-{int(port)}"
+    # 先删同名再加，避免重复规则堆积
+    cmds = [
+        ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={name}"],
+        [
+            "netsh",
+            "advfirewall",
+            "firewall",
+            "add",
+            "rule",
+            f"name={name}",
+            "dir=in",
+            "action=allow",
+            "protocol=TCP",
+            f"localport={int(port)}",
+            "profile=any",
+            "enable=yes",
+        ],
+    ]
+    try:
+        subprocess.run(cmds[0], capture_output=True, timeout=15)
+        r = subprocess.run(cmds[1], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
+        ok = r.returncode == 0
+        if on_line:
+            if ok:
+                on_line(f"[http] 已放行防火墙入站 TCP {port}（规则 {name}）")
+            else:
+                on_line(f"[http] 防火墙放行失败（可能需管理员）: {(r.stderr or r.stdout or '').strip()}")
+                on_line("[http] 同事连不上时：Windows 安全中心 → 防火墙 → 允许应用，或用管理员重开本工具")
+        return ok
+    except (OSError, subprocess.TimeoutExpired) as e:
+        if on_line:
+            on_line(f"[http] 防火墙配置异常: {e}")
+        return False

@@ -86,7 +86,12 @@ def build(
     if app_name.strip():
         env["APP_NAME"] = app_name.strip()
     if out_bin.strip():
-        env["OUT_BIN"] = out_bin.strip().replace("\\", "/")
+        ob = out_bin.strip().replace("\\", "/")
+        # 绝对 Windows 路径 → WSL；相对路径仍相对工程目录
+        if len(ob) >= 2 and ob[1] == ":":
+            env["OUT_BIN"] = wsl.win_to_wsl(out_bin.strip())
+        else:
+            env["OUT_BIN"] = ob
 
     # bundle.sh 读 PLUGINS / EXTRA_COPY
     script = (

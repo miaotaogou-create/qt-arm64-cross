@@ -42,6 +42,7 @@ def main() -> None:
         assert share.urls()
         assert share.primary_url().startswith("http://")
         assert share.primary_url().count("\n") == 0
+        assert share.local_url() == "http://127.0.0.1:18765/"
         import urllib.request
 
         with urllib.request.urlopen("http://127.0.0.1:18765/README.md", timeout=3) as r:

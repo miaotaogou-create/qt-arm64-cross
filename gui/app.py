@@ -9,7 +9,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from crosskit import build as buildmod
 from crosskit import detect, envpack, settings, wsl, wsl_setup
-from crosskit.httpshare import DirectoryShare, ethernet_ipv4, guess_share_dir
+from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
 from gui.chrome import TitleChrome
 from gui.theme import C, EqualTabs, apply_theme, card, make_scrollable, mono_font, primary_button
 
@@ -41,6 +41,7 @@ class App(tk.Tk):
         self.share_dir = tk.StringVar(value=self._cfg.get("share_dir", ""))
         self.share_port = tk.IntVar(value=int(self._cfg.get("share_port") or 8080))
         self.share_urls = tk.StringVar(value="未启动")
+        self.share_local = tk.StringVar(value="")
         default_env = self._cfg.get("env_install_dir") or str(
             Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WSL" / "Ubuntu-20.04"
         )
@@ -59,6 +60,28 @@ class App(tk.Tk):
             self._fill_share_from_project()
         self._set_http_dot(False)
         self.after(600, self._maybe_resume_pending_import)
+        # 字段一改就记，下次打开不用重配
+        for var in (
+            self.project,
+            self.build_file,
+            self.build_system,
+            self.app_name,
+            self.out_bin,
+            self.jobs,
+            self.do_bundle,
+            self.use_ffmpeg,
+            self.plugins,
+            self.extra_pkg,
+            self.extra_copy,
+            self.distro,
+            self.share_dir,
+            self.share_port,
+            self.env_install_dir,
+            self.env_slim,
+            self.env_replace,
+        ):
+            var.trace_add("write", lambda *_a: self._schedule_persist())
+        self._persist_after: int | None = None
 
     def _build_ui(self) -> None:
         self._chrome = TitleChrome(self, on_close=self._on_close)
@@ -101,6 +124,13 @@ class App(tk.Tk):
         self.build_combo = ttk.Combobox(proj, textvariable=self.build_file)
         self.build_combo.grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
         ttk.Button(proj, text="刷新", command=self._refresh_build_files).grid(row=1, column=2, padx=2)
+
+        ttk.Label(proj, text="产物路径", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(proj, textvariable=self.out_bin).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=4)
+        ttk.Button(proj, text="浏览…", command=self._browse_out_bin).grid(row=2, column=2, padx=2)
+        ttk.Label(proj, text="可空=自动找可执行文件", style="Muted.TLabel").grid(
+            row=3, column=1, sticky=tk.W, padx=8, pady=(0, 2)
+        )
         proj.columnconfigure(1, weight=1)
 
         opts = card(top, "选项")
@@ -122,8 +152,6 @@ class App(tk.Tk):
             ttk.Radiobutton(sysf, text=t, value=v, variable=self.build_system).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Label(self._adv, text="应用名", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=3)
         ttk.Entry(self._adv, textvariable=self.app_name, width=18).grid(row=1, column=1, sticky=tk.W, padx=8)
-        ttk.Label(self._adv, text="产物路径", style="Card.TLabel").grid(row=1, column=2, sticky=tk.W, padx=(8, 0))
-        ttk.Entry(self._adv, textvariable=self.out_bin, width=24).grid(row=1, column=3, sticky=tk.W, padx=8)
         ttk.Label(self._adv, text="并行 -j", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=3)
         ttk.Spinbox(self._adv, from_=0, to=64, textvariable=self.jobs, width=5).grid(
             row=2, column=1, sticky=tk.W, padx=8
@@ -269,20 +297,34 @@ class App(tk.Tk):
             side=tk.LEFT, padx=(10, 4)
         )
         ttk.Button(row1, text="停止", command=self._share_stop).pack(side=tk.LEFT, padx=2)
-        ttk.Button(row1, text="复制地址", command=self._share_copy_url).pack(side=tk.LEFT, padx=2)
 
         st = ttk.Frame(share, style="Card.TFrame")
-        st.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(8, 2))
+        st.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(10, 2))
         self._http_dot = tk.Canvas(st, width=12, height=12, bg=C["surface"], highlightthickness=0)
         self._http_dot.pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(st, text="以太网地址", style="Muted.TLabel").pack(side=tk.LEFT)
-        ttk.Label(st, textvariable=self.share_urls, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
+
+        urls = ttk.Frame(st, style="Card.TFrame")
+        urls.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        row_local = ttk.Frame(urls, style="Card.TFrame")
+        row_local.pack(fill=tk.X, pady=1)
+        ttk.Label(row_local, text="本机测试", style="Muted.TLabel").pack(side=tk.LEFT)
+        ttk.Label(row_local, textvariable=self.share_local, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
+        ttk.Button(row_local, text="打开", command=self._share_open_local).pack(side=tk.LEFT, padx=2)
+
+        row_lan = ttk.Frame(urls, style="Card.TFrame")
+        row_lan.pack(fill=tk.X, pady=1)
+        ttk.Label(row_lan, text="同事下载", style="Muted.TLabel").pack(side=tk.LEFT)
+        ttk.Label(row_lan, textvariable=self.share_urls, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
+        ttk.Button(row_lan, text="复制地址", command=self._share_copy_url).pack(side=tk.LEFT, padx=2)
         share.columnconfigure(1, weight=1)
 
         ttk.Label(
             pad,
-            text="启动后把地址发给客户机，用浏览器或 wget 下载 .tar.gz 运行包。",
+            text="先点「打开」用本机 127.0.0.1 自测；再把「同事下载」地址发给客户机（网线同网段）。"
+            "若同事仍打不开，多半是防火墙，启动时会尝试自动放行端口。",
             style="Muted.TLabel",
+            justify=tk.LEFT,
+            wraplength=720,
         ).pack(anchor=tk.W, pady=(10, 0))
 
     def _toggle_advanced(self) -> None:
@@ -302,12 +344,37 @@ class App(tk.Tk):
     def _set_project(self, path: str) -> None:
         self.project.set(path)
         self._refresh_build_files()
-        self._fill_share_from_project()
+        # 不覆盖已记住的共享目录；仅在空时自动填
+        if not self.share_dir.get().strip():
+            self._fill_share_from_project()
 
     def _browse_project(self) -> None:
         d = filedialog.askdirectory(initialdir=self.project.get() or os.path.expanduser("~"))
         if d:
             self._set_project(d)
+
+    def _browse_out_bin(self) -> None:
+        init = self.out_bin.get().strip() or self.project.get().strip() or os.path.expanduser("~")
+        if init and Path(init).is_file():
+            init = str(Path(init).parent)
+        elif init and not Path(init).is_dir():
+            init = self.project.get().strip() or os.path.expanduser("~")
+        path = filedialog.askopenfilename(
+            title="选择产物可执行文件（可空=编译后自动找）",
+            initialdir=init,
+            filetypes=[("全部", "*.*")],
+        )
+        if path:
+            # 若在工程目录下，记相对路径更稳
+            proj = self.project.get().strip()
+            try:
+                if proj:
+                    rel = Path(path).resolve().relative_to(Path(proj).resolve())
+                    self.out_bin.set(str(rel).replace("\\", "/"))
+                    return
+            except ValueError:
+                pass
+            self.out_bin.set(path)
 
     def _browse_share(self) -> None:
         d = filedialog.askdirectory(
@@ -335,33 +402,33 @@ class App(tk.Tk):
         except OSError as e:
             messagebox.showerror("错误", f"无法监听端口 {port}: {e}")
             return
-        urls = self._share.urls()
+        ensure_firewall_allow(port, on_line=self._append_log)
         primary = self._share.primary_url()
-        self.share_urls.set(primary or f"http://127.0.0.1:{port}/")
+        local = self._share.local_url()
+        self.share_urls.set(primary or "(无以太网地址)")
+        self.share_local.set(local or f"http://127.0.0.1:{port}/")
         self._set_http_dot(True)
         self._persist()
         self._append_log(f"[http] 共享已启动: {directory}")
+        self._append_log(f"[http] 本机测试: {local}  （浏览器打开可验证，类似 Everything）")
         eth = ethernet_ipv4()
         if eth:
-            self._append_log(f"[http] 以太网地址: {primary}")
+            self._append_log(f"[http] 同事下载: {primary}")
         else:
-            self._append_log(f"[http] 未检测到有线网卡，退回: {primary}")
-        if len(urls) > 1:
-            self._append_log(f"[http] 其它网卡 {len(urls) - 1} 个（客户机一般用不到）")
-            for u in urls:
-                if u != primary:
-                    self._append_log(f"[http]   {u}")
-        self._append_log("[http] 客户机示例: wget <地址><包名>.tar.gz")
+            self._append_log(f"[http] 未检测到有线网卡，同事地址退回: {primary}")
+        self._append_log("[http] 客户机示例: wget <同事下载地址><包名>.tar.gz")
         self._set_busy(False, f"HTTP 共享中 :{port}")
         self.header_status.set(f"共享 :{port}")
 
     def _share_stop(self) -> None:
         if not self._share.running:
             self.share_urls.set("未启动")
+            self.share_local.set("")
             self._set_http_dot(False)
             return
         self._share.stop()
         self.share_urls.set("未启动")
+        self.share_local.set("")
         self._set_http_dot(False)
         self._append_log("[http] 共享已停止")
         self._set_busy(False, "就绪")
@@ -373,14 +440,33 @@ class App(tk.Tk):
             return
         self.clipboard_clear()
         self.clipboard_append(url)
-        self.status.set("下载地址已复制")
+        self.status.set("同事下载地址已复制")
+
+    def _share_open_local(self) -> None:
+        url = self._share.local_url()
+        if not url:
+            messagebox.showinfo("提示", "请先启动共享")
+            return
+        try:
+            os.startfile(url)  # noqa: S606
+        except OSError as e:
+            messagebox.showerror("错误", f"无法打开浏览器: {e}")
 
     def _on_close(self) -> None:
+        self._persist()
         try:
             self._share.stop()
         except Exception:
             pass
         self.destroy()
+
+    def _schedule_persist(self) -> None:
+        if self._persist_after is not None:
+            try:
+                self.after_cancel(self._persist_after)
+            except Exception:
+                pass
+        self._persist_after = self.after(400, self._persist)
 
     def _refresh_build_files(self) -> None:
         files = buildmod.discover_build_files(self.project.get())
