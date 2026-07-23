@@ -53,6 +53,7 @@ def build(
     extra_pkgconfig: str,
     extra_copy: str,
     use_ffmpeg: bool = False,
+    out_dir: str = "",
     distro: str = wsl.DEFAULT_DISTRO,
     on_line=None,
 ) -> int:
@@ -93,7 +94,14 @@ def build(
         else:
             env["OUT_BIN"] = ob
 
-    # bundle.sh 读 PLUGINS / EXTRA_COPY
+    if out_dir.strip():
+        od = out_dir.strip().replace("\\", "/")
+        if len(od) >= 2 and od[1] == ":":
+            env["OUT_DIR"] = wsl.win_to_wsl(out_dir.strip())
+        else:
+            env["OUT_DIR"] = od
+
+    # bundle.sh 读 PLUGINS / EXTRA_COPY / BUNDLE_DIR(由 OUT_DIR 推导)
     script = (
         f"sed -i 's/\\r$//' '{tk_w}/tools/cross_build.sh' '{tk_w}/tools/bundle.sh' && "
         f"bash '{tk_w}/tools/cross_build.sh'"

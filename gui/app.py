@@ -149,7 +149,7 @@ class App(tk.Tk):
         ttk.Label(proj, text="产物目录", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
         ttk.Entry(proj, textvariable=self.out_dir).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=4)
         ttk.Button(proj, text="浏览…", command=self._browse_out_dir).grid(row=2, column=2, padx=2)
-        ttk.Label(proj, text="可空=默认工程下 dist/arm64-kylin", style="Muted.TLabel").grid(
+        ttk.Label(proj, text="压缩包放这里；可空=工程下 dist/arm64-kylin", style="Muted.TLabel").grid(
             row=3, column=1, sticky=tk.W, padx=8, pady=(0, 2)
         )
         proj.columnconfigure(1, weight=1)
@@ -388,7 +388,7 @@ class App(tk.Tk):
         init = self.out_dir.get().strip() or self.project.get().strip() or os.path.expanduser("~")
         if init and not Path(init).is_dir():
             init = self.project.get().strip() or os.path.expanduser("~")
-        d = filedialog.askdirectory(title="选择产物目录（如 dist/arm64-kylin）", initialdir=init)
+        d = filedialog.askdirectory(title="选择产物目录（压缩包放置位置）", initialdir=init)
         if d:
             self.out_dir.set(d)
 
@@ -928,6 +928,7 @@ class App(tk.Tk):
                 extra_pkgconfig=self.extra_pkg.get(),
                 extra_copy=self.extra_copy.get(),
                 use_ffmpeg=bool(self.use_ffmpeg.get()),
+                out_dir=self.out_dir.get().strip(),
                 distro=self.distro.get().strip() or wsl.DEFAULT_DISTRO,
                 on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
             )

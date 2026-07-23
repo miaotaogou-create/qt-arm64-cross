@@ -200,6 +200,10 @@ if [[ "${DO_BUNDLE}" == "1" ]]; then
   export PROJECT APP_NAME OUT_BIN ROOTFS QT_PREFIX
   export PLUGINS="${PLUGINS:-platforms/libqxcb.so platforms/libqoffscreen.so}"
   export EXTRA_COPY="${EXTRA_COPY:-}"
+  # OUT_DIR：产物压缩包所在目录（相对 PROJECT 或绝对路径）；空则 dist/arm64-kylin
+  if [[ -n "${OUT_DIR:-}" ]]; then
+    export BUNDLE_DIR="${OUT_DIR%/}/${APP_NAME}"
+  fi
   bash "${TOOLKIT}/tools/bundle.sh"
 fi
 
