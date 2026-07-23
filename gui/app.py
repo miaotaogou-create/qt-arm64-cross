@@ -156,9 +156,6 @@ class App(tk.Tk):
         ttk.Label(proj, text="产物目录", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
         ttk.Entry(proj, textvariable=self.out_dir).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=4)
         ttk.Button(proj, text="浏览…", command=self._browse_out_dir).grid(row=2, column=2, padx=2)
-        ttk.Label(proj, text="压缩包放这里；可空=工程下 dist/arm64-kylin", style="Muted.TLabel").grid(
-            row=3, column=1, sticky=tk.W, padx=8, pady=(0, 2)
-        )
         proj.columnconfigure(1, weight=1)
 
         opts = card(top, "选项")
@@ -409,10 +406,23 @@ class App(tk.Tk):
 
     def _set_project(self, path: str) -> None:
         self.project.set(path)
+        self.build_file.set("")  # 强制刷新时按新工程重选
         self._refresh_build_files()
+        self._reset_out_dir_if_foreign()
         # 不覆盖已记住的共享目录；仅在空时自动填
         if not self.share_dir.get().strip():
             self._fill_share_from_project()
+
+    def _reset_out_dir_if_foreign(self) -> None:
+        """产物目录若不属于当前工程，清空（换工程后常残留上一份路径）。"""
+        proj = self.project.get().strip()
+        out = self.out_dir.get().strip()
+        if not proj or not out:
+            return
+        try:
+            Path(out).resolve().relative_to(Path(proj).resolve())
+        except (ValueError, OSError):
+            self.out_dir.set("")
 
     def _browse_project(self) -> None:
         d = filedialog.askdirectory(initialdir=self.project.get() or os.path.expanduser("~"))
@@ -680,14 +690,23 @@ class App(tk.Tk):
         self._persist_after = self.after(400, self._persist)
 
     def _refresh_build_files(self) -> None:
-        files = buildmod.discover_build_files(self.project.get())
+        files = buildmod.discover_build_files(self.project.get().strip())
         values = [f"{k}: {p}" for k, p in files]
         self.build_combo["values"] = values
-        if values and not self.build_file.get():
+        if not values:
+            self.build_file.set("")
+            return
+        cur = self.build_file.get().strip()
+        # 旧工程残留的构建文件不在新列表里时，自动选第一项
+        if cur not in values:
+            self.build_file.set(values[0])
+            cur = values[0]
+        try:
+            self.build_combo.current(values.index(cur))
+        except (ValueError, tk.TclError):
             self.build_combo.current(0)
-            self._parse_build_combo()
-        elif self.build_file.get():
-            self._parse_build_combo()
+        self._parse_build_combo()
+        self._reset_out_dir_if_foreign()
 
     def _parse_build_combo(self) -> tuple[str, str]:
         raw = self.build_file.get().strip()
