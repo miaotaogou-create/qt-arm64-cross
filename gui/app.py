@@ -341,10 +341,6 @@ class App(tk.Tk):
         self._set_http_dot(True)
         self._persist()
         self._append_log(f"[http] 共享已启动: {directory}")
-        from crosskit.httpshare import ethernet_ipv4
-
-        from crosskit.httpshare import ethernet_ipv4
-
         eth = ethernet_ipv4()
         if eth:
             self._append_log(f"[http] 以太网地址: {primary}")
