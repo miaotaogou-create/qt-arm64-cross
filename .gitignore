@@ -1,0 +1,20 @@
+# 本地设置与缓存
+.qt-arm64-cross/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 示例编译产物
+examples/**/bin/
+examples/**/tmp/
+examples/**/build-arm64/
+examples/**/dist/
+examples/**/Makefile*
+examples/**/.qmake.stash
+examples/**/moc_*.cpp
+examples/**/qrc_*.cpp
+
+# 编辑器
+.vscode/
+.idea/
+*.user
