@@ -119,7 +119,8 @@ class App(tk.Tk):
         ttk.Label(foot, textvariable=self.status, style="Status.TLabel").pack(side=tk.LEFT)
         ttk.Label(foot, textvariable=self.activity, style="Status.TLabel").pack(side=tk.LEFT, padx=(16, 0))
         self._progress = ttk.Progressbar(foot, mode="indeterminate", length=140, style="Busy.Horizontal.TProgressbar")
-        self._progress.pack(side=tk.RIGHT, padx=(8, 0))
+        # 空闲不显示：clam 停住的不确定进度条会残留一截色块
+        self._progress_visible = False
 
     def _build_tab_compile(self, parent: ttk.Frame) -> None:
         """日常：选工程 → 编译 → 看日志。"""
@@ -622,6 +623,9 @@ class App(tk.Tk):
         except tk.TclError:
             pass
         if busy:
+            if not self._progress_visible:
+                self._progress.pack(side=tk.RIGHT, padx=(8, 0))
+                self._progress_visible = True
             try:
                 self._progress.start(12)
             except tk.TclError:
@@ -633,6 +637,9 @@ class App(tk.Tk):
                 self._progress.stop()
             except tk.TclError:
                 pass
+            if self._progress_visible:
+                self._progress.pack_forget()
+                self._progress_visible = False
             self._stop_pulse()
             self.activity.set("")
             if "共享" in text:
