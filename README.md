@@ -27,10 +27,12 @@ Windows GUI + WSL `Ubuntu-20.04`，把任意 Qt 工程（`.pro` / `CMakeLists.tx
 
 ### 换机 / 发给同事（推荐）
 
-环境太大，**不打进 exe**。交付两样东西即可：
+环境太大，**不打进 exe / 不进 git 仓库**。交付两样东西即可：
 
-1. `QtArm64Cross.exe`
-2. 环境包（在本机 GUI「交叉编译环境包」→ **导出环境包**，得到 `.tar.gz`）
+1. `QtArm64Cross.exe`（仓库根目录，或自行 `.\build_exe.ps1`）
+2. 环境包 [`Ubuntu-20.04-cross-env.tar.gz`](https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/env-ubuntu-20.04)（约 1.8 GB，GitHub Release）
+
+也可在本机 GUI「交叉编译环境包」→ **导出环境包** 自行再打一份。
 
 对方机器：
 
