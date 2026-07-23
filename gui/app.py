@@ -11,7 +11,7 @@ from crosskit import build as buildmod
 from crosskit import detect, envpack, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, guess_share_dir
 from gui.chrome import TitleChrome
-from gui.theme import C, apply_theme, card, make_scrollable, mono_font, primary_button, ui_font
+from gui.theme import C, apply_theme, card, make_scrollable, mono_font, primary_button
 
 
 class App(tk.Tk):
