@@ -309,7 +309,7 @@ class App(tk.Tk):
         pad = ttk.Frame(inner, style="TFrame")
         pad.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
 
-        share = card(pad, "HTTP 共享（给客户机下载运行包）")
+        share = card(pad, "HTTP 共享")
         share.pack(fill=tk.X)
         ttk.Label(share, text="共享目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
         ttk.Entry(share, textvariable=self.share_dir).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
