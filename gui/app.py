@@ -9,7 +9,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from crosskit import build as buildmod
 from crosskit import detect, envpack, settings, wsl, wsl_setup
-from crosskit.httpshare import DirectoryShare, guess_share_dir
+from crosskit.httpshare import DirectoryShare, ethernet_ipv4, guess_share_dir
 from gui.chrome import TitleChrome
 from gui.theme import C, EqualTabs, apply_theme, card, make_scrollable, mono_font, primary_button
 
@@ -341,6 +341,8 @@ class App(tk.Tk):
         self._set_http_dot(True)
         self._persist()
         self._append_log(f"[http] 共享已启动: {directory}")
+        from crosskit.httpshare import ethernet_ipv4
+
         from crosskit.httpshare import ethernet_ipv4
 
         eth = ethernet_ipv4()
