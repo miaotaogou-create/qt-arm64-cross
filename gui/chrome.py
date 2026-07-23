@@ -11,6 +11,11 @@ user32 = ctypes.windll.user32
 GWL_EXSTYLE = -20
 WS_EX_APPWINDOW = 0x00040000
 WS_EX_TOOLWINDOW = 0x00000080
+SWP_NOSIZE = 0x0001
+SWP_NOMOVE = 0x0002
+SWP_NOZORDER = 0x0004
+SWP_FRAMECHANGED = 0x0020
+SWP_SHOWWINDOW = 0x0040
 
 
 def _hwnd(root: tk.Tk) -> int:
@@ -21,14 +26,23 @@ def _hwnd(root: tk.Tk) -> int:
 
 
 def show_in_taskbar(root: tk.Tk) -> None:
-    """overrideredirect 后仍出现在任务栏。"""
+    """overrideredirect 后仍出现在任务栏。
+
+    注意：不要用 withdraw/deiconify 刷新——会触发 Map 循环导致任务栏狂闪。
+    """
     hwnd = _hwnd(root)
     style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
     style = (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW
     user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
-    # 刷新壳层
-    root.withdraw()
-    root.after(20, root.deiconify)
+    user32.SetWindowPos(
+        hwnd,
+        0,
+        0,
+        0,
+        0,
+        0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW,
+    )
 
 
 class TitleChrome:
@@ -42,10 +56,11 @@ class TitleChrome:
         self._maximized = False
         self._restore_geom = ""
         self._chrome_btns: list[tk.Label] = []
+        self._map_guard = False
+        self._taskbar_ready = False
 
     def build(self, parent: tk.Misc) -> tk.Frame:
         self.root.overrideredirect(True)
-        # 外圈细边，避免无边框时贴边难辨
         self.root.configure(highlightthickness=1, highlightbackground=C["header_bot"], highlightcolor=C["header_bot"])
 
         header = tk.Frame(parent, bg=C["header_top"], height=56)
@@ -56,7 +71,6 @@ class TitleChrome:
         bar = tk.Frame(header, bg=C["header_top"])
         bar.pack(fill=tk.BOTH, expand=True)
 
-        # 左侧品牌
         left = tk.Frame(bar, bg=C["header_top"])
         left.pack(side=tk.LEFT, fill=tk.Y, padx=(16, 8), pady=8)
         mark = tk.Canvas(left, width=28, height=28, bg=C["header_top"], highlightthickness=0)
@@ -80,7 +94,6 @@ class TitleChrome:
             font=ui_font(8),
         ).pack(anchor=tk.W)
 
-        # 右侧：状态 + 窗控
         right = tk.Frame(bar, bg=C["header_top"])
         right.pack(side=tk.RIGHT, fill=tk.Y)
 
@@ -101,17 +114,21 @@ class TitleChrome:
         self._btn_max = self._chrome_btn(winbtns, "□", self.toggle_max)
         self._btn_close = self._chrome_btn(winbtns, "✕", self.on_close, hover_bg="#DC2626", hover_fg="#FFFFFF")
 
-        # 拖拽区域（排除按钮）
         for w in (header, bar, left, titles, mark, *titles.winfo_children()):
             self._bind_drag(w)
 
         self.root.bind("<Map>", self._on_map)
-        self.root.after(50, lambda: show_in_taskbar(self.root))
+        self.root.after(80, self._init_taskbar)
         self._add_resize_grip()
         return header
 
+    def _init_taskbar(self) -> None:
+        if self._taskbar_ready:
+            return
+        show_in_taskbar(self.root)
+        self._taskbar_ready = True
+
     def _add_resize_grip(self) -> None:
-        """无边框窗口右下角缩放。"""
         grip = tk.Label(
             self.root,
             text="◢",
@@ -189,25 +206,32 @@ class TitleChrome:
         self.root.geometry(f"+{x}+{y}")
 
     def minimize(self) -> None:
-        # overrideredirect 下 iconify 需短暂恢复边框
+        self._map_guard = True
         self.root.overrideredirect(False)
         self.root.iconify()
+        self.root.after(100, lambda: setattr(self, "_map_guard", False))
 
     def _on_map(self, _event=None) -> None:
-        if self.root.state() == "normal":
+        # 从最小化恢复：只恢复无边框，禁止再 withdraw/deiconify
+        if self._map_guard:
+            return
+        if self.root.state() != "normal":
+            return
+        if not self.root.overrideredirect():
+            self._map_guard = True
             self.root.overrideredirect(True)
             show_in_taskbar(self.root)
+            self.root.after(100, lambda: setattr(self, "_map_guard", False))
 
     def toggle_max(self) -> None:
         if not self._maximized:
             self._restore_geom = self.root.geometry()
-            # 工作区（排除任务栏）
             try:
+
                 class RECT(ctypes.Structure):
                     _fields_ = [("l", wintypes.LONG), ("t", wintypes.LONG), ("r", wintypes.LONG), ("b", wintypes.LONG)]
 
                 rect = RECT()
-                # SPI_GETWORKAREA = 0x0030
                 ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0)
                 w = rect.r - rect.l
                 h = rect.b - rect.t
