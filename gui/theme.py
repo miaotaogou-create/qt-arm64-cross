@@ -169,6 +169,19 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         bordercolor=C["border"],
         arrowcolor=C["muted"],
     )
+    style.configure("TNotebook", background=C["bg"], borderwidth=0)
+    style.configure(
+        "TNotebook.Tab",
+        background=C["surface2"],
+        foreground=C["muted"],
+        padding=(18, 8),
+        font=ui_font(10),
+    )
+    style.map(
+        "TNotebook.Tab",
+        background=[("selected", C["surface"])],
+        foreground=[("selected", C["primary"])],
+    )
     return style
 
 
@@ -179,3 +192,41 @@ def card(parent: tk.Misc, title: str) -> ttk.LabelFrame:
 
 def primary_button(parent: tk.Misc, text: str, command) -> ttk.Button:
     return ttk.Button(parent, text=text, command=command, style="Primary.TButton")
+
+
+def make_scrollable(parent: tk.Misc):
+    """可垂直滚动的内容区。返回 (inner_frame, sync_scroll)。"""
+    wrap = ttk.Frame(parent, style="TFrame")
+    wrap.pack(fill=tk.BOTH, expand=True)
+    canvas = tk.Canvas(wrap, bg=C["bg"], highlightthickness=0, bd=0)
+    vsb = ttk.Scrollbar(wrap, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=vsb.set)
+    vsb.pack(side=tk.RIGHT, fill=tk.Y)
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    inner = ttk.Frame(canvas, style="TFrame")
+    win = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+    def _sync_scroll(_event=None) -> None:
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    def _sync_width(event) -> None:
+        canvas.itemconfigure(win, width=event.width)
+
+    inner.bind("<Configure>", _sync_scroll)
+    canvas.bind("<Configure>", _sync_width)
+
+    def _wheel(event) -> None:
+        # Windows: event.delta 为 ±120 的倍数
+        if event.delta:
+            canvas.yview_scroll(int(-event.delta / 120), "units")
+
+    def _bind_wheel(_e=None) -> None:
+        canvas.bind_all("<MouseWheel>", _wheel)
+
+    def _unbind_wheel(_e=None) -> None:
+        canvas.unbind_all("<MouseWheel>")
+
+    canvas.bind("<Enter>", _bind_wheel)
+    canvas.bind("<Leave>", _unbind_wheel)
+    return inner, _sync_scroll

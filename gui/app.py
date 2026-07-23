@@ -11,15 +11,15 @@ from crosskit import build as buildmod
 from crosskit import detect, envpack, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, guess_share_dir
 from gui.chrome import TitleChrome
-from gui.theme import C, apply_theme, card, mono_font, primary_button, ui_font
+from gui.theme import C, apply_theme, card, make_scrollable, mono_font, primary_button, ui_font
 
 
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Qt ARM64 交叉编译工具")
-        self.geometry("1040x820")
-        self.minsize(900, 680)
+        self.geometry("980x720")
+        self.minsize(820, 560)
         self._busy = False
         self._share = DirectoryShare()
         self._advanced_open = False
@@ -61,18 +61,40 @@ class App(tk.Tk):
         self.after(600, self._maybe_resume_pending_import)
 
     def _build_ui(self) -> None:
-        # --- 自定义标题栏（与主题一体，去掉系统白顶栏）---
         self._chrome = TitleChrome(self, on_close=self._on_close)
         self._chrome.build(self)
         self._status_pill = self._chrome.status_pill
         self._status_pill.configure(textvariable=self.header_status)
 
-        body = ttk.Frame(self, style="TFrame")
-        body.pack(fill=tk.BOTH, expand=True, padx=16, pady=12)
+        shell = ttk.Frame(self, style="TFrame")
+        shell.pack(fill=tk.BOTH, expand=True, padx=12, pady=(8, 0))
 
-        # --- 工程 ---
-        proj = card(body, "工程")
-        proj.pack(fill=tk.X, pady=(0, 10))
+        nb = ttk.Notebook(shell)
+        nb.pack(fill=tk.BOTH, expand=True)
+        self._nb = nb
+
+        tab_build = ttk.Frame(nb, style="TFrame")
+        tab_env = ttk.Frame(nb, style="TFrame")
+        tab_share = ttk.Frame(nb, style="TFrame")
+        nb.add(tab_build, text="  编译  ")
+        nb.add(tab_env, text="  环境准备  ")
+        nb.add(tab_share, text="  下载共享  ")
+
+        self._build_tab_compile(tab_build)
+        self._build_tab_env(tab_env)
+        self._build_tab_share(tab_share)
+
+        foot = ttk.Frame(self)
+        foot.pack(fill=tk.X, padx=14, pady=(4, 8))
+        ttk.Label(foot, textvariable=self.status, style="Status.TLabel").pack(side=tk.LEFT)
+
+    def _build_tab_compile(self, parent: ttk.Frame) -> None:
+        """日常：选工程 → 编译 → 看日志。"""
+        top = ttk.Frame(parent, style="TFrame")
+        top.pack(fill=tk.X, padx=10, pady=(10, 0))
+
+        proj = card(top, "工程")
+        proj.pack(fill=tk.X, pady=(0, 8))
         ttk.Label(proj, text="工程目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
         ttk.Entry(proj, textvariable=self.project).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
         ttk.Button(proj, text="浏览…", command=self._browse_project).grid(row=0, column=2, padx=2)
@@ -89,117 +111,63 @@ class App(tk.Tk):
         self.build_combo = ttk.Combobox(proj, textvariable=self.build_file)
         self.build_combo.grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
         ttk.Button(proj, text="刷新", command=self._refresh_build_files).grid(row=1, column=2, padx=2)
-
-        ttk.Label(proj, text="构建系统", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
-        sysf = ttk.Frame(proj, style="Card.TFrame")
-        sysf.grid(row=2, column=1, sticky=tk.W, padx=8)
-        for v, t in (("auto", "自动"), ("qmake", "qmake"), ("cmake", "CMake")):
-            ttk.Radiobutton(sysf, text=t, value=v, variable=self.build_system).pack(side=tk.LEFT, padx=(0, 12))
         proj.columnconfigure(1, weight=1)
 
-        # --- 选项 ---
-        opts = card(body, "编译选项")
-        opts.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(opts, text="应用名", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(opts, textvariable=self.app_name, width=18).grid(row=0, column=1, sticky=tk.W, padx=6)
-        ttk.Label(opts, text="产物路径", style="Card.TLabel").grid(row=0, column=2, sticky=tk.W, padx=(12, 0))
-        ttk.Entry(opts, textvariable=self.out_bin, width=28).grid(row=0, column=3, sticky=tk.W, padx=6)
-        ttk.Label(opts, text="并行 -j", style="Card.TLabel").grid(row=0, column=4, sticky=tk.W, padx=(12, 0))
-        ttk.Spinbox(opts, from_=0, to=64, textvariable=self.jobs, width=5).grid(row=0, column=5, sticky=tk.W, padx=6)
-        ttk.Label(opts, text="0 = 自动", style="Muted.TLabel").grid(row=0, column=6, sticky=tk.W)
-
+        opts = card(top, "选项")
+        opts.pack(fill=tk.X, pady=(0, 8))
         flags = ttk.Frame(opts, style="Card.TFrame")
-        flags.grid(row=1, column=0, columnspan=7, sticky=tk.W, pady=(6, 2))
-        ttk.Checkbutton(flags, text="打运行包", variable=self.do_bundle).pack(side=tk.LEFT, padx=(0, 16))
-        ttk.Checkbutton(flags, text="附加 FFmpeg", variable=self.use_ffmpeg).pack(side=tk.LEFT, padx=(0, 16))
-        self._adv_btn = ttk.Button(flags, text="高级选项 ▸", command=self._toggle_advanced, style="Accent.TButton")
+        flags.pack(fill=tk.X)
+        ttk.Checkbutton(flags, text="打运行包", variable=self.do_bundle).pack(side=tk.LEFT, padx=(0, 14))
+        ttk.Checkbutton(flags, text="附加 FFmpeg（app_mast 类工程）", variable=self.use_ffmpeg).pack(
+            side=tk.LEFT, padx=(0, 14)
+        )
+        self._adv_btn = ttk.Button(flags, text="高级 ▸", command=self._toggle_advanced, style="Accent.TButton")
         self._adv_btn.pack(side=tk.LEFT)
 
         self._adv = ttk.Frame(opts, style="Card.TFrame")
-        ttk.Label(self._adv, text="插件", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.plugins).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=3)
-        ttk.Label(self._adv, text="其他 pkg-config", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.extra_pkg).grid(row=1, column=1, sticky=tk.EW, padx=8, pady=3)
-        ttk.Label(self._adv, text="EXTRA_COPY", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.extra_copy).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=3)
-        ttk.Label(self._adv, text="发行版", style="Card.TLabel").grid(row=3, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.distro, width=22).grid(row=3, column=1, sticky=tk.W, padx=8, pady=3)
+        ttk.Label(self._adv, text="构建系统", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=3)
+        sysf = ttk.Frame(self._adv, style="Card.TFrame")
+        sysf.grid(row=0, column=1, sticky=tk.W, padx=8)
+        for v, t in (("auto", "自动"), ("qmake", "qmake"), ("cmake", "CMake")):
+            ttk.Radiobutton(sysf, text=t, value=v, variable=self.build_system).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Label(self._adv, text="应用名", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.app_name, width=18).grid(row=1, column=1, sticky=tk.W, padx=8)
+        ttk.Label(self._adv, text="产物路径", style="Card.TLabel").grid(row=1, column=2, sticky=tk.W, padx=(8, 0))
+        ttk.Entry(self._adv, textvariable=self.out_bin, width=24).grid(row=1, column=3, sticky=tk.W, padx=8)
+        ttk.Label(self._adv, text="并行 -j", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=3)
+        ttk.Spinbox(self._adv, from_=0, to=64, textvariable=self.jobs, width=5).grid(
+            row=2, column=1, sticky=tk.W, padx=8
+        )
+        ttk.Label(self._adv, text="0=自动", style="Muted.TLabel").grid(row=2, column=2, sticky=tk.W)
+        ttk.Label(self._adv, text="插件", style="Card.TLabel").grid(row=3, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.plugins).grid(
+            row=3, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
+        )
+        ttk.Label(self._adv, text="其他 pkg-config", style="Card.TLabel").grid(row=4, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.extra_pkg).grid(
+            row=4, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
+        )
+        ttk.Label(self._adv, text="EXTRA_COPY", style="Card.TLabel").grid(row=5, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.extra_copy).grid(
+            row=5, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
+        )
+        ttk.Label(self._adv, text="发行版", style="Card.TLabel").grid(row=6, column=0, sticky=tk.W, pady=3)
+        ttk.Entry(self._adv, textvariable=self.distro, width=22).grid(row=6, column=1, sticky=tk.W, padx=8, pady=3)
         self._adv.columnconfigure(1, weight=1)
 
-        # --- HTTP ---
-        share = card(body, "客户机下载 · HTTP 共享")
-        share.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(share, text="共享目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(share, textvariable=self.share_dir).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
-        ttk.Button(share, text="浏览…", command=self._browse_share).grid(row=0, column=2, padx=2)
-        ttk.Button(share, text="用产物目录", command=self._fill_share_from_project, style="Accent.TButton").grid(
-            row=0, column=3, padx=2
-        )
-
-        ttk.Label(share, text="端口", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
-        row1 = ttk.Frame(share, style="Card.TFrame")
-        row1.grid(row=1, column=1, columnspan=3, sticky=tk.EW, padx=8)
-        ttk.Spinbox(row1, from_=1, to=65535, textvariable=self.share_port, width=8).pack(side=tk.LEFT)
-        ttk.Button(row1, text="启动共享", command=self._share_start, style="Accent.TButton").pack(side=tk.LEFT, padx=(10, 4))
-        ttk.Button(row1, text="停止", command=self._share_stop).pack(side=tk.LEFT, padx=2)
-        ttk.Button(row1, text="复制地址", command=self._share_copy_url).pack(side=tk.LEFT, padx=2)
-
-        st = ttk.Frame(share, style="Card.TFrame")
-        st.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(6, 2))
-        self._http_dot = tk.Canvas(st, width=12, height=12, bg=C["surface"], highlightthickness=0)
-        self._http_dot.pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(st, text="客户机访问", style="Muted.TLabel").pack(side=tk.LEFT)
-        ttk.Label(st, textvariable=self.share_urls, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
-        share.columnconfigure(1, weight=1)
-
-        # --- 环境包（发给同事）---
-        envp = card(body, "交叉编译环境包 · 一键导入")
-        envp.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(
-            envp,
-            text="同事机：选环境包点「一键导入」即可（未开 WSL 会弹 UAC 自动启用；若需重启，重启后再开本工具会接着导入）。",
-            style="Muted.TLabel",
-        ).grid(row=0, column=0, columnspan=4, sticky=tk.W, pady=(0, 6))
-        ttk.Label(envp, text="导入安装目录", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(envp, textvariable=self.env_install_dir).grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
-        ttk.Button(envp, text="浏览…", command=self._browse_env_install).grid(row=1, column=2, padx=2)
-        row_env = ttk.Frame(envp, style="Card.TFrame")
-        row_env.grid(row=2, column=0, columnspan=4, sticky=tk.W, pady=6)
-        ttk.Checkbutton(
-            row_env,
-            text="导出时去掉 Qt 源码缓存（可选）",
-            variable=self.env_slim,
-        ).pack(side=tk.LEFT, padx=(0, 12))
-        ttk.Checkbutton(row_env, text="覆盖已有同名发行版", variable=self.env_replace).pack(side=tk.LEFT, padx=(0, 12))
-        ttk.Button(row_env, text="导出环境包…", command=self._on_export_env).pack(side=tk.LEFT, padx=4)
-        ttk.Button(row_env, text="一键导入环境包…", command=self._on_import_env, style="Primary.TButton").pack(
-            side=tk.LEFT, padx=4
-        )
-        envp.columnconfigure(1, weight=1)
-
-        # --- 操作条 ---
-        actions = ttk.Frame(body)
-        actions.pack(fill=tk.X, pady=(0, 10))
+        actions = ttk.Frame(top)
+        actions.pack(fill=tk.X, pady=(0, 8))
         primary_button(actions, "▶  交叉编译", self._on_build).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(actions, text="检测环境", command=self._on_detect).pack(side=tk.LEFT, padx=3)
         ttk.Button(actions, text="打开产物", command=self._open_out).pack(side=tk.LEFT, padx=3)
-        ttk.Button(actions, text="安装工具链", command=lambda: self._on_install("setup_cross_focal.sh")).pack(
-            side=tk.LEFT, padx=3
-        )
-        ttk.Button(actions, text="编译 Qt 5.14.2", command=lambda: self._on_install("build_qt5142_arm64_cross.sh")).pack(
-            side=tk.LEFT, padx=3
-        )
         ttk.Button(actions, text="复制日志", command=self._copy_log).pack(side=tk.RIGHT, padx=3)
-        ttk.Button(actions, text="清空日志", command=lambda: self.log.delete("1.0", tk.END)).pack(side=tk.RIGHT, padx=3)
+        ttk.Button(actions, text="清空", command=lambda: self.log.delete("1.0", tk.END)).pack(side=tk.RIGHT, padx=3)
 
-        # --- 环境 / 日志 ---
-        mid = ttk.Frame(body)
-        mid.pack(fill=tk.BOTH, expand=True)
-        env_card = card(mid, "环境状态")
-        env_card.pack(fill=tk.X, pady=(0, 10))
+        env_card = card(top, "环境状态")
+        env_card.pack(fill=tk.X, pady=(0, 8))
         self.env_box = tk.Text(
             env_card,
-            height=4,
+            height=3,
             wrap=tk.WORD,
             bg=C["surface2"],
             fg=C["text"],
@@ -214,8 +182,8 @@ class App(tk.Tk):
         )
         self.env_box.pack(fill=tk.X)
 
-        log_card = card(mid, "构建日志")
-        log_card.pack(fill=tk.BOTH, expand=True)
+        log_card = card(parent, "构建日志")
+        log_card.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
         log_wrap = tk.Frame(log_card, bg=C["log_border"])
         log_wrap.pack(fill=tk.BOTH, expand=True)
         self.log = tk.Text(
@@ -235,18 +203,106 @@ class App(tk.Tk):
         self.log.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        foot = ttk.Frame(self)
-        foot.pack(fill=tk.X, padx=16, pady=(0, 10))
-        ttk.Label(foot, textvariable=self.status, style="Status.TLabel").pack(side=tk.LEFT)
+    def _build_tab_env(self, parent: ttk.Frame) -> None:
+        """换机 / 首次：导入环境包、检测、从零装工具链。"""
+        inner, _sync = make_scrollable(parent)
+        pad = ttk.Frame(inner, style="TFrame")
+        pad.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+
+        tip = card(pad, "怎么用")
+        tip.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(
+            tip,
+            text="同事机：下载环境包 → 点「一键导入」→ 检测环境 → 回「编译」页选工程即可。\n"
+            "未开 WSL 会弹 UAC 自动启用；若提示重启，重启后再开本工具会接着导入。",
+            style="Muted.TLabel",
+            justify=tk.LEFT,
+        ).pack(anchor=tk.W)
+
+        envp = card(pad, "交叉编译环境包")
+        envp.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(envp, text="安装目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(envp, textvariable=self.env_install_dir).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
+        ttk.Button(envp, text="浏览…", command=self._browse_env_install).grid(row=0, column=2, padx=2)
+
+        row = ttk.Frame(envp, style="Card.TFrame")
+        row.grid(row=1, column=0, columnspan=3, sticky=tk.EW, pady=(10, 4))
+        primary_button(row, "一键导入环境包…", self._on_import_env).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(row, text="导出环境包…", command=self._on_export_env).pack(side=tk.LEFT, padx=4)
+        ttk.Button(row, text="检测环境", command=self._on_detect).pack(side=tk.LEFT, padx=4)
+
+        opts = ttk.Frame(envp, style="Card.TFrame")
+        opts.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
+        ttk.Checkbutton(opts, text="导出时去掉 Qt 源码缓存", variable=self.env_slim).pack(side=tk.LEFT, padx=(0, 14))
+        ttk.Checkbutton(opts, text="覆盖已有同名发行版", variable=self.env_replace).pack(side=tk.LEFT)
+        envp.columnconfigure(1, weight=1)
+
+        rare = card(pad, "从零搭建（一般不用）")
+        rare.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(
+            rare,
+            text="已有环境包请直接导入。仅在无包、需本机重新编译工具链/Qt 时使用。",
+            style="Muted.TLabel",
+        ).pack(anchor=tk.W, pady=(0, 8))
+        row2 = ttk.Frame(rare, style="Card.TFrame")
+        row2.pack(anchor=tk.W)
+        ttk.Button(row2, text="安装工具链", command=lambda: self._on_install("setup_cross_focal.sh")).pack(
+            side=tk.LEFT, padx=(0, 6)
+        )
+        ttk.Button(
+            row2, text="编译 Qt 5.14.2", command=lambda: self._on_install("build_qt5142_arm64_cross.sh")
+        ).pack(side=tk.LEFT, padx=6)
+
+        ttk.Label(pad, text="检测结果与构建日志在「编译」页查看。", style="Status.TLabel").pack(
+            anchor=tk.W, pady=(4, 0)
+        )
+
+    def _build_tab_share(self, parent: ttk.Frame) -> None:
+        inner, _sync = make_scrollable(parent)
+        pad = ttk.Frame(inner, style="TFrame")
+        pad.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+
+        share = card(pad, "HTTP 共享（给客户机下载运行包）")
+        share.pack(fill=tk.X)
+        ttk.Label(share, text="共享目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(share, textvariable=self.share_dir).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
+        ttk.Button(share, text="浏览…", command=self._browse_share).grid(row=0, column=2, padx=2)
+        ttk.Button(share, text="用产物目录", command=self._fill_share_from_project, style="Accent.TButton").grid(
+            row=0, column=3, padx=2
+        )
+
+        ttk.Label(share, text="端口", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
+        row1 = ttk.Frame(share, style="Card.TFrame")
+        row1.grid(row=1, column=1, columnspan=3, sticky=tk.EW, padx=8)
+        ttk.Spinbox(row1, from_=1, to=65535, textvariable=self.share_port, width=8).pack(side=tk.LEFT)
+        ttk.Button(row1, text="启动共享", command=self._share_start, style="Accent.TButton").pack(
+            side=tk.LEFT, padx=(10, 4)
+        )
+        ttk.Button(row1, text="停止", command=self._share_stop).pack(side=tk.LEFT, padx=2)
+        ttk.Button(row1, text="复制地址", command=self._share_copy_url).pack(side=tk.LEFT, padx=2)
+
+        st = ttk.Frame(share, style="Card.TFrame")
+        st.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(8, 2))
+        self._http_dot = tk.Canvas(st, width=12, height=12, bg=C["surface"], highlightthickness=0)
+        self._http_dot.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(st, text="客户机访问", style="Muted.TLabel").pack(side=tk.LEFT)
+        ttk.Label(st, textvariable=self.share_urls, style="Card.TLabel").pack(side=tk.LEFT, padx=8)
+        share.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            pad,
+            text="启动后把地址发给客户机，用浏览器或 wget 下载 .tar.gz 运行包。",
+            style="Muted.TLabel",
+        ).pack(anchor=tk.W, pady=(10, 0))
 
     def _toggle_advanced(self) -> None:
         self._advanced_open = not self._advanced_open
         if self._advanced_open:
-            self._adv.grid(row=2, column=0, columnspan=7, sticky=tk.EW, pady=(8, 0))
-            self._adv_btn.configure(text="高级选项 ▾")
+            self._adv.pack(fill=tk.X, pady=(8, 0))
+            self._adv_btn.configure(text="高级 ▾")
         else:
-            self._adv.grid_forget()
-            self._adv_btn.configure(text="高级选项 ▸")
+            self._adv.pack_forget()
+            self._adv_btn.configure(text="高级 ▸")
 
     def _set_http_dot(self, on: bool) -> None:
         self._http_dot.delete("all")
@@ -482,6 +538,9 @@ class App(tk.Tk):
         self._start_import(archive, install_dir, distro, replace)
 
     def _start_import(self, archive: str, install_dir: str, distro: str, replace: bool) -> None:
+        if hasattr(self, "_nb"):
+            self._nb.select(0)  # 日志在编译页
+
         def work() -> None:
             self._set_busy(True, "准备 WSL / 导入环境…")
             code = envpack.import_distro(
@@ -579,6 +638,8 @@ class App(tk.Tk):
                         lines.append(f"      → {it.fix}")
                 self.env_box.insert(tk.END, "\n".join(lines) or "(无结果)")
                 self._set_busy(False, "环境就绪" if report.ready else "环境不完整")
+                if hasattr(self, "_nb"):
+                    self._nb.select(0)
 
             self.after(0, ui)
 

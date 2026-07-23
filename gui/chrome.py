@@ -17,6 +17,11 @@ SWP_NOZORDER = 0x0004
 SWP_FRAMECHANGED = 0x0020
 SWP_SHOWWINDOW = 0x0040
 
+# 窗控统一尺寸（避免 Unicode 字形粗细不一致）
+_BTN_W = 46
+_BTN_H = 40
+_ICON = 10  # 半宽，图标约 20×20
+
 
 def _hwnd(root: tk.Tk) -> int:
     root.update_idletasks()
@@ -45,6 +50,25 @@ def show_in_taskbar(root: tk.Tk) -> None:
     )
 
 
+def _paint_icon(cv: tk.Canvas, kind: str, color: str) -> None:
+    """用相同线宽画最小化 / 最大化 / 还原 / 关闭。"""
+    cv.delete("icon")
+    cx, cy = _BTN_W // 2, _BTN_H // 2
+    s = _ICON
+    w = 1.6
+    if kind == "min":
+        cv.create_line(cx - s, cy + 1, cx + s, cy + 1, fill=color, width=w, tags="icon")
+    elif kind == "max":
+        cv.create_rectangle(cx - s, cy - s, cx + s, cy + s, outline=color, width=w, tags="icon")
+    elif kind == "restore":
+        # 两层方框，视觉重量与 max 接近
+        cv.create_rectangle(cx - s + 3, cy - s - 1, cx + s + 1, cy + s - 3, outline=color, width=w, tags="icon")
+        cv.create_rectangle(cx - s - 1, cy - s + 3, cx + s - 3, cy + s + 1, outline=color, width=w, fill=C["header_top"], tags="icon")
+    elif kind == "close":
+        cv.create_line(cx - s, cy - s, cx + s, cy + s, fill=color, width=w, tags="icon")
+        cv.create_line(cx + s, cy - s, cx - s, cy + s, fill=color, width=w, tags="icon")
+
+
 class TitleChrome:
     """把青绿顶栏变成可拖动的自定义标题栏。"""
 
@@ -55,15 +79,15 @@ class TitleChrome:
         self._drag_y = 0
         self._maximized = False
         self._restore_geom = ""
-        self._chrome_btns: list[tk.Label] = []
         self._map_guard = False
         self._taskbar_ready = False
+        self._max_kind = "max"
 
     def build(self, parent: tk.Misc) -> tk.Frame:
         self.root.overrideredirect(True)
         self.root.configure(highlightthickness=1, highlightbackground=C["header_bot"], highlightcolor=C["header_bot"])
 
-        header = tk.Frame(parent, bg=C["header_top"], height=56)
+        header = tk.Frame(parent, bg=C["header_top"], height=52)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         tk.Frame(header, bg=C["header_bot"], height=2).pack(side=tk.BOTTOM, fill=tk.X)
@@ -72,11 +96,11 @@ class TitleChrome:
         bar.pack(fill=tk.BOTH, expand=True)
 
         left = tk.Frame(bar, bg=C["header_top"])
-        left.pack(side=tk.LEFT, fill=tk.Y, padx=(16, 8), pady=8)
-        mark = tk.Canvas(left, width=28, height=28, bg=C["header_top"], highlightthickness=0)
+        left.pack(side=tk.LEFT, fill=tk.Y, padx=(14, 8), pady=6)
+        mark = tk.Canvas(left, width=26, height=26, bg=C["header_top"], highlightthickness=0)
         mark.pack(side=tk.LEFT, padx=(0, 10))
-        mark.create_oval(2, 2, 26, 26, fill=C["accent_soft"], outline=C["accent_soft"])
-        mark.create_text(14, 14, text="Q", fill=C["primary"], font=ui_font(11, "bold"))
+        mark.create_oval(1, 1, 25, 25, fill=C["accent_soft"], outline=C["accent_soft"])
+        mark.create_text(13, 13, text="Q", fill=C["primary"], font=ui_font(10, "bold"))
         titles = tk.Frame(left, bg=C["header_top"])
         titles.pack(side=tk.LEFT, fill=tk.Y)
         tk.Label(
@@ -84,11 +108,11 @@ class TitleChrome:
             text="Qt ARM64 交叉编译",
             bg=C["header_top"],
             fg="#FFFFFF",
-            font=ui_font(13, "bold"),
+            font=ui_font(12, "bold"),
         ).pack(anchor=tk.W)
         tk.Label(
             titles,
-            text="Windows · WSL Ubuntu-20.04 · 麒麟 ARM64",
+            text="选工程 → 编译 · 换机导入环境包",
             bg=C["header_top"],
             fg="#99F6E4",
             font=ui_font(8),
@@ -106,13 +130,15 @@ class TitleChrome:
             padx=10,
             pady=3,
         )
-        self.status_pill.pack(side=tk.LEFT, padx=(0, 12), pady=12)
+        self.status_pill.pack(side=tk.LEFT, padx=(0, 8), pady=10)
 
         winbtns = tk.Frame(right, bg=C["header_top"])
-        winbtns.pack(side=tk.RIGHT, padx=(0, 4))
-        self._btn_min = self._chrome_btn(winbtns, "─", self.minimize)
-        self._btn_max = self._chrome_btn(winbtns, "□", self.toggle_max)
-        self._btn_close = self._chrome_btn(winbtns, "✕", self.on_close, hover_bg="#DC2626", hover_fg="#FFFFFF")
+        winbtns.pack(side=tk.RIGHT)
+        self._btn_min = self._chrome_btn(winbtns, "min", self.minimize)
+        self._btn_max = self._chrome_btn(winbtns, "max", self.toggle_max)
+        self._btn_close = self._chrome_btn(
+            winbtns, "close", self.on_close, hover_bg="#DC2626", hover_fg="#FFFFFF"
+        )
 
         for w in (header, bar, left, titles, mark, *titles.winfo_children()):
             self._bind_drag(w)
@@ -161,31 +187,51 @@ class TitleChrome:
         grip.bind("<ButtonPress-1>", start)
         grip.bind("<B1-Motion>", move)
 
-    def _chrome_btn(self, parent, text, cmd, hover_bg=None, hover_fg=None) -> tk.Label:
+    def _chrome_btn(self, parent, kind: str, cmd, hover_bg=None, hover_fg=None) -> tk.Canvas:
         hover_bg = hover_bg or C["header_bot"]
         hover_fg = hover_fg or "#FFFFFF"
-        lab = tk.Label(
+        idle_fg = "#E2E8F0"
+        cv = tk.Canvas(
             parent,
-            text=text,
+            width=_BTN_W,
+            height=_BTN_H,
             bg=C["header_top"],
-            fg="#E2E8F0",
-            width=4,
-            font=ui_font(10),
+            highlightthickness=0,
             cursor="hand2",
         )
-        lab.pack(side=tk.LEFT, fill=tk.Y, ipady=14)
+        cv.pack(side=tk.LEFT, fill=tk.Y)
+        _paint_icon(cv, kind, idle_fg)
+        cv._icon_kind = kind  # type: ignore[attr-defined]
 
         def enter(_e, b=hover_bg, f=hover_fg):
-            lab.configure(bg=b, fg=f)
+            cv.configure(bg=b)
+            k = getattr(cv, "_icon_kind", kind)
+            # 还原图标底色要跟悬停底一致
+            if k == "restore":
+                cv.delete("icon")
+                cx, cy = _BTN_W // 2, _BTN_H // 2
+                s = _ICON
+                w = 1.6
+                cv.create_rectangle(cx - s + 3, cy - s - 1, cx + s + 1, cy + s - 3, outline=f, width=w, tags="icon")
+                cv.create_rectangle(
+                    cx - s - 1, cy - s + 3, cx + s - 3, cy + s + 1, outline=f, width=w, fill=b, tags="icon"
+                )
+            else:
+                _paint_icon(cv, k, f)
 
         def leave(_e):
-            lab.configure(bg=C["header_top"], fg="#E2E8F0")
+            cv.configure(bg=C["header_top"])
+            _paint_icon(cv, getattr(cv, "_icon_kind", kind), idle_fg)
 
-        lab.bind("<Enter>", enter)
-        lab.bind("<Leave>", leave)
-        lab.bind("<Button-1>", lambda _e: cmd())
-        self._chrome_btns.append(lab)
-        return lab
+        cv.bind("<Enter>", enter)
+        cv.bind("<Leave>", leave)
+        cv.bind("<Button-1>", lambda _e: cmd())
+        return cv
+
+    def _set_max_icon(self, kind: str) -> None:
+        self._max_kind = kind
+        self._btn_max._icon_kind = kind  # type: ignore[attr-defined]
+        _paint_icon(self._btn_max, kind, "#E2E8F0")
 
     def _bind_drag(self, widget: tk.Misc) -> None:
         widget.bind("<ButtonPress-1>", self._start_drag)
@@ -212,7 +258,6 @@ class TitleChrome:
         self.root.after(100, lambda: setattr(self, "_map_guard", False))
 
     def _on_map(self, _event=None) -> None:
-        # 从最小化恢复：只恢复无边框，禁止再 withdraw/deiconify
         if self._map_guard:
             return
         if self.root.state() != "normal":
@@ -239,12 +284,12 @@ class TitleChrome:
             except Exception:
                 self.root.state("zoomed")
             self._maximized = True
-            self._btn_max.configure(text="❐")
+            self._set_max_icon("restore")
         else:
             if self._restore_geom:
                 self.root.geometry(self._restore_geom)
             self._maximized = False
-            self._btn_max.configure(text="□")
+            self._set_max_icon("max")
 
     def set_status(self, text: str, bg: str, fg: str) -> None:
         self.status_pill.configure(text=text, bg=bg, fg=fg)
