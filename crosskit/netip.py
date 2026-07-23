@@ -67,38 +67,43 @@ def mask_to_prefix(mask_or_prefix: str) -> int:
 
 def list_ethernet_adapters() -> list[EthAdapter]:
     """物理有线网卡 + 其上的 IPv4。"""
-    ps = r"""
+    # 写 UTF-8 临时文件，避开控制台代码页把「以太网」弄成乱码
+    fd, tmp = tempfile.mkstemp(prefix="qtarm64-eth-", suffix=".json")
+    os.close(fd)
+    tmp_path = Path(tmp)
+    ps_tmp = str(tmp_path).replace("'", "''")
+    ps = rf"""
 $ErrorActionPreference = 'SilentlyContinue'
 $out = @()
-Get-NetAdapter -Physical | Where-Object {
+Get-NetAdapter -Physical | Where-Object {{
   $_.MediaType -eq '802.3' -or $_.NdisPhysicalMedium -eq '802.3'
-} | ForEach-Object {
+}} | ForEach-Object {{
   $a = $_
-  $ips = @(Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4 | Where-Object {
+  $ips = @(Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4 | Where-Object {{
     $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*'
-  } | ForEach-Object { @{ address = $_.IPAddress; prefix = [int]$_.PrefixLength } })
-  $out += @{
+  }} | ForEach-Object {{ @{{ address = $_.IPAddress; prefix = [int]$_.PrefixLength }} }})
+  $out += @{{
     name = $a.Name
     ifIndex = [int]$a.ifIndex
     status = [string]$a.Status
     ips = $ips
-  }
-}
-$out | ConvertTo-Json -Compress -Depth 4
+  }}
+}}
+$json = if ($out.Count -eq 0) {{ '[]' }} else {{ ($out | ConvertTo-Json -Compress -Depth 4) }}
+[System.IO.File]::WriteAllText('{ps_tmp}', $json, (New-Object System.Text.UTF8Encoding $false))
 """
     try:
-        r = subprocess.run(
+        subprocess.run(
             ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps],
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=15,
             **wsl._hidden_kwargs(),
         )
-    except (OSError, subprocess.TimeoutExpired):
+        text = tmp_path.read_text(encoding="utf-8").strip()
+    except (OSError, subprocess.TimeoutExpired, UnicodeError):
         return []
-    text = (r.stdout or "").strip()
+    finally:
+        tmp_path.unlink(missing_ok=True)
     if not text:
         return []
     try:
@@ -117,9 +122,12 @@ $out | ConvertTo-Json -Compress -Depth 4
             for x in ips_raw
             if x.get("address") and _looks_ipv4(str(x.get("address")))
         ]
+        name = str(item.get("name") or "").strip()
+        if not name or "\ufffd" in name:
+            name = f"有线网卡#{int(item.get('ifIndex') or 0)}"
         adapters.append(
             EthAdapter(
-                name=str(item.get("name") or ""),
+                name=name,
                 if_index=int(item.get("ifIndex") or 0),
                 status=str(item.get("status") or ""),
                 ips=ips,
