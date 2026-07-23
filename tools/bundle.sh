@@ -22,9 +22,32 @@ cd "${PROJECT}"
 [[ -x "${OUT_BIN}" ]] || { echo "missing ${OUT_BIN}" >&2; exit 1; }
 
 rm -rf "${BUNDLE_DIR}"
-mkdir -p "${BUNDLE_DIR}/lib" "${BUNDLE_DIR}/plugins"
+mkdir -p "${BUNDLE_DIR}/lib" "${BUNDLE_DIR}/plugins" "${BUNDLE_DIR}/config"
 cp "${OUT_BIN}" "${BUNDLE_DIR}/${APP_NAME}"
 chmod 755 "${BUNDLE_DIR}/${APP_NAME}"
+
+# app_mast 类工程：皮肤与配置放在可执行文件同级（见 qmake POST_LINK / bundle_from_sysroot）
+if [[ -d theme ]]; then
+  cp -a theme "${BUNDLE_DIR}/"
+  log "已复制 theme/"
+fi
+if [[ -f src/core/config/app_config.json ]]; then
+  cp -f src/core/config/app_config.json "${BUNDLE_DIR}/config/app_config.json"
+  log "已复制 config/app_config.json"
+elif [[ -d config ]]; then
+  cp -a config/. "${BUNDLE_DIR}/config/"
+  log "已复制 config/"
+fi
+# 若编译输出目录旁已有 theme/config（POST_LINK 产物），一并带上
+out_dir="$(dirname "${OUT_BIN}")"
+if [[ -d "${out_dir}/theme" && ! -d "${BUNDLE_DIR}/theme" ]]; then
+  cp -a "${out_dir}/theme" "${BUNDLE_DIR}/"
+  log "已从 ${out_dir}/theme 复制"
+fi
+if [[ -f "${out_dir}/config/app_config.json" && ! -f "${BUNDLE_DIR}/config/app_config.json" ]]; then
+  cp -f "${out_dir}/config/app_config.json" "${BUNDLE_DIR}/config/app_config.json"
+  log "已从 ${out_dir}/config 复制"
+fi
 
 if [[ -n "${EXTRA_COPY}" ]]; then
   local_pair=
