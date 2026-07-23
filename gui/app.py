@@ -141,7 +141,7 @@ class App(tk.Tk):
         flags = ttk.Frame(opts, style="Card.TFrame")
         flags.pack(fill=tk.X)
         ttk.Checkbutton(flags, text="打运行包", variable=self.do_bundle).pack(side=tk.LEFT, padx=(0, 14))
-        ttk.Checkbutton(flags, text="附加 FFmpeg（app_mast 类工程）", variable=self.use_ffmpeg).pack(
+        ttk.Checkbutton(flags, text="附加 FFmpeg", variable=self.use_ffmpeg).pack(
             side=tk.LEFT, padx=(0, 14)
         )
         self._adv_btn = ttk.Button(flags, text="高级 ▸", command=self._toggle_advanced, style="Accent.TButton")
