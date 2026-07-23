@@ -11,7 +11,7 @@ from crosskit import build as buildmod
 from crosskit import detect, envpack, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
 from gui.chrome import TitleChrome
-from gui.theme import C, EqualTabs, apply_theme, card, make_scrollable, mono_font, primary_button
+from gui.theme import C, EqualTabs, action_button, apply_theme, card, make_scrollable, mono_font, primary_button
 
 
 class App(tk.Tk):
@@ -52,6 +52,10 @@ class App(tk.Tk):
         self.env_replace = tk.BooleanVar(value=bool(self._cfg.get("env_replace_on_import", False)))
         self.status = tk.StringVar(value="就绪")
         self.header_status = tk.StringVar(value="空闲")
+        self.activity = tk.StringVar(value="")
+        self._pulse_job: int | None = None
+        self._pulse_base = ""
+        self._pulse_n = 0
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         apply_theme(self)
@@ -103,6 +107,9 @@ class App(tk.Tk):
         foot = ttk.Frame(self)
         foot.pack(fill=tk.X, padx=14, pady=(4, 8))
         ttk.Label(foot, textvariable=self.status, style="Status.TLabel").pack(side=tk.LEFT)
+        ttk.Label(foot, textvariable=self.activity, style="Status.TLabel").pack(side=tk.LEFT, padx=(16, 0))
+        self._progress = ttk.Progressbar(foot, mode="indeterminate", length=140, style="Busy.Horizontal.TProgressbar")
+        self._progress.pack(side=tk.RIGHT, padx=(8, 0))
 
     def _build_tab_compile(self, parent: ttk.Frame) -> None:
         """日常：选工程 → 编译 → 看日志。"""
@@ -182,10 +189,10 @@ class App(tk.Tk):
         actions = ttk.Frame(top)
         actions.pack(fill=tk.X, pady=(0, 8))
         primary_button(actions, "▶  交叉编译", self._on_build).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(actions, text="检测环境", command=self._on_detect).pack(side=tk.LEFT, padx=3)
-        ttk.Button(actions, text="打开产物文件夹", command=self._open_out).pack(side=tk.LEFT, padx=3)
-        ttk.Button(actions, text="复制日志", command=self._copy_log).pack(side=tk.RIGHT, padx=3)
-        ttk.Button(actions, text="清空", command=lambda: self.log.delete("1.0", tk.END)).pack(side=tk.RIGHT, padx=3)
+        action_button(actions, "检测环境", self._on_detect).pack(side=tk.LEFT, padx=3)
+        action_button(actions, "打开产物文件夹", self._open_out).pack(side=tk.LEFT, padx=3)
+        action_button(actions, "复制日志", self._copy_log).pack(side=tk.RIGHT, padx=3)
+        action_button(actions, "清空", lambda: self.log.delete("1.0", tk.END)).pack(side=tk.RIGHT, padx=3)
 
         env_card = card(top, "环境状态")
         env_card.pack(fill=tk.X, pady=(0, 8))
@@ -252,8 +259,8 @@ class App(tk.Tk):
         row = ttk.Frame(envp, style="Card.TFrame")
         row.grid(row=1, column=0, columnspan=3, sticky=tk.EW, pady=(10, 4))
         primary_button(row, "一键导入环境包…", self._on_import_env).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(row, text="导出环境包…", command=self._on_export_env).pack(side=tk.LEFT, padx=4)
-        ttk.Button(row, text="检测环境", command=self._on_detect).pack(side=tk.LEFT, padx=4)
+        action_button(row, "导出环境包…", self._on_export_env).pack(side=tk.LEFT, padx=4)
+        action_button(row, "检测环境", self._on_detect).pack(side=tk.LEFT, padx=4)
 
         opts = ttk.Frame(envp, style="Card.TFrame")
         opts.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
@@ -299,10 +306,8 @@ class App(tk.Tk):
         row1 = ttk.Frame(share, style="Card.TFrame")
         row1.grid(row=1, column=1, columnspan=3, sticky=tk.EW, padx=8)
         ttk.Spinbox(row1, from_=1, to=65535, textvariable=self.share_port, width=8).pack(side=tk.LEFT)
-        ttk.Button(row1, text="启动共享", command=self._share_start, style="Accent.TButton").pack(
-            side=tk.LEFT, padx=(10, 4)
-        )
-        ttk.Button(row1, text="停止", command=self._share_stop).pack(side=tk.LEFT, padx=2)
+        action_button(row1, "启动共享", self._share_start, variant="accent").pack(side=tk.LEFT, padx=(10, 4))
+        action_button(row1, "停止", self._share_stop).pack(side=tk.LEFT, padx=2)
 
         # 地址区：两行三列对齐（标签 | 地址 | 按钮）
         box = ttk.Frame(share, style="Card.TFrame")
@@ -321,8 +326,8 @@ class App(tk.Tk):
         )
         btns_local = ttk.Frame(box, style="Card.TFrame")
         btns_local.grid(row=1, column=2, sticky=tk.E, pady=4)
-        ttk.Button(btns_local, text="打开", command=self._share_open_local, width=8).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btns_local, text="自检", command=self._share_probe_local, width=8).pack(side=tk.LEFT, padx=2)
+        action_button(btns_local, "打开", self._share_open_local).pack(side=tk.LEFT, padx=2)
+        action_button(btns_local, "自检", self._share_probe_local, variant="accent").pack(side=tk.LEFT, padx=2)
 
         ttk.Label(box, text="局域网地址", style="Card.TLabel", width=10).grid(row=2, column=0, sticky=tk.W, pady=4)
         ttk.Entry(box, textvariable=self.share_urls, state="readonly").grid(
@@ -330,7 +335,7 @@ class App(tk.Tk):
         )
         btns_lan = ttk.Frame(box, style="Card.TFrame")
         btns_lan.grid(row=2, column=2, sticky=tk.E, pady=4)
-        ttk.Button(btns_lan, text="复制", command=self._share_copy_url, width=8).pack(side=tk.LEFT, padx=2)
+        action_button(btns_lan, "复制", self._share_copy_url).pack(side=tk.LEFT, padx=2)
 
         share.columnconfigure(1, weight=1)
 
@@ -397,6 +402,8 @@ class App(tk.Tk):
                 self.out_dir.set(str(g))
 
     def _share_start(self) -> None:
+        if self._busy:
+            return
         if self._share.running:
             messagebox.showinfo("提示", "共享已在运行")
             return
@@ -405,37 +412,68 @@ class App(tk.Tk):
             messagebox.showerror("错误", "请先选择有效的共享目录（可用「用产物目录」）")
             return
         port = int(self.share_port.get() or 8080)
-        try:
-            self._share.start(directory, port)
-        except OSError as e:
-            messagebox.showerror("错误", f"无法监听端口 {port}: {e}")
-            return
-        ensure_firewall_allow(port, on_line=self._append_log)
-        primary = self._share.primary_url()
-        local = self._share.local_url()
-        self.share_urls.set(primary or "—")
-        self.share_local.set(local or f"http://127.0.0.1:{port}/")
-        self.share_state.set(f"运行中 · 端口 {port}")
-        self._set_http_dot(True)
-        self._persist()
-        self._append_log(f"[http] 共享已启动: {directory}")
-        self._append_log(f"[http] 本机测试: {local}")
-        eth = ethernet_ipv4()
-        if eth:
-            self._append_log(f"[http] 局域网地址: {primary}")
-        else:
-            self._append_log(f"[http] 未检测到有线网卡，局域网地址退回: {primary}")
-        ok, detail = self._share.probe_local()
-        self._append_log(f"[http] 本机自检: {detail}")
-        if not ok:
-            messagebox.showwarning(
-                "本机自检失败",
-                "服务已启动，但本机探测未通过。\n"
-                "若浏览器也打不开，请换端口（如 18080），并确认代理绕过 127.0.0.1。",
-            )
-        self._append_log("[http] 客户机示例: wget <局域网地址><包名>.tar.gz")
-        self._set_busy(False, f"HTTP 共享中 :{port}")
-        self.header_status.set(f"共享 :{port}")
+        self._set_busy(True, "启动共享…")
+        self._append_log(f"[http] 正在启动共享 :{port} …")
+        self.share_state.set("启动中…")
+        self.update_idletasks()
+
+        def work() -> None:
+            err: str | None = None
+            primary = local = ""
+            eth: list = []
+            ok, detail = False, ""
+            try:
+                self.after(0, lambda: self._append_log(f"[http] 监听目录: {directory}"))
+                self.after(0, lambda: self.share_state.set("启动中 · 监听端口…"))
+                self._share.start(directory, port)
+                self.after(0, lambda: self.share_state.set("启动中 · 防火墙…"))
+                self.after(0, lambda: self._append_log("[http] 尝试放行防火墙…"))
+                ensure_firewall_allow(
+                    port, on_line=lambda line: self.after(0, lambda l=line: self._append_log(l))
+                )
+                primary = self._share.primary_url()
+                local = self._share.local_url()
+                self.after(0, lambda: self.share_state.set("启动中 · 解析网卡…"))
+                self.after(0, lambda: self._append_log("[http] 解析局域网地址…"))
+                eth = ethernet_ipv4()
+                self.after(0, lambda: self.share_state.set("启动中 · 本机自检…"))
+                self.after(0, lambda: self._append_log("[http] 本机自检…"))
+                ok, detail = self._share.probe_local()
+            except OSError as e:
+                err = str(e)
+
+            def done() -> None:
+                if err:
+                    self._append_log(f"[http] 启动失败: {err}")
+                    self.share_state.set("未启动")
+                    self._set_busy(False, "共享启动失败")
+                    messagebox.showerror("错误", f"无法监听端口 {port}: {err}")
+                    return
+                self.share_urls.set(primary or "—")
+                self.share_local.set(local or f"http://127.0.0.1:{port}/")
+                self.share_state.set(f"运行中 · 端口 {port}")
+                self._set_http_dot(True)
+                self._persist()
+                self._append_log(f"[http] 共享已启动: {directory}")
+                self._append_log(f"[http] 本机测试: {local}")
+                if eth:
+                    self._append_log(f"[http] 局域网地址: {primary}")
+                else:
+                    self._append_log(f"[http] 未检测到有线网卡，局域网地址退回: {primary}")
+                self._append_log(f"[http] 本机自检: {detail}")
+                if not ok:
+                    messagebox.showwarning(
+                        "本机自检失败",
+                        "服务已启动，但本机探测未通过。\\n"
+                        "若浏览器也打不开，请换端口（如 18080），并确认代理绕过 127.0.0.1。",
+                    )
+                self._append_log("[http] 客户机示例: wget <局域网地址><包名>.tar.gz")
+                self._set_busy(False, f"HTTP 共享中 :{port}")
+                self.header_status.set(f"共享 :{port}")
+
+            self.after(0, done)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _share_stop(self) -> None:
         if not self._share.running:
@@ -535,27 +573,74 @@ class App(tk.Tk):
     def _append_log(self, line: str) -> None:
         self.log.insert(tk.END, line + "\n")
         self.log.see(tk.END)
+        # 底栏即时显示最近一条底层输出
+        short = line.strip()
+        if len(short) > 72:
+            short = short[:69] + "…"
+        self.activity.set(short)
+        try:
+            self.update_idletasks()
+        except tk.TclError:
+            pass
+
+    def _start_pulse(self, base: str) -> None:
+        self._stop_pulse()
+        self._pulse_base = base.rstrip(".")
+        self._pulse_n = 0
+
+        def tick() -> None:
+            self._pulse_n = (self._pulse_n % 3) + 1
+            dots = "." * self._pulse_n
+            self.status.set(f"{self._pulse_base}{dots}")
+            self.header_status.set(f"{self._pulse_base}{dots}")
+            self._pulse_job = self.after(400, tick)
+
+        tick()
+
+    def _stop_pulse(self) -> None:
+        if self._pulse_job is not None:
+            try:
+                self.after_cancel(self._pulse_job)
+            except Exception:
+                pass
+            self._pulse_job = None
 
     def _set_busy(self, busy: bool, msg: str = "") -> None:
         self._busy = busy
         text = msg or ("忙碌…" if busy else "就绪")
         self.status.set(text)
-        # 顶栏状态：与青绿标题栏同底，只改字色，避免浅色色块跳戏
+        try:
+            self.configure(cursor="watch" if busy else "")
+        except tk.TclError:
+            pass
         if busy:
-            self.header_status.set("工作中")
+            try:
+                self._progress.start(12)
+            except tk.TclError:
+                pass
+            self._start_pulse(text.rstrip("…").rstrip("."))
             self._status_pill.configure(bg=C["header_top"], fg="#FDE68A")
-        elif "共享" in text:
-            self.header_status.set(text.replace("HTTP ", ""))
-            self._status_pill.configure(bg=C["header_top"], fg="#99F6E4")
-        elif text.startswith("成功"):
-            self.header_status.set("成功")
-            self._status_pill.configure(bg=C["header_top"], fg="#86EFAC")
-        elif text.startswith("失败"):
-            self.header_status.set("失败")
-            self._status_pill.configure(bg=C["header_top"], fg="#FCA5A5")
         else:
-            self.header_status.set("空闲" if text == "就绪" else text)
-            self._status_pill.configure(bg=C["header_top"], fg="#99F6E4")
+            try:
+                self._progress.stop()
+            except tk.TclError:
+                pass
+            self._stop_pulse()
+            self.activity.set("")
+            if "共享" in text:
+                self.header_status.set(text.replace("HTTP ", ""))
+                self._status_pill.configure(bg=C["header_top"], fg="#99F6E4")
+            elif text.startswith("成功"):
+                self.header_status.set("成功")
+                self._status_pill.configure(bg=C["header_top"], fg="#86EFAC")
+            elif text.startswith("失败") or "失败" in text:
+                self.header_status.set("失败")
+                self._status_pill.configure(bg=C["header_top"], fg="#FCA5A5")
+            else:
+                self.header_status.set("空闲" if text == "就绪" else text)
+                self._status_pill.configure(bg=C["header_top"], fg="#99F6E4")
+            self.status.set(text)
+        self.update_idletasks()
 
     def _persist(self) -> None:
         kind, path = self._parse_build_combo()
@@ -751,10 +836,21 @@ class App(tk.Tk):
     def _on_detect(self) -> None:
         if self._busy:
             return
+        # 立刻切到编译页看日志，避免「半天没反应」
+        if hasattr(self, "_nb"):
+            self._nb.select(0)
+        self._set_busy(True, "检测环境")
+        self._append_log("==== 开始检测环境 ====")
+        self._append_log("[detect] 准备调用 WSL（可能稍慢，请看底栏进度）…")
+        self.env_box.delete("1.0", tk.END)
+        self.env_box.insert(tk.END, "检测中，请稍候…\n底层指令输出见下方构建日志与底栏。")
+        self.update_idletasks()
 
         def work() -> None:
-            self._set_busy(True, "检测中…")
-            report = detect.detect(self.distro.get().strip() or wsl.DEFAULT_DISTRO)
+            report = detect.detect(
+                self.distro.get().strip() or wsl.DEFAULT_DISTRO,
+                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+            )
 
             def ui() -> None:
                 self.env_box.delete("1.0", tk.END)
@@ -765,9 +861,8 @@ class App(tk.Tk):
                     if not it.ok and it.fix:
                         lines.append(f"      → {it.fix}")
                 self.env_box.insert(tk.END, "\n".join(lines) or "(无结果)")
+                self._append_log("==== 检测结束 ====")
                 self._set_busy(False, "环境就绪" if report.ready else "环境不完整")
-                if hasattr(self, "_nb"):
-                    self._nb.select(0)
 
             self.after(0, ui)
 

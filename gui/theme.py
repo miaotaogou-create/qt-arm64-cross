@@ -118,29 +118,49 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         background=C["surface"],
         foreground=C["text"],
         bordercolor=C["border_strong"],
+        lightcolor=C["surface"],
+        darkcolor=C["border_strong"],
         focusthickness=1,
         focuscolor=C["accent_soft"],
         padding=(12, 7),
         font=ui_font(9),
+        relief="raised",
     )
     style.map(
         "TButton",
-        background=[("active", C["accent_soft"]), ("pressed", C["border"])],
-        bordercolor=[("active", C["primary"])],
+        background=[
+            ("pressed", "#99F6E4"),
+            ("active", C["accent_soft"]),
+            ("disabled", C["surface2"]),
+        ],
+        foreground=[("pressed", C["header_bot"]), ("active", C["primary"])],
+        bordercolor=[("pressed", C["primary"]), ("active", C["primary"])],
+        lightcolor=[("pressed", C["primary"]), ("active", C["accent_soft"])],
+        darkcolor=[("pressed", C["header_bot"]), ("active", C["primary"])],
+        relief=[("pressed", "sunken"), ("!pressed", "raised")],
     )
 
     style.configure(
         "Primary.TButton",
         background=C["primary"],
         foreground=C["primary_fg"],
-        bordercolor=C["primary"],
+        bordercolor=C["header_bot"],
+        lightcolor=C["primary_hover"],
+        darkcolor=C["header_bot"],
         padding=(18, 9),
         font=ui_font(10, "bold"),
+        relief="raised",
     )
     style.map(
         "Primary.TButton",
-        background=[("active", C["primary_hover"]), ("pressed", C["header_bot"])],
-        foreground=[("disabled", "#99A")],
+        background=[
+            ("pressed", C["header_bot"]),
+            ("active", C["primary_hover"]),
+            ("disabled", "#94A3B8"),
+        ],
+        foreground=[("disabled", "#E2E8F0")],
+        bordercolor=[("pressed", "#042F2E"), ("active", C["header_bot"])],
+        relief=[("pressed", "sunken"), ("!pressed", "raised")],
     )
 
     style.configure(
@@ -148,8 +168,26 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         background=C["accent_soft"],
         foreground=C["primary"],
         bordercolor=C["primary"],
+        lightcolor="#E6FFFB",
+        darkcolor=C["primary"],
         padding=(12, 7),
         font=ui_font(9, "bold"),
+        relief="raised",
+    )
+    style.map(
+        "Accent.TButton",
+        background=[
+            ("pressed", C["primary"]),
+            ("active", "#99F6E4"),
+            ("disabled", C["surface2"]),
+        ],
+        foreground=[
+            ("pressed", "#FFFFFF"),
+            ("active", C["header_bot"]),
+            ("disabled", C["muted"]),
+        ],
+        bordercolor=[("pressed", C["header_bot"]), ("active", C["primary"])],
+        relief=[("pressed", "sunken"), ("!pressed", "raised")],
     )
 
     style.configure("TCheckbutton", background=C["surface"], foreground=C["text"], font=ui_font(9))
@@ -169,6 +207,14 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         bordercolor=C["border"],
         arrowcolor=C["muted"],
     )
+    style.configure(
+        "Busy.Horizontal.TProgressbar",
+        troughcolor=C["surface2"],
+        background=C["primary"],
+        bordercolor=C["border"],
+        lightcolor=C["primary_hover"],
+        darkcolor=C["header_bot"],
+    )
     return style
 
 
@@ -177,8 +223,94 @@ def card(parent: tk.Misc, title: str) -> ttk.LabelFrame:
     return box
 
 
-def primary_button(parent: tk.Misc, text: str, command) -> ttk.Button:
-    return ttk.Button(parent, text=text, command=command, style="Primary.TButton")
+def action_button(parent: tk.Misc, text: str, command, *, variant: str = "normal") -> tk.Button:
+    """带 hover / 按下 / 松开视觉反馈的按钮（比 ttk 在 Windows 上更可靠）。"""
+    palettes = {
+        "normal": {
+            "bg": C["surface"],
+            "fg": C["text"],
+            "hover": C["accent_soft"],
+            "press": "#99F6E4",
+            "press_fg": C["header_bot"],
+            "bd": C["border_strong"],
+        },
+        "primary": {
+            "bg": C["primary"],
+            "fg": C["primary_fg"],
+            "hover": C["primary_hover"],
+            "press": C["header_bot"],
+            "press_fg": "#FFFFFF",
+            "bd": C["header_bot"],
+        },
+        "accent": {
+            "bg": C["accent_soft"],
+            "fg": C["primary"],
+            "hover": "#99F6E4",
+            "press": C["primary"],
+            "press_fg": "#FFFFFF",
+            "bd": C["primary"],
+        },
+    }
+    p = palettes.get(variant, palettes["normal"])
+    btn = tk.Button(
+        parent,
+        text=text,
+        command=command,
+        bg=p["bg"],
+        fg=p["fg"],
+        activebackground=p["press"],
+        activeforeground=p["press_fg"],
+        relief="flat",
+        bd=1,
+        highlightthickness=1,
+        highlightbackground=p["bd"],
+        highlightcolor=p["bd"],
+        padx=14,
+        pady=6,
+        font=ui_font(9, "bold" if variant != "normal" else "normal"),
+        cursor="hand2",
+    )
+
+    def enter(_e=None):
+        if str(btn["state"]) == "disabled":
+            return
+        btn.configure(bg=p["hover"], fg=p["fg"] if variant != "accent" else C["header_bot"])
+
+    def leave(_e=None):
+        if str(btn["state"]) == "disabled":
+            return
+        btn.configure(bg=p["bg"], fg=p["fg"])
+
+    def press(_e=None):
+        if str(btn["state"]) == "disabled":
+            return
+        btn.configure(bg=p["press"], fg=p["press_fg"], relief="sunken")
+
+    def release(_e=None):
+        if str(btn["state"]) == "disabled":
+            return
+        btn.configure(relief="flat")
+        # 仍在按钮上则回到 hover，否则还原
+        try:
+            x, y = btn.winfo_pointerxy()
+            wx, wy = btn.winfo_rootx(), btn.winfo_rooty()
+            inside = wx <= x <= wx + btn.winfo_width() and wy <= y <= wy + btn.winfo_height()
+        except tk.TclError:
+            inside = False
+        if inside:
+            enter()
+        else:
+            leave()
+
+    btn.bind("<Enter>", enter)
+    btn.bind("<Leave>", leave)
+    btn.bind("<ButtonPress-1>", press)
+    btn.bind("<ButtonRelease-1>", release)
+    return btn
+
+
+def primary_button(parent: tk.Misc, text: str, command) -> tk.Button:
+    return action_button(parent, text, command, variant="primary")
 
 
 class EqualTabs:
