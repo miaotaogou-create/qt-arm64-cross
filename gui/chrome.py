@@ -126,13 +126,13 @@ class TitleChrome:
         self.status_pill = tk.Label(
             right,
             text="空闲",
-            bg=C["accent_soft"],
-            fg=C["primary"],
-            font=ui_font(9, "bold"),
-            padx=10,
-            pady=3,
+            bg=C["header_top"],
+            fg="#99F6E4",
+            font=ui_font(9),
+            padx=8,
+            pady=2,
         )
-        self.status_pill.pack(side=tk.LEFT, padx=(0, 8), pady=10)
+        self.status_pill.pack(side=tk.LEFT, padx=(0, 10), pady=12)
 
         winbtns = tk.Frame(right, bg=C["header_top"])
         winbtns.pack(side=tk.RIGHT, padx=(0, 6), pady=12)
@@ -292,5 +292,10 @@ class TitleChrome:
             self._maximized = False
             self._set_max_icon("max")
 
-    def set_status(self, text: str, bg: str, fg: str) -> None:
-        self.status_pill.configure(text=text, bg=bg, fg=fg)
+    def set_status(self, text: str, bg: str | None = None, fg: str | None = None) -> None:
+        """顶栏状态：默认融进标题栏，勿用浅色色块。"""
+        self.status_pill.configure(
+            text=text,
+            bg=bg or C["header_top"],
+            fg=fg or "#99F6E4",
+        )

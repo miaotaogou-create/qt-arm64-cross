@@ -408,21 +408,22 @@ class App(tk.Tk):
         self._busy = busy
         text = msg or ("忙碌…" if busy else "就绪")
         self.status.set(text)
+        # 顶栏状态：与青绿标题栏同底，只改字色，避免浅色色块跳戏
         if busy:
             self.header_status.set("工作中")
-            self._status_pill.configure(bg="#FEF3C7", fg=C["warn"])
+            self._status_pill.configure(bg=C["header_top"], fg="#FDE68A")
         elif "共享" in text:
             self.header_status.set(text.replace("HTTP ", ""))
-            self._status_pill.configure(bg=C["accent_soft"], fg=C["primary"])
+            self._status_pill.configure(bg=C["header_top"], fg="#99F6E4")
         elif text.startswith("成功"):
             self.header_status.set("成功")
-            self._status_pill.configure(bg="#DCFCE7", fg=C["ok"])
+            self._status_pill.configure(bg=C["header_top"], fg="#86EFAC")
         elif text.startswith("失败"):
             self.header_status.set("失败")
-            self._status_pill.configure(bg="#FEE2E2", fg=C["err"])
+            self._status_pill.configure(bg=C["header_top"], fg="#FCA5A5")
         else:
             self.header_status.set("空闲" if text == "就绪" else text)
-            self._status_pill.configure(bg=C["accent_soft"], fg=C["primary"])
+            self._status_pill.configure(bg=C["header_top"], fg="#99F6E4")
 
     def _persist(self) -> None:
         kind, path = self._parse_build_combo()
