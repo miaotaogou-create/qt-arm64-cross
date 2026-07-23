@@ -31,6 +31,11 @@ DEFAULTS: dict[str, Any] = {
     "env_install_dir": "",
     "env_slim_export": False,
     "env_replace_on_import": False,
+    # 启用 WSL 后需重启时，记住导入参数以便下次自动继续
+    "pending_import_archive": "",
+    "pending_import_dir": "",
+    "pending_import_distro": "",
+    "pending_import_replace": False,
 }
 
 

@@ -36,10 +36,10 @@ Windows GUI + WSL `Ubuntu-20.04`，把任意 Qt 工程（`.pro` / `CMakeLists.tx
 
 对方机器：
 
-1. 已启用 WSL2（`wsl --status` 能跑）
-2. 双击 exe → **导入环境包** → 选中该 `.tar.gz`
-3. 点 **检测环境**，确认交叉编译器 / sysroot / Qt 为 OK
-4. 打开工程目录交叉编译；编 **app_mast 同类**（Qt Widgets + FFmpeg）时勾选「附加 FFmpeg」
+1. 双击 `QtArm64Cross.exe` → **一键导入环境包** → 选中该 `.tar.gz`
+2. 若尚未启用 WSL，会弹出 UAC，点「是」即可自动启用；若提示需重启，重启后再开本工具会接着导入
+3. 导入完成后点 **检测环境**（成功时也会自动检测）
+4. 打开工程交叉编译；编 **app_mast 同类**（Qt Widgets + FFmpeg）时勾选「附加 FFmpeg」
 
 导出默认是**完整环境**（与本机已验证工具链一致：交叉编译器、`/opt/arm64-rootfs`、已安装的 Qt 前缀、sysroot 内 FFmpeg）。可选勾选去掉 `/opt/qt5142-cross`（仅当初编 Qt 的源码缓存，不影响交叉编译）。
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from crosskit import build as buildmod
-from crosskit import detect, envpack, settings, wsl
+from crosskit import detect, envpack, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, guess_share_dir
 from gui.chrome import TitleChrome
 from gui.theme import C, apply_theme, card, mono_font, primary_button, ui_font
@@ -58,6 +58,7 @@ class App(tk.Tk):
         if not self.share_dir.get():
             self._fill_share_from_project()
         self._set_http_dot(False)
+        self.after(600, self._maybe_resume_pending_import)
 
     def _build_ui(self) -> None:
         # --- 自定义标题栏（与主题一体，去掉系统白顶栏）---
@@ -152,11 +153,11 @@ class App(tk.Tk):
         share.columnconfigure(1, weight=1)
 
         # --- 环境包（发给同事）---
-        envp = card(body, "交叉编译环境包 · 导出 / 导入")
+        envp = card(body, "交叉编译环境包 · 一键导入")
         envp.pack(fill=tk.X, pady=(0, 10))
         ttk.Label(
             envp,
-            text="给同事：QtArm64Cross.exe + 本环境包。导入后即可交叉编译 app_mast 这类 Qt+FFmpeg 工程。",
+            text="同事机：选环境包点「一键导入」即可（未开 WSL 会弹 UAC 自动启用；若需重启，重启后再开本工具会接着导入）。",
             style="Muted.TLabel",
         ).grid(row=0, column=0, columnspan=4, sticky=tk.W, pady=(0, 6))
         ttk.Label(envp, text="导入安装目录", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
@@ -166,14 +167,12 @@ class App(tk.Tk):
         row_env.grid(row=2, column=0, columnspan=4, sticky=tk.W, pady=6)
         ttk.Checkbutton(
             row_env,
-            text="导出时去掉 Qt 源码缓存（可选，减小体积；交叉编译照常用）",
+            text="导出时去掉 Qt 源码缓存（可选）",
             variable=self.env_slim,
         ).pack(side=tk.LEFT, padx=(0, 12))
-        ttk.Checkbutton(row_env, text="导入时覆盖已有同名发行版", variable=self.env_replace).pack(side=tk.LEFT, padx=(0, 12))
-        ttk.Button(row_env, text="导出环境包…", command=self._on_export_env, style="Accent.TButton").pack(
-            side=tk.LEFT, padx=4
-        )
-        ttk.Button(row_env, text="导入环境包…", command=self._on_import_env, style="Primary.TButton").pack(
+        ttk.Checkbutton(row_env, text="覆盖已有同名发行版", variable=self.env_replace).pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Button(row_env, text="导出环境包…", command=self._on_export_env).pack(side=tk.LEFT, padx=4)
+        ttk.Button(row_env, text="一键导入环境包…", command=self._on_import_env, style="Primary.TButton").pack(
             side=tk.LEFT, padx=4
         )
         envp.columnconfigure(1, weight=1)
@@ -462,40 +461,105 @@ class App(tk.Tk):
             messagebox.showerror("错误", "请填写导入安装目录")
             return
         replace = bool(self.env_replace.get())
-        if wsl.distro_exists(distro) and not replace:
-            messagebox.showerror(
-                "错误",
-                f"本机已有发行版 {distro}。\n勾选「导入时覆盖已有同名发行版」或先改高级选项里的发行版名。",
-            )
-            return
-        if not messagebox.askokcancel(
-            "导入环境包",
-            f"将导入为 WSL 发行版「{distro}」\n安装到：{install_dir}\n"
-            + ("会先注销已有同名发行版。\n" if replace else "")
-            + "对方机器需已启用 WSL2。继续？",
-        ):
+        # 傻瓜式：同名已存在且未勾选覆盖 → 直接问要不要覆盖
+        if wsl_setup.wsl_usable() and wsl.distro_exists(distro) and not replace:
+            if messagebox.askyesno(
+                "已有同名环境",
+                f"本机已有发行版「{distro}」。\n是否覆盖后重新导入？",
+            ):
+                replace = True
+                self.env_replace.set(True)
+            else:
+                return
+        tip = (
+            "将自动：启用 WSL（如需要）→ 导入交叉环境。\n"
+            f"发行版：{distro}\n安装到：{install_dir}\n"
+            "启用 WSL 时可能弹出 UAC，请点「是」。\n继续？"
+        )
+        if not messagebox.askokcancel("一键导入环境包", tip):
             return
         self._persist()
+        self._start_import(archive, install_dir, distro, replace)
 
+    def _start_import(self, archive: str, install_dir: str, distro: str, replace: bool) -> None:
         def work() -> None:
-            self._set_busy(True, "导入环境包…")
+            self._set_busy(True, "准备 WSL / 导入环境…")
             code = envpack.import_distro(
                 archive,
                 install_dir,
                 distro=distro,
                 replace=replace,
                 set_default=True,
+                auto_enable_wsl=True,
                 on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
             )
-            self.after(
-                0,
-                lambda: (
-                    self._append_log(f"[env] 导入结束 exit={code}"),
-                    self._set_busy(False, "导入成功" if code == 0 else f"导入失败 exit={code}"),
-                ),
-            )
+
+            def done() -> None:
+                self._append_log(f"[env] 导入结束 exit={code}")
+                if code == 2:
+                    settings.save(
+                        {
+                            "pending_import_archive": archive,
+                            "pending_import_dir": install_dir,
+                            "pending_import_distro": distro,
+                            "pending_import_replace": replace,
+                        }
+                    )
+                    self._set_busy(False, "请重启后再打开本工具")
+                    messagebox.showinfo(
+                        "需要重启",
+                        "已尝试启用 WSL，但需要重启 Windows 一次才能继续。\n\n"
+                        "请重启电脑，然后重新打开本工具——会自动接着导入刚才选中的环境包。",
+                    )
+                elif code == 0:
+                    self._clear_pending_import()
+                    self._set_busy(False, "导入成功")
+                    messagebox.showinfo("导入成功", "环境已导入。建议点「检测环境」确认，然后即可交叉编译。")
+                    self._on_detect()
+                else:
+                    self._set_busy(False, f"导入失败 exit={code}")
+                    messagebox.showerror("导入失败", "请查看下方日志。若取消了 UAC，请再点一次「一键导入」。")
+
+            self.after(0, done)
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _clear_pending_import(self) -> None:
+        settings.save(
+            {
+                "pending_import_archive": "",
+                "pending_import_dir": "",
+                "pending_import_distro": "",
+                "pending_import_replace": False,
+            }
+        )
+
+    def _maybe_resume_pending_import(self) -> None:
+        cfg = settings.load()
+        archive = (cfg.get("pending_import_archive") or "").strip()
+        if not archive:
+            return
+        install_dir = (cfg.get("pending_import_dir") or "").strip() or self.env_install_dir.get().strip()
+        distro = (cfg.get("pending_import_distro") or "").strip() or (
+            self.distro.get().strip() or wsl.DEFAULT_DISTRO
+        )
+        replace = bool(cfg.get("pending_import_replace", False))
+        if not Path(archive).is_file():
+            self._append_log(f"[env] 待续导入的环境包已不存在: {archive}")
+            self._clear_pending_import()
+            return
+        if not messagebox.askyesno(
+            "继续导入",
+            "检测到上次因启用 WSL 需要重启，导入尚未完成。\n\n"
+            f"环境包：{archive}\n是否现在继续导入？",
+        ):
+            if messagebox.askyesno("放弃", "是否清除「待续导入」记录？（以后需手动再选文件）"):
+                self._clear_pending_import()
+            return
+        self.env_install_dir.set(install_dir)
+        self.distro.set(distro)
+        self.env_replace.set(replace)
+        self._start_import(archive, install_dir, distro, replace)
 
     def _on_detect(self) -> None:
         if self._busy:

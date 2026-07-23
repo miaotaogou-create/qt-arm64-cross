@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import wsl
+from . import wsl, wsl_setup
 
 
 def run_stream(args: list[str], on_line=None) -> int:
@@ -116,18 +116,33 @@ def import_distro(
     distro: str = wsl.DEFAULT_DISTRO,
     replace: bool = False,
     set_default: bool = True,
+    auto_enable_wsl: bool = True,
     on_line=None,
 ) -> int:
-    """从 .tar / .tar.gz 导入发行版。"""
+    """从 .tar / .tar.gz 导入发行版。
+
+    返回码：0 成功；2 需重启后再导入；其它失败。
+    """
     archive = Path(archive)
     install_dir = Path(install_dir)
     if not archive.is_file():
         if on_line:
             on_line(f"[env] 找不到环境包: {archive}")
         return 1
-    if not wsl.wsl_available():
+
+    if auto_enable_wsl:
+        st, msg = wsl_setup.ensure_wsl(on_line=on_line)
+        if st == "needs_reboot":
+            if on_line:
+                on_line(f"[env] {msg}")
+            return 2
+        if st != "ready":
+            if on_line:
+                on_line(f"[env] {msg}")
+            return 1
+    elif not wsl_setup.wsl_usable():
         if on_line:
-            on_line("[env] 未找到 wsl。请先在「启用或关闭 Windows 功能」中打开适用于 Linux 的 Windows 子系统 / 虚拟机平台，或执行: wsl --install")
+            on_line("[env] WSL 不可用。请点导入以自动启用，或手动执行: wsl --install --no-distribution")
         return 1
 
     if wsl.distro_exists(distro):
