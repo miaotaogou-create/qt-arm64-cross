@@ -1,4 +1,4 @@
-﻿"""搴旂敤鐗堟湰鍙凤紙鎵撳寘鑴氭湰浼氭敼鍐?BUILD锛夈€?""
+"""App version (BUILD rewritten by build_exe.ps1)."""
 
 VERSION = "1.1.0"
-BUILD = "2026.8.3+03d2918"
+BUILD = "2026.8.3+d0f4767"

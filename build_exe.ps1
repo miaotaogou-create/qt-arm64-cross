@@ -25,12 +25,13 @@ $gitHash = "nogit"
 try { $gitHash = (git -C $root rev-parse --short HEAD 2>$null).Trim() } catch {}
 if (-not $gitHash) { $gitHash = "nogit" }
 $verFile = Join-Path $root "crosskit\app_version.py"
-@"
-"""应用版本号（打包脚本会改写 BUILD）。"""
+$verBody = @"
+"""App version (BUILD rewritten by build_exe.ps1)."""
 
 VERSION = "1.1.0"
 BUILD = "$verDate+$gitHash"
-"@ | Set-Content -Path $verFile -Encoding utf8
+"@
+[System.IO.File]::WriteAllText($verFile, $verBody + "`n", [System.Text.UTF8Encoding]::new($false))
 
 $runPy = Join-Path $root "run.py"
 $toolsDir = Join-Path $root "tools"
