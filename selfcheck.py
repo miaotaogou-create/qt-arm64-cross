@@ -18,7 +18,10 @@ from crosskit.wsl import parse_distro_names, win_to_wsl
 def main() -> None:
     w = win_to_wsl(r"C:\ZYL\workspace\projects\qt-arm64-cross")
     assert w == r"/mnt/c/ZYL/workspace/projects/qt-arm64-cross", w
-    assert detect.toolkit_root() == ROOT, detect.toolkit_root()
+    # tools 镜像到 LocalAppData，根下应有 cross_build.sh
+    tk = detect.toolkit_root()
+    assert (tk / "tools" / "cross_build.sh").is_file(), tk
+    assert (tk / "tools" / "env_check.sh").is_file(), tk
 
     # 发行版名按行精确匹配，避免 Ubuntu-20.04 误中 Ubuntu-20.04-backup
     names = parse_distro_names("Ubuntu-20.04\r\nUbuntu-20.04-backup\n")

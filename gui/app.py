@@ -47,7 +47,9 @@ class App(tk.Tk):
         self.out_bin = tk.StringVar(value=self._cfg.get("out_bin", ""))
         self.jobs = tk.IntVar(value=int(self._cfg.get("jobs") or 0))
         self.do_bundle = tk.BooleanVar(value=bool(self._cfg.get("do_bundle", True)))
+        self.do_clean = tk.BooleanVar(value=bool(self._cfg.get("do_clean", False)))
         self.use_ffmpeg = tk.BooleanVar(value=bool(self._cfg.get("use_ffmpeg", False)))
+        self._env_banner_labels: list[tk.Label] = []
         self.plugins = tk.StringVar(value=self._cfg.get("plugins", ""))
         self.extra_pkg = tk.StringVar(value=self._cfg.get("extra_pkgconfig", ""))
         self.extra_copy = tk.StringVar(value=self._cfg.get("extra_copy", ""))
@@ -97,6 +99,7 @@ class App(tk.Tk):
             self.out_bin,
             self.jobs,
             self.do_bundle,
+            self.do_clean,
             self.use_ffmpeg,
             self.plugins,
             self.extra_pkg,
@@ -175,6 +178,7 @@ class App(tk.Tk):
         flags.pack(fill=tk.X)
         check_button(flags, "生成运行包", self.do_bundle).pack(side=tk.LEFT, padx=(0, 14))
         check_button(flags, "附加 FFmpeg", self.use_ffmpeg).pack(side=tk.LEFT, padx=(0, 14))
+        check_button(flags, "全量清理", self.do_clean).pack(side=tk.LEFT, padx=(0, 14))
         self._adv_btn = ttk.Button(flags, text="高级 ▸", command=self._toggle_advanced, style="Accent.TButton")
         self._adv_btn.pack(side=tk.LEFT)
 
@@ -227,6 +231,17 @@ class App(tk.Tk):
 
         env_card = card(top, "环境状态")
         env_card.pack(fill=tk.X, pady=(0, 8))
+        self._env_ready_lbl = tk.Label(
+            env_card,
+            textvariable=self.env_banner,
+            bg=C["surface"],
+            fg=C["muted"],
+            font=("Microsoft YaHei UI", 10, "bold"),
+            anchor="w",
+            justify=tk.LEFT,
+        )
+        self._env_ready_lbl.pack(fill=tk.X, pady=(0, 6))
+        self._env_banner_labels.append(self._env_ready_lbl)
         self.env_box = tk.Text(
             env_card,
             height=3,
@@ -275,10 +290,20 @@ class App(tk.Tk):
 
         tip = card(pad, "本机环境")
         tip.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(tip, textvariable=self.env_banner, style="Card.TLabel").pack(anchor=tk.W, pady=(0, 8))
+        env_lbl = tk.Label(
+            tip,
+            textvariable=self.env_banner,
+            bg=C["surface"],
+            fg=C["muted"],
+            font=("Microsoft YaHei UI", 10, "bold"),
+            anchor="w",
+            justify=tk.LEFT,
+        )
+        env_lbl.pack(fill=tk.X, pady=(0, 8))
+        self._env_banner_labels.append(env_lbl)
         ttk.Label(
             tip,
-            text="未就绪：点「一键导入环境包」。已就绪：直接去「2 编译」。",
+            text="未就绪：点「一键导入环境包」。已就绪：直接去「2 编译」。长任务日志在「2 编译」。",
             style="Muted.TLabel",
             justify=tk.LEFT,
         ).pack(anchor=tk.W)
@@ -297,7 +322,9 @@ class App(tk.Tk):
         b_det = action_button(row, "重新检测", self._on_detect)
         b_det.pack(side=tk.LEFT, padx=4)
         self._track_action(b_det)
-        action_button(row, "导出环境包…", self._on_export_env).pack(side=tk.LEFT, padx=4)
+        b_exp = action_button(row, "导出环境包…", self._on_export_env)
+        b_exp.pack(side=tk.LEFT, padx=4)
+        self._track_action(b_exp)
 
         opts = ttk.Frame(envp, style="Card.TFrame")
         opts.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
@@ -314,14 +341,18 @@ class App(tk.Tk):
         ).pack(anchor=tk.W, pady=(0, 8))
         row2 = ttk.Frame(rare, style="Card.TFrame")
         row2.pack(anchor=tk.W)
-        ttk.Button(row2, text="安装工具链", command=lambda: self._on_install("setup_cross_focal.sh")).pack(
-            side=tk.LEFT, padx=(0, 6)
-        )
-        ttk.Button(
+        b_tc = ttk.Button(row2, text="安装工具链", command=lambda: self._on_install("setup_cross_focal.sh"))
+        b_tc.pack(side=tk.LEFT, padx=(0, 6))
+        self._track_action(b_tc)
+        b_qt = ttk.Button(
             row2, text="编译 Qt 5.14.2", command=lambda: self._on_install("build_qt5142_arm64_cross.sh")
-        ).pack(side=tk.LEFT, padx=6)
+        )
+        b_qt.pack(side=tk.LEFT, padx=6)
+        self._track_action(b_qt)
 
-        ttk.Label(pad, text="详细日志在「2 编译」页查看。", style="Status.TLabel").pack(anchor=tk.W, pady=(4, 0))
+        ttk.Label(pad, text="导入 / 从零搭建时会自动跳到「2 编译」看日志。", style="Status.TLabel").pack(
+            anchor=tk.W, pady=(4, 0)
+        )
 
     def _build_tab_share(self, parent: ttk.Frame) -> None:
         """第三步：HTTP 共享给麒麟机下载。"""
@@ -345,7 +376,9 @@ class App(tk.Tk):
         b_start = action_button(row1, "启动共享", self._share_start, variant="accent")
         b_start.pack(side=tk.LEFT, padx=(10, 4))
         self._track_action(b_start)
-        action_button(row1, "停止", self._share_stop).pack(side=tk.LEFT, padx=2)
+        b_stop = action_button(row1, "停止", self._share_stop)
+        b_stop.pack(side=tk.LEFT, padx=2)
+        self._track_action(b_stop)
 
         box = ttk.Frame(share, style="Card.TFrame")
         box.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(12, 2))
@@ -403,9 +436,15 @@ class App(tk.Tk):
         ttk.Entry(row_e, textvariable=self.eth_add_ip, width=16).pack(side=tk.LEFT, padx=(6, 12))
         ttk.Label(row_e, text="掩码", style="Card.TLabel").pack(side=tk.LEFT)
         ttk.Entry(row_e, textvariable=self.eth_add_mask, width=14).pack(side=tk.LEFT, padx=(6, 12))
-        action_button(row_e, "添加 IP", self._on_add_eth_ip, variant="accent").pack(side=tk.LEFT, padx=2)
-        action_button(row_e, "删除所选", self._on_remove_eth_ip).pack(side=tk.LEFT, padx=2)
-        action_button(row_e, "刷新", self._refresh_eth_list).pack(side=tk.LEFT, padx=2)
+        b_add = action_button(row_e, "添加 IP", self._on_add_eth_ip, variant="accent")
+        b_add.pack(side=tk.LEFT, padx=2)
+        self._track_action(b_add)
+        b_del = action_button(row_e, "删除所选", self._on_remove_eth_ip)
+        b_del.pack(side=tk.LEFT, padx=2)
+        self._track_action(b_del)
+        b_ref = action_button(row_e, "刷新", self._refresh_eth_list)
+        b_ref.pack(side=tk.LEFT, padx=2)
+        self._track_action(b_ref)
         ttk.Label(eth, text="删除时在下方选一个已有地址：", style="Muted.TLabel").pack(anchor=tk.W, pady=(8, 2))
         self.eth_combo = ttk.Combobox(eth, textvariable=self.eth_pick, state="readonly", width=48)
         self.eth_combo.pack(anchor=tk.W)
@@ -468,10 +507,32 @@ class App(tk.Tk):
         self._env_ready = ready
         if ready:
             self.env_banner.set("环境就绪 — 可去「2 编译」")
+            fg = C["ok"]
         else:
             self.env_banner.set("环境未就绪 — 请先「一键导入环境包」或点「重新检测」")
+            fg = C["err"]
+        for lbl in self._env_banner_labels:
+            try:
+                lbl.configure(fg=fg)
+            except tk.TclError:
+                pass
         if not self._busy:
             self._sync_build_enabled()
+
+    def _show_log_tab(self) -> None:
+        """长任务切到编译页看日志。"""
+        if hasattr(self, "_nb"):
+            self._nb.select(1)
+
+    def _pill(self, text: str, fg: str | None = None) -> None:
+        self.header_status.set(text)
+        if self._chrome is not None:
+            self._chrome.set_status(text, fg=fg)
+        else:
+            try:
+                self._status_pill.configure(fg=fg or "#99F6E4")
+            except Exception:
+                pass
 
     def _set_http_dot(self, on: bool) -> None:
         self._http_dot.delete("all")
@@ -816,8 +877,9 @@ class App(tk.Tk):
         def tick() -> None:
             self._pulse_n = (self._pulse_n % 3) + 1
             dots = "." * self._pulse_n
-            self.status.set(f"{self._pulse_base}{dots}")
-            self.header_status.set(f"{self._pulse_base}{dots}")
+            text = f"{self._pulse_base}{dots}"
+            self.status.set(text)
+            self._pill(text, "#FDE68A")
             self._pulse_job = self.after(400, tick)
 
         tick()
@@ -850,7 +912,7 @@ class App(tk.Tk):
             except tk.TclError:
                 pass
             self._start_pulse(text.rstrip("…").rstrip("."))
-            self._status_pill.configure(bg=C["header_top"], fg="#FDE68A")
+            self._pill(self.header_status.get() or text, "#FDE68A")
         else:
             try:
                 self._progress.stop()
@@ -862,17 +924,13 @@ class App(tk.Tk):
             self._stop_pulse()
             self.activity.set("")
             if "共享" in text:
-                self.header_status.set(text.replace("HTTP ", ""))
-                self._status_pill.configure(bg=C["header_top"], fg="#99F6E4")
+                self._pill(text.replace("HTTP ", ""), "#99F6E4")
             elif text.startswith("成功") or text.startswith("环境就绪"):
-                self.header_status.set("环境就绪" if "环境就绪" in text else "成功")
-                self._status_pill.configure(bg=C["header_top"], fg="#86EFAC")
+                self._pill("环境就绪" if "环境就绪" in text else "成功", "#86EFAC")
             elif text.startswith("失败") or "失败" in text or "不完整" in text:
-                self.header_status.set("失败" if "失败" in text else "环境缺项")
-                self._status_pill.configure(bg=C["header_top"], fg="#FCA5A5")
+                self._pill("失败" if "失败" in text else "环境缺项", "#FCA5A5")
             else:
-                self.header_status.set("空闲" if text == "就绪" else text)
-                self._status_pill.configure(bg=C["header_top"], fg="#99F6E4")
+                self._pill("空闲" if text == "就绪" else text, "#99F6E4")
             self.status.set(text)
         self.update_idletasks()
 
@@ -888,6 +946,7 @@ class App(tk.Tk):
                 "out_bin": self.out_bin.get(),
                 "jobs": int(self.jobs.get() or 0),
                 "do_bundle": bool(self.do_bundle.get()),
+                "do_clean": bool(self.do_clean.get()),
                 "use_ffmpeg": bool(self.use_ffmpeg.get()),
                 "plugins": self.plugins.get(),
                 "extra_pkgconfig": self.extra_pkg.get(),
@@ -929,6 +988,7 @@ class App(tk.Tk):
         if not messagebox.askokcancel("导出环境包", tip):
             return
         self._persist()
+        self._show_log_tab()
         low = path.lower()
         compress = low.endswith(".tar.gz") or low.endswith(".tgz") or not low.endswith(".tar")
 
@@ -1115,7 +1175,7 @@ class App(tk.Tk):
             return
         if not messagebox.askokcancel("确认", f"将以 WSL root 执行 tools/{script}，可能较久。继续？"):
             return
-        self._nb.select(1)
+        self._show_log_tab()
 
         def work() -> None:
             self._set_busy(True, f"安装: {script}")
@@ -1161,6 +1221,7 @@ class App(tk.Tk):
                 extra_copy=self.extra_copy.get(),
                 use_ffmpeg=bool(self.use_ffmpeg.get()),
                 out_dir=self.out_dir.get().strip(),
+                clean=bool(self.do_clean.get()),
                 distro=self.distro.get().strip() or wsl.DEFAULT_DISTRO,
                 on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
             )

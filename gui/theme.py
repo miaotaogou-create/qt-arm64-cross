@@ -32,8 +32,16 @@ C = {
 
 def pick_font(prefer: list[str], size: int, weight: str = "normal") -> tuple:
     """选本机已有字体；中文界面优先黑体族。"""
-    # tk 字体名直接尝试，失败则回退
-    return (prefer[0], size, weight)
+    try:
+        from tkinter import font as tkfont
+
+        families = {n.lower() for n in tkfont.families()}
+        for name in prefer:
+            if name.lower() in families:
+                return (name, size, weight)
+    except Exception:
+        pass
+    return (prefer[-1] if prefer else "Segoe UI", size, weight)
 
 
 def ui_font(size: int = 10, weight: str = "normal") -> tuple:

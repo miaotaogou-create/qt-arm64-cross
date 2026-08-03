@@ -23,6 +23,7 @@ DEFAULTS: dict[str, Any] = {
     "out_bin": "",
     "jobs": 0,
     "do_bundle": True,
+    "do_clean": False,
     "use_ffmpeg": False,
     "plugins": "platforms/libqxcb.so platforms/libqoffscreen.so",
     "extra_pkgconfig": "",

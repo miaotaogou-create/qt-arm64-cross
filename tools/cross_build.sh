@@ -179,7 +179,10 @@ if [[ "${BUILD_SYSTEM}" == "qmake" ]]; then
 else
   need cmake
   log "cmake toolchain=${CMAKE_TOOLCHAIN} build=${BUILD_DIR}"
-  rm -rf "${BUILD_DIR}"
+  # 默认增量；CLEAN=1 时上面已删 BUILD_DIR，此处也可显式清一次
+  if [[ "${CLEAN}" == "1" ]]; then
+    rm -rf "${BUILD_DIR}"
+  fi
   cmake_extra=()
   if [[ -n "${EXTRA_PKGCONFIG}" ]]; then
     # shellcheck disable=SC2086
@@ -191,13 +194,27 @@ else
     log "cmake 附加链接: ${ffmpeg_libs}"
     cmake_extra+=("-DCMAKE_EXE_LINKER_FLAGS=${ffmpeg_libs}")
   fi
-  cmake -S "$(dirname "${CMAKE_FILE}")" -B "${BUILD_DIR}" \
-    -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN}" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DQt5_DIR="${QT_PREFIX}/lib/cmake/Qt5" \
-    -DQT_QMAKE_EXECUTABLE="${QMAKE}" \
-    -DCMAKE_PREFIX_PATH="${QT_PREFIX}" \
-    "${cmake_extra[@]}"
+  if [[ ! -f "${BUILD_DIR}/CMakeCache.txt" ]]; then
+    cmake -S "$(dirname "${CMAKE_FILE}")" -B "${BUILD_DIR}" \
+      -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN}" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DQt5_DIR="${QT_PREFIX}/lib/cmake/Qt5" \
+      -DQT_QMAKE_EXECUTABLE="${QMAKE}" \
+      -DCMAKE_PREFIX_PATH="${QT_PREFIX}" \
+      "${cmake_extra[@]}"
+  else
+    log "复用已有 ${BUILD_DIR}（增量）；需要全量请勾选「全量清理」或 CLEAN=1"
+    if [[ ${#cmake_extra[@]} -gt 0 ]]; then
+      # 链接参数变了时刷新缓存里的 EXE_LINKER_FLAGS
+      cmake -S "$(dirname "${CMAKE_FILE}")" -B "${BUILD_DIR}" \
+        -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DQt5_DIR="${QT_PREFIX}/lib/cmake/Qt5" \
+        -DQT_QMAKE_EXECUTABLE="${QMAKE}" \
+        -DCMAKE_PREFIX_PATH="${QT_PREFIX}" \
+        "${cmake_extra[@]}"
+    fi
+  fi
   cmake --build "${BUILD_DIR}" -j"${JOBS}"
 fi
 

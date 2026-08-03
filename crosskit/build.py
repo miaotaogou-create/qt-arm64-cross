@@ -54,6 +54,7 @@ def build(
     extra_copy: str,
     use_ffmpeg: bool = False,
     out_dir: str = "",
+    clean: bool = False,
     distro: str = wsl.DEFAULT_DISTRO,
     on_line=None,
 ) -> int:
@@ -67,6 +68,7 @@ def build(
         "BUILD_SYSTEM": build_system if build_system != "auto" else "auto",
         "JOBS": str(jobs if jobs > 0 else "$(nproc)"),
         "DO_BUNDLE": "1" if do_bundle else "0",
+        "CLEAN": "1" if clean else "0",
         "PLUGINS": plugins.strip(),
         "EXTRA_PKGCONFIG": merge_extra_pkgconfig(use_ffmpeg, extra_pkgconfig),
         "EXTRA_COPY": extra_copy.strip(),
@@ -101,16 +103,11 @@ def build(
         else:
             env["OUT_DIR"] = od
 
-    # bundle.sh 读 PLUGINS / EXTRA_COPY / BUNDLE_DIR(由 OUT_DIR 推导)
-    script = (
-        f"sed -i 's/\\r$//' '{tk_w}/tools/cross_build.sh' '{tk_w}/tools/bundle.sh' && "
-        f"bash '{tk_w}/tools/cross_build.sh'"
-    )
-    return wsl.run_wsl(script, distro=distro, env=env, on_line=on_line)
+    # tools 已镜像为 LF；bundle.sh 读 PLUGINS / EXTRA_COPY / BUNDLE_DIR
+    return wsl.run_wsl(f"bash '{tk_w}/tools/cross_build.sh'", distro=distro, env=env, on_line=on_line)
 
 
 def run_install(script_rel: str, distro: str = wsl.DEFAULT_DISTRO, on_line=None) -> int:
     tk_w = wsl.win_to_wsl(detect.toolkit_root())
     path = f"{tk_w}/tools/{script_rel}"
-    cmd = f"sed -i 's/\\r$//' '{path}' && bash '{path}'"
-    return wsl.run_wsl(cmd, distro=distro, user="root", on_line=on_line)
+    return wsl.run_wsl(f"bash '{path}'", distro=distro, user="root", on_line=on_line)
