@@ -10,6 +10,26 @@ from pathlib import Path
 from . import wsl, wsl_setup
 
 
+def free_bytes(path: str | Path) -> int | None:
+    """目标盘剩余空间（字节）；失败返回 None。"""
+    p = Path(path)
+    try:
+        target = p if p.exists() else (p.parent if p.parent.exists() else Path(p.anchor or p.drive or "."))
+        if not str(target):
+            target = Path(".")
+        return shutil.disk_usage(str(target)).free
+    except OSError:
+        return None
+
+
+def estimate_import_need_bytes(archive: Path) -> int:
+    """导入粗估占用：解压临时 tar + vhdx，按包体积约 3 倍留余量。"""
+    try:
+        return max(archive.stat().st_size * 3, 2 * 1024**3)
+    except OSError:
+        return 2 * 1024**3
+
+
 def run_stream(args: list[str], on_line=None) -> int:
     """跑 Windows 命令并流式输出。"""
     proc_env = os.environ.copy()
@@ -159,6 +179,18 @@ def import_distro(
             return code
 
     install_dir.mkdir(parents=True, exist_ok=True)
+    need = estimate_import_need_bytes(archive)
+    free = free_bytes(install_dir)
+    if free is not None and free < need:
+        gb_free = free / (1024**3)
+        gb_need = need / (1024**3)
+        if on_line:
+            on_line(
+                f"[env] 磁盘空间可能不足：剩余约 {gb_free:.1f} GB，"
+                f"导入建议至少约 {gb_need:.1f} GB（含解压临时文件）。"
+            )
+        return 1
+
     tar_path = archive
     tmp_tar: Path | None = None
     name = archive.name.lower()
@@ -187,5 +219,5 @@ def import_distro(
         run_stream(["wsl", "--set-default", distro], on_line=on_line)
 
     if on_line:
-        on_line("[env] 导入完成。请点「检测环境」确认工具链与 Qt。")
+        on_line("[env] 导入完成。")
     return 0

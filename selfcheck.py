@@ -13,6 +13,8 @@ from crosskit.build import discover_build_files, merge_extra_pkgconfig
 from crosskit.httpshare import DirectoryShare, best_lan_ipv4, ethernet_ipv4, lan_ipv4
 from crosskit.netip import mask_to_prefix
 from crosskit.wsl import parse_distro_names, win_to_wsl
+from crosskit import envpack
+from crosskit.app_version import VERSION
 
 
 def main() -> None:
@@ -29,6 +31,12 @@ def main() -> None:
     assert "Ubuntu-20.04" in names
     assert "Ubuntu" not in names
     assert parse_distro_names("Ubuntu-20.04\x00\n") == {"Ubuntu-20.04"}
+
+    assert VERSION
+    free = envpack.free_bytes(ROOT)
+    assert free is None or free > 0
+    need = envpack.estimate_import_need_bytes(ROOT / "README.md")
+    assert need >= 2 * 1024**3
 
     qfiles = discover_build_files(ROOT / "examples" / "hello_qmake")
     assert any(k == "qmake" and p.endswith(".pro") for k, p in qfiles), qfiles

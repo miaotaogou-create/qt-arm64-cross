@@ -19,6 +19,19 @@ Get-ChildItem -Filter "QtArm64Cross.smoke_ok" -ErrorAction SilentlyContinue | Re
 # 清掉错误字面量目录
 if (Test-Path ".\`$LOCALAPPDATA") { Remove-Item -Recurse -Force ".\`$LOCALAPPDATA" }
 
+# 写入版本 BUILD（日期 + git 短 hash），便于排障认 exe
+$verDate = Get-Date -Format "yyyy.M.d"
+$gitHash = "nogit"
+try { $gitHash = (git -C $root rev-parse --short HEAD 2>$null).Trim() } catch {}
+if (-not $gitHash) { $gitHash = "nogit" }
+$verFile = Join-Path $root "crosskit\app_version.py"
+@"
+"""应用版本号（打包脚本会改写 BUILD）。"""
+
+VERSION = "1.1.0"
+BUILD = "$verDate+$gitHash"
+"@ | Set-Content -Path $verFile -Encoding utf8
+
 $runPy = Join-Path $root "run.py"
 $toolsDir = Join-Path $root "tools"
 

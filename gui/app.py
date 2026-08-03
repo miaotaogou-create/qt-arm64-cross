@@ -33,23 +33,14 @@ class App(tk.Tk):
         self._busy = False
         self._env_ready = False
         self._action_btns: list[tk.Widget] = []
+        self._busy_keep: set[int] = set()  # id(widget)：忙碌时仍可点
         self._share = DirectoryShare()
         self._advanced_open = False
         self._eth_open = False
         self._cfg = settings.load()
         self._chrome: TitleChrome | None = None
-
-        self.project = tk.StringVar(value=self._cfg.get("project", ""))
-        self.build_file = tk.StringVar(value=self._cfg.get("build_file", ""))
-        self.build_system = tk.StringVar(value=self._cfg.get("build_system", "auto"))
-        self.app_name = tk.StringVar(value=self._cfg.get("app_name", ""))
-        self.out_dir = tk.StringVar(value=self._cfg.get("out_dir", ""))
-        self.out_bin = tk.StringVar(value=self._cfg.get("out_bin", ""))
-        self.jobs = tk.IntVar(value=int(self._cfg.get("jobs") or 0))
-        self.do_bundle = tk.BooleanVar(value=bool(self._cfg.get("do_bundle", True)))
-        self.do_clean = tk.BooleanVar(value=bool(self._cfg.get("do_clean", False)))
-        self.use_ffmpeg = tk.BooleanVar(value=bool(self._cfg.get("use_ffmpeg", False)))
         self._env_banner_labels: list[tk.Label] = []
+        self._share_log: tk.Text | None = None
         self.plugins = tk.StringVar(value=self._cfg.get("plugins", ""))
         self.extra_pkg = tk.StringVar(value=self._cfg.get("extra_pkgconfig", ""))
         self.extra_copy = tk.StringVar(value=self._cfg.get("extra_copy", ""))
@@ -145,14 +136,24 @@ class App(tk.Tk):
 
         ban = ttk.Frame(top, style="TFrame")
         ban.pack(fill=tk.X, pady=(0, 8))
-        ttk.Label(ban, textvariable=self.env_banner, style="Status.TLabel").pack(side=tk.LEFT)
+        ban_lbl = tk.Label(
+            ban,
+            textvariable=self.env_banner,
+            bg=C["bg"],
+            fg=C["muted"],
+            font=("Microsoft YaHei UI", 9, "bold"),
+            anchor="w",
+            justify=tk.LEFT,
+        )
+        ban_lbl.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._env_banner_labels.append(ban_lbl)
         action_button(ban, "去环境页", lambda: self._nb.select(0)).pack(side=tk.RIGHT)
 
         proj = card(top, "工程")
         proj.pack(fill=tk.X, pady=(0, 8))
         ttk.Label(proj, text="工程目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
         ttk.Entry(proj, textvariable=self.project).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
-        ttk.Button(proj, text="浏览…", command=self._browse_project).grid(row=0, column=2, padx=2)
+        action_button(proj, "浏览…", self._browse_project).grid(row=0, column=2, padx=2)
         recent = self._cfg.get("recent_projects") or []
         if recent:
             mb = ttk.Menubutton(proj, text="最近")
@@ -165,11 +166,11 @@ class App(tk.Tk):
         ttk.Label(proj, text="构建文件", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
         self.build_combo = ttk.Combobox(proj, textvariable=self.build_file)
         self.build_combo.grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
-        ttk.Button(proj, text="刷新", command=self._refresh_build_files).grid(row=1, column=2, padx=2)
+        action_button(proj, "刷新", self._refresh_build_files).grid(row=1, column=2, padx=2)
 
         ttk.Label(proj, text="产物目录", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
         ttk.Entry(proj, textvariable=self.out_dir).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=4)
-        ttk.Button(proj, text="浏览…", command=self._browse_out_dir).grid(row=2, column=2, padx=2)
+        action_button(proj, "浏览…", self._browse_out_dir).grid(row=2, column=2, padx=2)
         proj.columnconfigure(1, weight=1)
 
         opts = card(top, "选项")
@@ -210,8 +211,6 @@ class App(tk.Tk):
         ttk.Entry(self._adv, textvariable=self.extra_copy).grid(
             row=6, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
         )
-        ttk.Label(self._adv, text="发行版", style="Card.TLabel").grid(row=7, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.distro, width=22).grid(row=7, column=1, sticky=tk.W, padx=8, pady=3)
         self._adv.columnconfigure(1, weight=1)
 
         actions = ttk.Frame(top)
@@ -226,22 +225,13 @@ class App(tk.Tk):
         b_share = action_button(actions, "去共享", lambda: self._nb.select(2), variant="accent")
         b_share.pack(side=tk.LEFT, padx=3)
         self._track_action(b_share)
-        action_button(actions, "复制日志", self._copy_log).pack(side=tk.RIGHT, padx=3)
+        b_copy = action_button(actions, "复制日志", self._copy_log)
+        b_copy.pack(side=tk.RIGHT, padx=3)
+        self._track_action(b_copy, keep_when_busy=True)
         action_button(actions, "清空", self._clear_log).pack(side=tk.RIGHT, padx=3)
 
-        env_card = card(top, "环境状态")
+        env_card = card(top, "环境明细")
         env_card.pack(fill=tk.X, pady=(0, 8))
-        self._env_ready_lbl = tk.Label(
-            env_card,
-            textvariable=self.env_banner,
-            bg=C["surface"],
-            fg=C["muted"],
-            font=("Microsoft YaHei UI", 10, "bold"),
-            anchor="w",
-            justify=tk.LEFT,
-        )
-        self._env_ready_lbl.pack(fill=tk.X, pady=(0, 6))
-        self._env_banner_labels.append(self._env_ready_lbl)
         self.env_box = tk.Text(
             env_card,
             height=3,
@@ -312,14 +302,18 @@ class App(tk.Tk):
         envp.pack(fill=tk.X, pady=(0, 10))
         ttk.Label(envp, text="安装目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
         ttk.Entry(envp, textvariable=self.env_install_dir).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
-        ttk.Button(envp, text="浏览…", command=self._browse_env_install).grid(row=0, column=2, padx=2)
+        action_button(envp, "浏览…", self._browse_env_install).grid(row=0, column=2, padx=2)
+
+        ttk.Label(envp, text="发行版名", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
+        ttk.Entry(envp, textvariable=self.distro).grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
+        ttk.Label(envp, text="一般保持 Ubuntu-20.04", style="Muted.TLabel").grid(row=1, column=2, sticky=tk.W)
 
         row = ttk.Frame(envp, style="Card.TFrame")
-        row.grid(row=1, column=0, columnspan=3, sticky=tk.EW, pady=(10, 4))
+        row.grid(row=2, column=0, columnspan=3, sticky=tk.EW, pady=(10, 4))
         b_imp = primary_button(row, "一键导入环境包…", self._on_import_env)
         b_imp.pack(side=tk.LEFT, padx=(0, 8))
         self._track_action(b_imp)
-        b_det = action_button(row, "重新检测", self._on_detect)
+        b_det = action_button(row, "检测环境", self._on_detect)
         b_det.pack(side=tk.LEFT, padx=4)
         self._track_action(b_det)
         b_exp = action_button(row, "导出环境包…", self._on_export_env)
@@ -327,7 +321,7 @@ class App(tk.Tk):
         self._track_action(b_exp)
 
         opts = ttk.Frame(envp, style="Card.TFrame")
-        opts.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
+        opts.grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
         check_button(opts, "导出时去掉 Qt 源码缓存", self.env_slim).pack(side=tk.LEFT, padx=(0, 14))
         check_button(opts, "覆盖已有同名发行版", self.env_replace).pack(side=tk.LEFT)
         envp.columnconfigure(1, weight=1)
@@ -364,8 +358,8 @@ class App(tk.Tk):
         share.pack(fill=tk.X)
         ttk.Label(share, text="共享目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
         ttk.Entry(share, textvariable=self.share_dir).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
-        ttk.Button(share, text="浏览…", command=self._browse_share).grid(row=0, column=2, padx=2)
-        ttk.Button(share, text="用产物目录", command=self._fill_share_from_project, style="Accent.TButton").grid(
+        action_button(share, "浏览…", self._browse_share).grid(row=0, column=2, padx=2)
+        action_button(share, "用产物目录", self._fill_share_from_project, variant="accent").grid(
             row=0, column=3, padx=2
         )
 
@@ -378,7 +372,7 @@ class App(tk.Tk):
         self._track_action(b_start)
         b_stop = action_button(row1, "停止", self._share_stop)
         b_stop.pack(side=tk.LEFT, padx=2)
-        self._track_action(b_stop)
+        self._track_action(b_stop, keep_when_busy=True)
 
         box = ttk.Frame(share, style="Card.TFrame")
         box.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(12, 2))
@@ -416,6 +410,23 @@ class App(tk.Tk):
             justify=tk.LEFT,
             wraplength=720,
         ).pack(anchor=tk.W, pady=(10, 0))
+
+        slog = card(pad, "本页日志")
+        slog.pack(fill=tk.X, pady=(10, 0))
+        self._share_log = tk.Text(
+            slog,
+            height=5,
+            wrap=tk.WORD,
+            bg=C["log_bg"],
+            fg=C["log_fg"],
+            relief=tk.FLAT,
+            font=mono_font(8),
+            padx=8,
+            pady=6,
+            highlightthickness=0,
+        )
+        self._share_log.pack(fill=tk.X)
+        self._share_log.configure(state=tk.DISABLED)
 
         self._eth_btn = ttk.Button(pad, text="网卡高级 ▸", command=self._toggle_eth, style="Accent.TButton")
         self._eth_btn.pack(anchor=tk.W, pady=(12, 0))
@@ -468,17 +479,32 @@ class App(tk.Tk):
             self._eth.pack_forget()
             self._eth_btn.configure(text="网卡高级 ▸")
 
-    def _track_action(self, btn: tk.Widget) -> tk.Widget:
+    def _track_action(self, btn: tk.Widget, *, keep_when_busy: bool = False) -> tk.Widget:
         self._action_btns.append(btn)
+        if keep_when_busy:
+            self._busy_keep.add(id(btn))
         return btn
 
     def _set_actions_enabled(self, enabled: bool) -> None:
-        state = tk.NORMAL if enabled else tk.DISABLED
         for b in self._action_btns:
             try:
-                b.configure(state=state)
+                if not enabled and id(b) in self._busy_keep:
+                    b.configure(state=tk.NORMAL)
+                else:
+                    b.configure(state=tk.NORMAL if enabled else tk.DISABLED)
             except tk.TclError:
                 pass
+
+    def _confirm_distro(self) -> bool:
+        d = (self.distro.get() or "").strip() or wsl.DEFAULT_DISTRO
+        self.distro.set(d)
+        if d == wsl.DEFAULT_DISTRO:
+            return True
+        return messagebox.askyesno(
+            "发行版名称",
+            f"当前发行版为「{d}」（默认是 {wsl.DEFAULT_DISTRO}）。\n"
+            "导入 / 导出 / 检测都会用这个名字。确认继续？",
+        )
 
     def _sync_build_enabled(self) -> None:
         """忙碌时禁用；空闲时仅环境就绪才可点「交叉编译」。"""
@@ -509,7 +535,7 @@ class App(tk.Tk):
             self.env_banner.set("环境就绪 — 可去「2 编译」")
             fg = C["ok"]
         else:
-            self.env_banner.set("环境未就绪 — 请先「一键导入环境包」或点「重新检测」")
+            self.env_banner.set("环境未就绪 — 请先「一键导入环境包」或点「检测环境」")
             fg = C["err"]
         for lbl in self._env_banner_labels:
             try:
@@ -859,6 +885,20 @@ class App(tk.Tk):
         self.log.insert(tk.END, line + "\n")
         self.log.see(tk.END)
         self.log.configure(state=tk.DISABLED)
+        if self._share_log is not None and (
+            line.startswith("[http]") or line.startswith("[net]") or line.startswith("[env]")
+        ):
+            try:
+                self._share_log.configure(state=tk.NORMAL)
+                self._share_log.insert(tk.END, line + "\n")
+                self._share_log.see(tk.END)
+                # 只保留末尾约 200 行，避免无限涨
+                total = int(float(self._share_log.index("end-1c").split(".")[0]))
+                if total > 220:
+                    self._share_log.delete("1.0", f"{total - 200}.0")
+                self._share_log.configure(state=tk.DISABLED)
+            except tk.TclError:
+                pass
         # 底栏即时显示最近一条底层输出
         short = line.strip()
         if len(short) > 72:
@@ -970,6 +1010,8 @@ class App(tk.Tk):
     def _on_export_env(self) -> None:
         if self._busy:
             return
+        if not self._confirm_distro():
+            return
         distro = self.distro.get().strip() or wsl.DEFAULT_DISTRO
         path = filedialog.asksaveasfilename(
             title="导出交叉编译环境包",
@@ -1014,6 +1056,8 @@ class App(tk.Tk):
     def _on_import_env(self) -> None:
         if self._busy:
             return
+        if not self._confirm_distro():
+            return
         distro = self.distro.get().strip() or wsl.DEFAULT_DISTRO
         archive = filedialog.askopenfilename(
             title="选择环境包",
@@ -1039,8 +1083,15 @@ class App(tk.Tk):
         tip = (
             "将自动：启用 WSL（如需要）→ 导入交叉环境。\n"
             f"发行版：{distro}\n安装到：{install_dir}\n"
-            "启用 WSL 时可能弹出 UAC，请点「是」。\n继续？"
+            "启用 WSL 时可能弹出 UAC，请点「是」。\n"
         )
+        need = envpack.estimate_import_need_bytes(Path(archive))
+        free = envpack.free_bytes(install_dir)
+        if free is not None:
+            tip += f"目标盘剩余约 {free / (1024**3):.1f} GB（建议至少约 {need / (1024**3):.1f} GB）。\n"
+            if free < need:
+                tip += "空间可能不足，导入可能失败。\n"
+        tip += "继续？"
         if not messagebox.askokcancel("一键导入环境包", tip):
             return
         self._persist()
@@ -1082,7 +1133,7 @@ class App(tk.Tk):
                 elif code == 0:
                     self._clear_pending_import()
                     self._set_busy(False, "导入成功")
-                    messagebox.showinfo("导入成功", "环境已导入。建议点「检测环境」确认，然后即可交叉编译。")
+                    messagebox.showinfo("导入成功", "环境已导入，正在自动检测。通过后即可去「2 编译」。")
                     self._on_detect()
                 else:
                     self._set_busy(False, f"导入失败 exit={code}")
@@ -1131,6 +1182,8 @@ class App(tk.Tk):
 
     def _on_detect(self, auto: bool = False) -> None:
         if self._busy:
+            return
+        if not auto and not self._confirm_distro():
             return
         # 手动检测时切到编译页看日志；开机自动检测留在当前页
         if not auto and hasattr(self, "_nb"):

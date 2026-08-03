@@ -27,9 +27,11 @@ Windows 绿色 GUI + WSL `Ubuntu-20.04`，把 Qt 工程（`.pro` / `CMakeLists.t
 1. 双击 `QtArm64Cross.exe`
 2. **一键导入环境包** → 选中上述 `.tar.gz`
 3. 若尚未启用 WSL，按 UAC 提示操作；若需重启，重启后再开本工具会接着导入
-4. 导入成功后会自动检测；显示「环境就绪」即可去编译
+4. 导入成功后会**自动检测**；显示「环境就绪」即可去编译
 
-首次运行会把 Tcl/Tk 缓存到 `%LOCALAPPDATA%\QtArm64Cross\`。  
+发行版名一般保持 `Ubuntu-20.04`（在环境页填写；改非默认名会二次确认）。
+
+首次运行会把 Tcl/Tk 与 `tools/` 缓存到 `%LOCALAPPDATA%\QtArm64Cross\`。  
 设置保存在 `%USERPROFILE%\.qt-arm64-cross\settings.json`。
 
 ### 2 编译

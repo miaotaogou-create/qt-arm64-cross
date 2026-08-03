@@ -6,6 +6,7 @@ import tkinter as tk
 from ctypes import wintypes
 
 from gui.theme import C, ui_font
+from crosskit.app_version import BUILD, VERSION
 
 user32 = ctypes.windll.user32
 GWL_EXSTYLE = -20
@@ -114,7 +115,7 @@ class TitleChrome:
         ).pack(anchor=tk.W)
         tk.Label(
             titles,
-            text="1 环境 → 2 编译 → 3 共享",
+            text=f"1 环境 → 2 编译 → 3 共享  ·  v{VERSION}",
             bg=C["header_top"],
             fg="#99F6E4",
             font=ui_font(8),
@@ -137,6 +138,8 @@ class TitleChrome:
             height=1,
         )
         self.status_pill.pack(side=tk.LEFT, padx=(0, 6), pady=(_BTN_H - 18) // 2)
+        # 双击状态字查看完整版本（排障认 exe）
+        self.status_pill.bind("<Double-Button-1>", lambda _e: self._show_about())
 
         winbtns = tk.Frame(cluster, bg=C["header_top"])
         winbtns.pack(side=tk.LEFT)
@@ -153,6 +156,15 @@ class TitleChrome:
         self.root.after(80, self._init_taskbar)
         self._add_resize_grip()
         return header
+
+    def _show_about(self) -> None:
+        from tkinter import messagebox
+
+        messagebox.showinfo(
+            "关于",
+            f"Qt ARM64 交叉编译\n版本 {VERSION}（{BUILD}）\n\n双击顶栏状态字可再次查看。",
+            parent=self.root,
+        )
 
     def _init_taskbar(self) -> None:
         if self._taskbar_ready:
