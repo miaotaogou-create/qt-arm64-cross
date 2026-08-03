@@ -23,7 +23,8 @@ class EnvReport:
 
     @property
     def ready(self) -> bool:
-        need = {"cross_gpp", "rootfs", "qt_widgets", "qt_qmake"}
+        # 含 qxcb：缺平台插件时客户机窗口起不来，不能算就绪
+        need = {"cross_gpp", "rootfs", "qt_widgets", "qt_qmake", "qt_xcb"}
         got = {i.key for i in self.items if i.ok}
         return self.distro_ok and need <= got
 

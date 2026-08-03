@@ -114,7 +114,7 @@ class TitleChrome:
         ).pack(anchor=tk.W)
         tk.Label(
             titles,
-            text="选工程 → 编译 · 换机导入环境包",
+            text="1 环境 → 2 编译 → 3 共享",
             bg=C["header_top"],
             fg="#99F6E4",
             font=ui_font(8),

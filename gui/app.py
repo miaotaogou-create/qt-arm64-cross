@@ -31,8 +31,11 @@ class App(tk.Tk):
         self.geometry("980x720")
         self.minsize(820, 560)
         self._busy = False
+        self._env_ready = False
+        self._action_btns: list[tk.Widget] = []
         self._share = DirectoryShare()
         self._advanced_open = False
+        self._eth_open = False
         self._cfg = settings.load()
         self._chrome: TitleChrome | None = None
 
@@ -50,7 +53,7 @@ class App(tk.Tk):
         self.extra_copy = tk.StringVar(value=self._cfg.get("extra_copy", ""))
         self.distro = tk.StringVar(value=self._cfg.get("distro", wsl.DEFAULT_DISTRO))
         self.share_dir = tk.StringVar(value=self._cfg.get("share_dir", ""))
-        self.share_port = tk.IntVar(value=int(self._cfg.get("share_port") or 8080))
+        self.share_port = tk.IntVar(value=int(self._cfg.get("share_port") or 18080))
         self.share_urls = tk.StringVar(value="—")
         self.share_local = tk.StringVar(value="—")
         self.share_state = tk.StringVar(value="未启动")
@@ -58,6 +61,7 @@ class App(tk.Tk):
         self.eth_add_mask = tk.StringVar(value=self._cfg.get("eth_add_mask") or "255.255.255.0")
         self.eth_list = tk.StringVar(value="（尚未刷新）")
         self.eth_pick = tk.StringVar(value="")
+        self.env_banner = tk.StringVar(value="正在检测交叉环境…")
         default_env = self._cfg.get("env_install_dir") or str(
             Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WSL" / "Ubuntu-20.04"
         )
@@ -81,6 +85,8 @@ class App(tk.Tk):
         self._set_http_dot(False)
         self.after(600, self._maybe_resume_pending_import)
         self.after(200, self._refresh_eth_list)
+        # 开机自动检测：已导入则直接可用，未导入则引导去环境页
+        self.after(500, lambda: self._on_detect(auto=True))
         # 字段一改就记，下次打开不用重配
         for var in (
             self.project,
@@ -116,9 +122,9 @@ class App(tk.Tk):
         shell = ttk.Frame(self, style="TFrame")
         shell.pack(fill=tk.BOTH, expand=True, padx=12, pady=(8, 0))
 
-        self._nb = EqualTabs(shell, ["编译", "环境准备", "下载共享"])
-        self._build_tab_compile(self._nb.page(0))
-        self._build_tab_env(self._nb.page(1))
+        self._nb = EqualTabs(shell, ["1 环境", "2 编译", "3 共享"])
+        self._build_tab_env(self._nb.page(0))
+        self._build_tab_compile(self._nb.page(1))
         self._build_tab_share(self._nb.page(2))
 
         foot = ttk.Frame(self)
@@ -130,9 +136,14 @@ class App(tk.Tk):
         self._progress_visible = False
 
     def _build_tab_compile(self, parent: ttk.Frame) -> None:
-        """日常：选工程 → 编译 → 看日志。"""
+        """主路径：选工程 → 产物目录 → 交叉编译 → 看日志。"""
         top = ttk.Frame(parent, style="TFrame")
         top.pack(fill=tk.X, padx=10, pady=(10, 0))
+
+        ban = ttk.Frame(top, style="TFrame")
+        ban.pack(fill=tk.X, pady=(0, 8))
+        ttk.Label(ban, textvariable=self.env_banner, style="Status.TLabel").pack(side=tk.LEFT)
+        action_button(ban, "去环境页", lambda: self._nb.select(0)).pack(side=tk.RIGHT)
 
         proj = card(top, "工程")
         proj.pack(fill=tk.X, pady=(0, 8))
@@ -162,15 +173,10 @@ class App(tk.Tk):
         opts.pack(fill=tk.X, pady=(0, 8))
         flags = ttk.Frame(opts, style="Card.TFrame")
         flags.pack(fill=tk.X)
-        check_button(flags, "打运行包", self.do_bundle).pack(side=tk.LEFT, padx=(0, 14))
+        check_button(flags, "生成运行包", self.do_bundle).pack(side=tk.LEFT, padx=(0, 14))
         check_button(flags, "附加 FFmpeg", self.use_ffmpeg).pack(side=tk.LEFT, padx=(0, 14))
         self._adv_btn = ttk.Button(flags, text="高级 ▸", command=self._toggle_advanced, style="Accent.TButton")
         self._adv_btn.pack(side=tk.LEFT)
-        ttk.Label(
-            opts,
-            text="运行包=可执行文件 + 其旁路资源（由工程 .pro/CMake 部署）+ Qt 依赖；解压即可用。",
-            style="Muted.TLabel",
-        ).pack(anchor=tk.W, pady=(6, 0))
 
         self._adv = ttk.Frame(opts, style="Card.TFrame")
         ttk.Label(self._adv, text="构建系统", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=3)
@@ -182,7 +188,7 @@ class App(tk.Tk):
         ttk.Entry(self._adv, textvariable=self.app_name, width=18).grid(row=1, column=1, sticky=tk.W, padx=8)
         ttk.Label(self._adv, text="可执行文件", style="Card.TLabel").grid(row=1, column=2, sticky=tk.W, padx=(8, 0))
         ttk.Entry(self._adv, textvariable=self.out_bin, width=24).grid(row=1, column=3, sticky=tk.W, padx=8)
-        ttk.Label(self._adv, text="可空=编译后自动找", style="Muted.TLabel").grid(row=2, column=3, sticky=tk.W, padx=8)
+        ttk.Label(self._adv, text="留空则自动查找", style="Muted.TLabel").grid(row=2, column=3, sticky=tk.W, padx=8)
         ttk.Label(self._adv, text="并行 -j", style="Card.TLabel").grid(row=3, column=0, sticky=tk.W, pady=3)
         ttk.Spinbox(self._adv, from_=0, to=64, textvariable=self.jobs, width=5).grid(
             row=3, column=1, sticky=tk.W, padx=8
@@ -196,7 +202,7 @@ class App(tk.Tk):
         ttk.Entry(self._adv, textvariable=self.extra_pkg).grid(
             row=5, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
         )
-        ttk.Label(self._adv, text="EXTRA_COPY", style="Card.TLabel").grid(row=6, column=0, sticky=tk.W, pady=3)
+        ttk.Label(self._adv, text="额外复制", style="Card.TLabel").grid(row=6, column=0, sticky=tk.W, pady=3)
         ttk.Entry(self._adv, textvariable=self.extra_copy).grid(
             row=6, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
         )
@@ -206,11 +212,17 @@ class App(tk.Tk):
 
         actions = ttk.Frame(top)
         actions.pack(fill=tk.X, pady=(0, 8))
-        primary_button(actions, "交叉编译", self._on_build).pack(side=tk.LEFT, padx=(0, 8))
-        action_button(actions, "检测环境", self._on_detect).pack(side=tk.LEFT, padx=3)
-        action_button(actions, "打开产物文件夹", self._open_out).pack(side=tk.LEFT, padx=3)
+        self._btn_build = primary_button(actions, "交叉编译", self._on_build)
+        self._btn_build.pack(side=tk.LEFT, padx=(0, 8))
+        self._track_action(self._btn_build)
+        b_out = action_button(actions, "打开产物文件夹", self._open_out)
+        b_out.pack(side=tk.LEFT, padx=3)
+        self._track_action(b_out)
+        b_share = action_button(actions, "去共享", lambda: self._nb.select(2), variant="accent")
+        b_share.pack(side=tk.LEFT, padx=3)
+        self._track_action(b_share)
         action_button(actions, "复制日志", self._copy_log).pack(side=tk.RIGHT, padx=3)
-        action_button(actions, "清空", lambda: self.log.delete("1.0", tk.END)).pack(side=tk.RIGHT, padx=3)
+        action_button(actions, "清空", self._clear_log).pack(side=tk.RIGHT, padx=3)
 
         env_card = card(top, "环境状态")
         env_card.pack(fill=tk.X, pady=(0, 8))
@@ -230,6 +242,7 @@ class App(tk.Tk):
             pady=6,
         )
         self.env_box.pack(fill=tk.X)
+        self.env_box.configure(state=tk.DISABLED)
 
         log_card = card(parent, "构建日志")
         log_card.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
@@ -251,19 +264,20 @@ class App(tk.Tk):
         self.log.configure(yscrollcommand=scroll.set)
         self.log.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.log.configure(state=tk.DISABLED)
 
     def _build_tab_env(self, parent: ttk.Frame) -> None:
-        """换机 / 首次：导入环境包、检测、从零装工具链。"""
+        """第一步：检测 / 导入交叉环境。"""
         inner, _sync = make_scrollable(parent)
         pad = ttk.Frame(inner, style="TFrame")
         pad.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
 
-        tip = card(pad, "怎么用")
+        tip = card(pad, "本机环境")
         tip.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(tip, textvariable=self.env_banner, style="Card.TLabel").pack(anchor=tk.W, pady=(0, 8))
         ttk.Label(
             tip,
-            text="同事机：下载环境包 → 点「一键导入」→ 检测环境 → 回「编译」页选工程即可。\n"
-            "未开 WSL 会弹 UAC 自动启用；若提示重启，重启后再开本工具会接着导入。",
+            text="未就绪：点「一键导入环境包」。已就绪：直接去「2 编译」。",
             style="Muted.TLabel",
             justify=tk.LEFT,
         ).pack(anchor=tk.W)
@@ -276,9 +290,13 @@ class App(tk.Tk):
 
         row = ttk.Frame(envp, style="Card.TFrame")
         row.grid(row=1, column=0, columnspan=3, sticky=tk.EW, pady=(10, 4))
-        primary_button(row, "一键导入环境包…", self._on_import_env).pack(side=tk.LEFT, padx=(0, 8))
+        b_imp = primary_button(row, "一键导入环境包…", self._on_import_env)
+        b_imp.pack(side=tk.LEFT, padx=(0, 8))
+        self._track_action(b_imp)
+        b_det = action_button(row, "重新检测", self._on_detect)
+        b_det.pack(side=tk.LEFT, padx=4)
+        self._track_action(b_det)
         action_button(row, "导出环境包…", self._on_export_env).pack(side=tk.LEFT, padx=4)
-        action_button(row, "检测环境", self._on_detect).pack(side=tk.LEFT, padx=4)
 
         opts = ttk.Frame(envp, style="Card.TFrame")
         opts.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
@@ -302,11 +320,10 @@ class App(tk.Tk):
             row2, text="编译 Qt 5.14.2", command=lambda: self._on_install("build_qt5142_arm64_cross.sh")
         ).pack(side=tk.LEFT, padx=6)
 
-        ttk.Label(pad, text="检测结果与构建日志在「编译」页查看。", style="Status.TLabel").pack(
-            anchor=tk.W, pady=(4, 0)
-        )
+        ttk.Label(pad, text="详细日志在「2 编译」页查看。", style="Status.TLabel").pack(anchor=tk.W, pady=(4, 0))
 
     def _build_tab_share(self, parent: ttk.Frame) -> None:
+        """第三步：HTTP 共享给麒麟机下载。"""
         inner, _sync = make_scrollable(parent)
         pad = ttk.Frame(inner, style="TFrame")
         pad.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
@@ -324,10 +341,11 @@ class App(tk.Tk):
         row1 = ttk.Frame(share, style="Card.TFrame")
         row1.grid(row=1, column=1, columnspan=3, sticky=tk.EW, padx=8)
         ttk.Spinbox(row1, from_=1, to=65535, textvariable=self.share_port, width=8).pack(side=tk.LEFT)
-        action_button(row1, "启动共享", self._share_start, variant="accent").pack(side=tk.LEFT, padx=(10, 4))
+        b_start = action_button(row1, "启动共享", self._share_start, variant="accent")
+        b_start.pack(side=tk.LEFT, padx=(10, 4))
+        self._track_action(b_start)
         action_button(row1, "停止", self._share_stop).pack(side=tk.LEFT, padx=2)
 
-        # 地址区：两行三列对齐（标签 | 地址 | 按钮）
         box = ttk.Frame(share, style="Card.TFrame")
         box.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(12, 2))
         box.columnconfigure(1, weight=1)
@@ -359,19 +377,20 @@ class App(tk.Tk):
 
         ttk.Label(
             pad,
-            text="先「自检」确认服务正常，再「打开」本机页。"
-            "若浏览器报 ERR_EMPTY_RESPONSE，多半是代理劫持了 127.0.0.1——请绕过 localhost。"
-            "客户机请用「局域网地址」（有线同网段）。",
+            text="麒麟机浏览器打开「局域网地址」。本机打不开时先点「自检」，并确认代理绕过 127.0.0.1。",
             style="Muted.TLabel",
             justify=tk.LEFT,
             wraplength=720,
         ).pack(anchor=tk.W, pady=(10, 0))
 
-        eth = card(pad, "有线网卡 IP（追加地址）")
-        eth.pack(fill=tk.X, pady=(12, 0))
+        self._eth_btn = ttk.Button(pad, text="网卡高级 ▸", command=self._toggle_eth, style="Accent.TButton")
+        self._eth_btn.pack(anchor=tk.W, pady=(12, 0))
+        self._eth = ttk.Frame(pad, style="TFrame")
+        eth = card(self._eth, "有线网卡 IP（追加地址）")
+        eth.pack(fill=tk.X, pady=(8, 0))
         ttk.Label(
             eth,
-            text="对应 Windows「高级 → IP 设置 → 添加」：在已有地址外再挂一个，不改网关。需 UAC 授权。",
+            text="等同 Windows「IP 设置 → 添加」；不改网关，需 UAC。",
             style="Muted.TLabel",
             wraplength=720,
             justify=tk.LEFT,
@@ -386,7 +405,7 @@ class App(tk.Tk):
         action_button(row_e, "添加 IP", self._on_add_eth_ip, variant="accent").pack(side=tk.LEFT, padx=2)
         action_button(row_e, "删除所选", self._on_remove_eth_ip).pack(side=tk.LEFT, padx=2)
         action_button(row_e, "刷新", self._refresh_eth_list).pack(side=tk.LEFT, padx=2)
-        ttk.Label(eth, text="删除时在下方列表选一个已有地址：", style="Muted.TLabel").pack(anchor=tk.W, pady=(8, 2))
+        ttk.Label(eth, text="删除时在下方选一个已有地址：", style="Muted.TLabel").pack(anchor=tk.W, pady=(8, 2))
         self.eth_combo = ttk.Combobox(eth, textvariable=self.eth_pick, state="readonly", width=48)
         self.eth_combo.pack(anchor=tk.W)
 
@@ -398,6 +417,46 @@ class App(tk.Tk):
         else:
             self._adv.pack_forget()
             self._adv_btn.configure(text="高级 ▸")
+
+    def _toggle_eth(self) -> None:
+        self._eth_open = not self._eth_open
+        if self._eth_open:
+            self._eth.pack(fill=tk.X, pady=(0, 0))
+            self._eth_btn.configure(text="网卡高级 ▾")
+            self._refresh_eth_list()
+        else:
+            self._eth.pack_forget()
+            self._eth_btn.configure(text="网卡高级 ▸")
+
+    def _track_action(self, btn: tk.Widget) -> tk.Widget:
+        self._action_btns.append(btn)
+        return btn
+
+    def _set_actions_enabled(self, enabled: bool) -> None:
+        state = tk.NORMAL if enabled else tk.DISABLED
+        for b in self._action_btns:
+            try:
+                b.configure(state=state)
+            except tk.TclError:
+                pass
+
+    def _clear_log(self) -> None:
+        self.log.configure(state=tk.NORMAL)
+        self.log.delete("1.0", tk.END)
+        self.log.configure(state=tk.DISABLED)
+
+    def _set_env_box(self, text: str) -> None:
+        self.env_box.configure(state=tk.NORMAL)
+        self.env_box.delete("1.0", tk.END)
+        self.env_box.insert(tk.END, text)
+        self.env_box.configure(state=tk.DISABLED)
+
+    def _apply_env_ready(self, ready: bool) -> None:
+        self._env_ready = ready
+        if ready:
+            self.env_banner.set("环境就绪 — 可去「2 编译」")
+        else:
+            self.env_banner.set("环境未就绪 — 请先「一键导入环境包」或点「重新检测」")
 
     def _set_http_dot(self, on: bool) -> None:
         self._http_dot.delete("all")
@@ -465,7 +524,7 @@ class App(tk.Tk):
         if not directory or not Path(directory).is_dir():
             messagebox.showerror("错误", "请先选择有效的共享目录（可用「用产物目录」）")
             return
-        port = int(self.share_port.get() or 8080)
+        port = int(self.share_port.get() or 18080)
         self._set_busy(True, "启动共享…")
         self._append_log(f"[http] 正在启动共享 :{port} …")
         self.share_state.set("启动中…")
@@ -518,7 +577,7 @@ class App(tk.Tk):
                 if not ok:
                     messagebox.showwarning(
                         "本机自检失败",
-                        "服务已启动，但本机探测未通过。\\n"
+                        "服务已启动，但本机探测未通过。\n"
                         "若浏览器也打不开，请换端口（如 18080），并确认代理绕过 127.0.0.1。",
                     )
                 self._append_log("[http] 客户机示例: wget <局域网地址><包名>.tar.gz")
@@ -585,7 +644,7 @@ class App(tk.Tk):
             messagebox.showerror("错误", "请填写要附加的 IP")
             return
         self._persist()
-        self._nb.select(0)
+        # 留在共享页看日志流到编译页底栏；不强制切页
 
         def work() -> None:
             self._set_busy(True, "添加网卡 IP…")
@@ -618,7 +677,6 @@ class App(tk.Tk):
         ip = pick.split()[0]
         if not messagebox.askyesno("确认", f"从有线网卡删除附加地址 {ip}？"):
             return
-        self._nb.select(0)
 
         def work() -> None:
             self._set_busy(True, "删除网卡 IP…")
@@ -721,8 +779,10 @@ class App(tk.Tk):
         return self.build_system.get(), raw
 
     def _append_log(self, line: str) -> None:
+        self.log.configure(state=tk.NORMAL)
         self.log.insert(tk.END, line + "\n")
         self.log.see(tk.END)
+        self.log.configure(state=tk.DISABLED)
         # 底栏即时显示最近一条底层输出
         short = line.strip()
         if len(short) > 72:
@@ -757,6 +817,7 @@ class App(tk.Tk):
 
     def _set_busy(self, busy: bool, msg: str = "") -> None:
         self._busy = busy
+        self._set_actions_enabled(not busy)
         text = msg or ("忙碌…" if busy else "就绪")
         self.status.set(text)
         try:
@@ -786,11 +847,11 @@ class App(tk.Tk):
             if "共享" in text:
                 self.header_status.set(text.replace("HTTP ", ""))
                 self._status_pill.configure(bg=C["header_top"], fg="#99F6E4")
-            elif text.startswith("成功"):
-                self.header_status.set("成功")
+            elif text.startswith("成功") or text.startswith("环境就绪"):
+                self.header_status.set("环境就绪" if "环境就绪" in text else "成功")
                 self._status_pill.configure(bg=C["header_top"], fg="#86EFAC")
-            elif text.startswith("失败") or "失败" in text:
-                self.header_status.set("失败")
+            elif text.startswith("失败") or "失败" in text or "不完整" in text:
+                self.header_status.set("失败" if "失败" in text else "环境缺项")
                 self._status_pill.configure(bg=C["header_top"], fg="#FCA5A5")
             else:
                 self.header_status.set("空闲" if text == "就绪" else text)
@@ -816,7 +877,7 @@ class App(tk.Tk):
                 "extra_copy": self.extra_copy.get(),
                 "distro": self.distro.get().strip() or wsl.DEFAULT_DISTRO,
                 "share_dir": self.share_dir.get().strip(),
-                "share_port": int(self.share_port.get() or 8080),
+                "share_port": int(self.share_port.get() or 18080),
                 "eth_add_ip": self.eth_add_ip.get().strip(),
                 "eth_add_mask": self.eth_add_mask.get().strip() or "255.255.255.0",
                 "env_install_dir": self.env_install_dir.get().strip(),
@@ -910,7 +971,7 @@ class App(tk.Tk):
 
     def _start_import(self, archive: str, install_dir: str, distro: str, replace: bool) -> None:
         if hasattr(self, "_nb"):
-            self._nb.select(0)  # 日志在编译页
+            self._nb.select(1)  # 日志在编译页
 
         def work() -> None:
             self._set_busy(True, "准备 WSL / 导入环境…")
@@ -991,36 +1052,42 @@ class App(tk.Tk):
         self.env_replace.set(replace)
         self._start_import(archive, install_dir, distro, replace)
 
-    def _on_detect(self) -> None:
+    def _on_detect(self, auto: bool = False) -> None:
         if self._busy:
             return
-        # 立刻切到编译页看日志，避免「半天没反应」
-        if hasattr(self, "_nb"):
-            self._nb.select(0)
+        # 手动检测时切到编译页看日志；开机自动检测留在当前页
+        if not auto and hasattr(self, "_nb"):
+            self._nb.select(1)
         self._set_busy(True, "检测环境")
-        self._append_log("==== 开始检测环境 ====")
-        self._append_log("[detect] 准备调用 WSL（可能稍慢，请看底栏进度）…")
-        self.env_box.delete("1.0", tk.END)
-        self.env_box.insert(tk.END, "检测中，请稍候…\n底层指令输出见下方构建日志与底栏。")
+        if not auto:
+            self._append_log("==== 开始检测环境 ====")
+            self._append_log("[detect] 准备调用 WSL（可能稍慢，请看底栏进度）…")
+        self._set_env_box("检测中…")
         self.update_idletasks()
 
         def work() -> None:
             report = detect.detect(
                 self.distro.get().strip() or wsl.DEFAULT_DISTRO,
-                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+                on_line=None
+                if auto
+                else (lambda line: self.after(0, lambda l=line: self._append_log(l))),
             )
 
             def ui() -> None:
-                self.env_box.delete("1.0", tk.END)
                 lines = []
                 for it in report.items:
                     mark = "OK" if it.ok else "缺"
                     lines.append(f"[{mark}] {it.label}")
                     if not it.ok and it.fix:
                         lines.append(f"      → {it.fix}")
-                self.env_box.insert(tk.END, "\n".join(lines) or "(无结果)")
-                self._append_log("==== 检测结束 ====")
+                self._set_env_box("\n".join(lines) or "(无结果)")
+                self._apply_env_ready(report.ready)
+                if not auto:
+                    self._append_log("==== 检测结束 ====")
                 self._set_busy(False, "环境就绪" if report.ready else "环境不完整")
+                # 开机未就绪：停在环境页；已就绪可留在当前页
+                if auto and not report.ready and hasattr(self, "_nb"):
+                    self._nb.select(0)
 
             self.after(0, ui)
 
@@ -1031,6 +1098,7 @@ class App(tk.Tk):
             return
         if not messagebox.askokcancel("确认", f"将以 WSL root 执行 tools/{script}，可能较久。继续？"):
             return
+        self._nb.select(1)
 
         def work() -> None:
             self._set_busy(True, f"安装: {script}")
@@ -1045,6 +1113,10 @@ class App(tk.Tk):
 
     def _on_build(self) -> None:
         if self._busy:
+            return
+        if not self._env_ready:
+            if messagebox.askyesno("环境未就绪", "交叉环境尚未就绪。是否前往「1 环境」导入/检测？"):
+                self._nb.select(0)
             return
         proj = self.project.get().strip()
         if not proj or not Path(proj).is_dir():
@@ -1075,15 +1147,26 @@ class App(tk.Tk):
                 distro=self.distro.get().strip() or wsl.DEFAULT_DISTRO,
                 on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
             )
-            self.after(
-                0,
-                lambda: (
-                    self._append_log(f"==== 结束 exit={code} ===="),
-                    self._set_busy(False, "成功" if code == 0 else f"失败 exit={code}"),
-                ),
-            )
+
+            def done() -> None:
+                self._append_log(f"==== 结束 exit={code} ====")
+                self._set_busy(False, "成功" if code == 0 else f"失败 exit={code}")
+                if code == 0:
+                    self._after_build_ok()
+
+            self.after(0, done)
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _after_build_ok(self) -> None:
+        """编成功后自动对齐共享目录，并引导去共享。"""
+        out = self.out_dir.get().strip()
+        if out and Path(out).is_dir():
+            self.share_dir.set(out)
+        else:
+            self._fill_share_from_project()
+        if messagebox.askyesno("编译成功", "运行包已生成。是否前往「3 共享」启动下载服务？"):
+            self._nb.select(2)
 
     def _open_out(self) -> None:
         out = self.out_dir.get().strip()

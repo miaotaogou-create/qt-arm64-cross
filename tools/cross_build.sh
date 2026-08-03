@@ -180,12 +180,24 @@ else
   need cmake
   log "cmake toolchain=${CMAKE_TOOLCHAIN} build=${BUILD_DIR}"
   rm -rf "${BUILD_DIR}"
+  cmake_extra=()
+  if [[ -n "${EXTRA_PKGCONFIG}" ]]; then
+    # shellcheck disable=SC2086
+    ffmpeg_libs=$(PKG_CONFIG_SYSROOT_DIR="${ROOTFS}" PKG_CONFIG_LIBDIR="${PKG_CONFIG_LIBDIR}" \
+      pkg-config --libs ${EXTRA_PKGCONFIG}) || {
+      echo "ERROR: pkg-config 失败（EXTRA_PKGCONFIG=${EXTRA_PKGCONFIG}），请检查 sysroot 开发包" >&2
+      exit 1
+    }
+    log "cmake 附加链接: ${ffmpeg_libs}"
+    cmake_extra+=("-DCMAKE_EXE_LINKER_FLAGS=${ffmpeg_libs}")
+  fi
   cmake -S "$(dirname "${CMAKE_FILE}")" -B "${BUILD_DIR}" \
     -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DQt5_DIR="${QT_PREFIX}/lib/cmake/Qt5" \
     -DQT_QMAKE_EXECUTABLE="${QMAKE}" \
-    -DCMAKE_PREFIX_PATH="${QT_PREFIX}"
+    -DCMAKE_PREFIX_PATH="${QT_PREFIX}" \
+    "${cmake_extra[@]}"
   cmake --build "${BUILD_DIR}" -j"${JOBS}"
 fi
 
