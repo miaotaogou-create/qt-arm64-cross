@@ -499,10 +499,13 @@ class App(tk.Tk):
     def _set_actions_enabled(self, enabled: bool) -> None:
         for b in self._action_btns:
             try:
-                if not enabled and id(b) in self._busy_keep:
-                    b.configure(state=tk.NORMAL)
+                keep = (not enabled) and id(b) in self._busy_keep
+                on = enabled or keep
+                paint = getattr(b, "_paint_enabled", None)
+                if callable(paint):
+                    paint(on)
                 else:
-                    b.configure(state=tk.NORMAL if enabled else tk.DISABLED)
+                    b.configure(state=tk.NORMAL if on else tk.DISABLED)
             except tk.TclError:
                 pass
 
@@ -522,10 +525,12 @@ class App(tk.Tk):
         if not hasattr(self, "_btn_build"):
             return
         try:
-            if self._busy or not self._env_ready:
-                self._btn_build.configure(state=tk.DISABLED)
+            on = (not self._busy) and self._env_ready
+            paint = getattr(self._btn_build, "_paint_enabled", None)
+            if callable(paint):
+                paint(on)
             else:
-                self._btn_build.configure(state=tk.NORMAL)
+                self._btn_build.configure(state=tk.NORMAL if on else tk.DISABLED)
         except tk.TclError:
             pass
 

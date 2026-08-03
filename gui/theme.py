@@ -301,6 +301,8 @@ def action_button(parent: tk.Misc, text: str, command, *, variant: str = "normal
         },
     }
     p = palettes.get(variant, palettes["normal"])
+    # 禁用：浅底 + 灰字，避免主色按钮灰字叠青绿（对比差、也和次要按钮不一致）
+    dis_bg, dis_fg, dis_bd = C["surface2"], C["muted"], C["border"]
     btn = tk.Button(
         parent,
         text=text,
@@ -309,6 +311,7 @@ def action_button(parent: tk.Misc, text: str, command, *, variant: str = "normal
         fg=p["fg"],
         activebackground=p["press"],
         activeforeground=p["press_fg"],
+        disabledforeground=dis_fg,
         relief="flat",
         bd=1,
         highlightthickness=1,
@@ -320,6 +323,26 @@ def action_button(parent: tk.Misc, text: str, command, *, variant: str = "normal
         cursor="hand2",
     )
 
+    def paint_enabled(enabled: bool) -> None:
+        if enabled:
+            btn.configure(
+                state=tk.NORMAL,
+                bg=p["bg"],
+                fg=p["fg"],
+                highlightbackground=p["bd"],
+                cursor="hand2",
+            )
+        else:
+            btn.configure(
+                state=tk.DISABLED,
+                bg=dis_bg,
+                fg=dis_fg,
+                highlightbackground=dis_bd,
+                cursor="arrow",
+            )
+
+    btn._paint_enabled = paint_enabled  # type: ignore[attr-defined]
+
     def enter(_e=None):
         if str(btn["state"]) == "disabled":
             return
@@ -327,6 +350,7 @@ def action_button(parent: tk.Misc, text: str, command, *, variant: str = "normal
 
     def leave(_e=None):
         if str(btn["state"]) == "disabled":
+            paint_enabled(False)
             return
         btn.configure(bg=p["bg"], fg=p["fg"])
 
