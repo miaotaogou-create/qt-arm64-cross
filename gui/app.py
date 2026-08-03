@@ -304,7 +304,7 @@ class App(tk.Tk):
         check_button(opts, "覆盖已有同名发行版", self.env_replace).pack(side=tk.LEFT)
         envp.columnconfigure(1, weight=1)
 
-        rare = card(pad, "从零搭建（一般不用）")
+        rare = card(pad, "从零搭建")
         rare.pack(fill=tk.X, pady=(0, 10))
         ttk.Label(
             rare,
