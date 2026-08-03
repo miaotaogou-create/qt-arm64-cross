@@ -214,6 +214,7 @@ class App(tk.Tk):
         actions.pack(fill=tk.X, pady=(0, 8))
         self._btn_build = primary_button(actions, "交叉编译", self._on_build)
         self._btn_build.pack(side=tk.LEFT, padx=(0, 8))
+        self._btn_build.configure(state=tk.DISABLED)
         self._track_action(self._btn_build)
         b_out = action_button(actions, "打开产物文件夹", self._open_out)
         b_out.pack(side=tk.LEFT, padx=3)
@@ -440,6 +441,18 @@ class App(tk.Tk):
             except tk.TclError:
                 pass
 
+    def _sync_build_enabled(self) -> None:
+        """忙碌时禁用；空闲时仅环境就绪才可点「交叉编译」。"""
+        if not hasattr(self, "_btn_build"):
+            return
+        try:
+            if self._busy or not self._env_ready:
+                self._btn_build.configure(state=tk.DISABLED)
+            else:
+                self._btn_build.configure(state=tk.NORMAL)
+        except tk.TclError:
+            pass
+
     def _clear_log(self) -> None:
         self.log.configure(state=tk.NORMAL)
         self.log.delete("1.0", tk.END)
@@ -457,6 +470,8 @@ class App(tk.Tk):
             self.env_banner.set("环境就绪 — 可去「2 编译」")
         else:
             self.env_banner.set("环境未就绪 — 请先「一键导入环境包」或点「重新检测」")
+        if not self._busy:
+            self._sync_build_enabled()
 
     def _set_http_dot(self, on: bool) -> None:
         self._http_dot.delete("all")
@@ -818,6 +833,8 @@ class App(tk.Tk):
     def _set_busy(self, busy: bool, msg: str = "") -> None:
         self._busy = busy
         self._set_actions_enabled(not busy)
+        if not busy:
+            self._sync_build_enabled()
         text = msg or ("忙碌…" if busy else "就绪")
         self.status.set(text)
         try:

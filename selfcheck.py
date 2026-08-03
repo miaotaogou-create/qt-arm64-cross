@@ -12,13 +12,20 @@ from crosskit import detect
 from crosskit.build import discover_build_files, merge_extra_pkgconfig
 from crosskit.httpshare import DirectoryShare, best_lan_ipv4, ethernet_ipv4, lan_ipv4
 from crosskit.netip import mask_to_prefix
-from crosskit.wsl import win_to_wsl
+from crosskit.wsl import parse_distro_names, win_to_wsl
 
 
 def main() -> None:
     w = win_to_wsl(r"C:\ZYL\workspace\projects\qt-arm64-cross")
-    assert w == "/mnt/c/ZYL/workspace/projects/qt-arm64-cross", w
+    assert w == r"/mnt/c/ZYL/workspace/projects/qt-arm64-cross", w
     assert detect.toolkit_root() == ROOT, detect.toolkit_root()
+
+    # 发行版名按行精确匹配，避免 Ubuntu-20.04 误中 Ubuntu-20.04-backup
+    names = parse_distro_names("Ubuntu-20.04\r\nUbuntu-20.04-backup\n")
+    assert names == {"Ubuntu-20.04", "Ubuntu-20.04-backup"}, names
+    assert "Ubuntu-20.04" in names
+    assert "Ubuntu" not in names
+    assert parse_distro_names("Ubuntu-20.04\x00\n") == {"Ubuntu-20.04"}
 
     qfiles = discover_build_files(ROOT / "examples" / "hello_qmake")
     assert any(k == "qmake" and p.endswith(".pro") for k, p in qfiles), qfiles

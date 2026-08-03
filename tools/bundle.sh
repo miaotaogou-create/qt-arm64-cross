@@ -76,6 +76,10 @@ copy_plugin() {
     mkdir -p "$(dirname "${dst}")"
     cp -L "${src}" "${dst}"
     chmod 755 "${dst}"
+  elif [[ "${rel}" == "platforms/libqxcb.so" ]]; then
+    # 麒麟/X11 客户机缺 qxcb 窗口起不来，不能静默跳过
+    echo "ERROR: 缺少必需插件 ${rel}（期望 ${src}）。请先把交叉环境装全再打包。" >&2
+    exit 1
   else
     log "跳过缺失插件: ${rel}"
   fi
@@ -84,6 +88,11 @@ copy_plugin() {
 for p in ${PLUGINS}; do
   copy_plugin "${p}"
 done
+# 即便 PLUGINS 被改掉，仍强制要求 qxcb（与环境检测门槛一致）
+if [[ ! -f "${BUNDLE_DIR}/plugins/platforms/libqxcb.so" ]]; then
+  echo "ERROR: 运行包缺少 platforms/libqxcb.so" >&2
+  exit 1
+fi
 
 should_skip() { [[ "$1" =~ ${SKIP_RE} ]]; }
 

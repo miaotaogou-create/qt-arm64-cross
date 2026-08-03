@@ -31,6 +31,12 @@ def wsl_available() -> bool:
     return shutil.which("wsl") is not None
 
 
+def parse_distro_names(text: str) -> set[str]:
+    """从 `wsl -l -q` 文本解析发行版名（按行精确匹配，避免子串误中）。"""
+    cleaned = (text or "").replace("\x00", "")
+    return {ln.strip() for ln in cleaned.splitlines() if ln.strip()}
+
+
 def distro_exists(distro: str = DEFAULT_DISTRO) -> bool:
     if not wsl_available():
         return False
@@ -43,12 +49,12 @@ def distro_exists(distro: str = DEFAULT_DISTRO) -> bool:
         **_hidden_kwargs(),
     )
     # wsl -l 在部分环境是 utf-16；再兜底 utf-8
-    names = r.stdout.replace("\x00", "")
+    names = parse_distro_names(r.stdout)
     if distro not in names:
         r2 = subprocess.run(["wsl", "-l", "-q"], capture_output=True, **_hidden_kwargs())
-        names = r2.stdout.decode("utf-16-le", errors="replace").replace("\x00", "")
+        names = parse_distro_names(r2.stdout.decode("utf-16-le", errors="replace"))
         if distro not in names:
-            names = r2.stdout.decode("utf-8", errors="replace")
+            names = parse_distro_names(r2.stdout.decode("utf-8", errors="replace"))
     return distro in names
 
 
