@@ -955,10 +955,7 @@ class App(tk.Tk):
             self._sync_build_enabled()
         text = msg or ("忙碌…" if busy else "就绪")
         self.status.set(text)
-        try:
-            self.configure(cursor="watch" if busy else "")
-        except tk.TclError:
-            pass
+        # 不用整窗「转圈」光标：看起来像卡死；忙碌只靠底栏进度条 + 顶栏状态字
         if busy:
             if not self._progress_visible:
                 self._progress.pack(side=tk.RIGHT, padx=(8, 0))
