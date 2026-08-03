@@ -41,6 +41,17 @@ class App(tk.Tk):
         self._chrome: TitleChrome | None = None
         self._env_banner_labels: list[tk.Label] = []
         self._share_log: tk.Text | None = None
+
+        self.project = tk.StringVar(value=self._cfg.get("project", ""))
+        self.build_file = tk.StringVar(value=self._cfg.get("build_file", ""))
+        self.build_system = tk.StringVar(value=self._cfg.get("build_system", "auto"))
+        self.app_name = tk.StringVar(value=self._cfg.get("app_name", ""))
+        self.out_dir = tk.StringVar(value=self._cfg.get("out_dir", ""))
+        self.out_bin = tk.StringVar(value=self._cfg.get("out_bin", ""))
+        self.jobs = tk.IntVar(value=int(self._cfg.get("jobs") or 0))
+        self.do_bundle = tk.BooleanVar(value=bool(self._cfg.get("do_bundle", True)))
+        self.do_clean = tk.BooleanVar(value=bool(self._cfg.get("do_clean", False)))
+        self.use_ffmpeg = tk.BooleanVar(value=bool(self._cfg.get("use_ffmpeg", False)))
         self.plugins = tk.StringVar(value=self._cfg.get("plugins", ""))
         self.extra_pkg = tk.StringVar(value=self._cfg.get("extra_pkgconfig", ""))
         self.extra_copy = tk.StringVar(value=self._cfg.get("extra_copy", ""))
