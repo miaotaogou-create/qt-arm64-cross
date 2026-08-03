@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import wsl, wsl_setup
+from . import jobs, wsl, wsl_setup
 
 
 def free_bytes(path: str | Path) -> int | None:
@@ -31,7 +31,7 @@ def estimate_import_need_bytes(archive: Path) -> int:
 
 
 def run_stream(args: list[str], on_line=None) -> int:
-    """跑 Windows 命令并流式输出。"""
+    """跑 Windows 命令并流式输出；支持 jobs 取消。"""
     proc_env = os.environ.copy()
     proc_env["PYTHONIOENCODING"] = "utf-8"
     hidden = wsl._hidden_kwargs()
@@ -46,11 +46,31 @@ def run_stream(args: list[str], on_line=None) -> int:
         bufsize=1,
         **hidden,
     )
-    assert proc.stdout is not None
-    for line in proc.stdout:
-        if on_line:
-            on_line(line.rstrip("\n"))
-    return proc.wait()
+    jobs.track(proc)
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            if jobs.is_cancelled():
+                break
+            if on_line:
+                on_line(line.rstrip("\n"))
+        if jobs.is_cancelled():
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+            return jobs.CANCELLED
+        code = proc.wait()
+        return jobs.CANCELLED if jobs.is_cancelled() else code
+    finally:
+        jobs.untrack(proc)
 
 
 def slim_build_cache(distro: str = wsl.DEFAULT_DISTRO, on_line=None) -> int:
@@ -199,7 +219,16 @@ def import_distro(
         if on_line:
             on_line(f"[env] 解压 {archive.name} …")
         with gzip.open(archive, "rb") as fin, tmp_tar.open("wb") as fout:
-            shutil.copyfileobj(fin, fout, length=1024 * 1024 * 8)
+            while True:
+                if jobs.is_cancelled():
+                    tmp_tar.unlink(missing_ok=True)
+                    if on_line:
+                        on_line("[env] 解压已取消")
+                    return jobs.CANCELLED
+                chunk = fin.read(1024 * 1024 * 8)
+                if not chunk:
+                    break
+                fout.write(chunk)
         tar_path = tmp_tar
 
     if on_line:

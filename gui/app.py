@@ -8,7 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from crosskit import build as buildmod
-from crosskit import detect, envpack, netip, settings, wsl, wsl_setup
+from crosskit import detect, envpack, jobs, netip, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
 from gui.chrome import TitleChrome
 from gui.theme import (
@@ -23,6 +23,8 @@ from gui.theme import (
     primary_button,
 )
 
+ENV_RELEASE_URL = "https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/env-ubuntu-20.04"
+
 
 class App(tk.Tk):
     def __init__(self) -> None:
@@ -34,6 +36,7 @@ class App(tk.Tk):
         self._env_ready = False
         self._action_btns: list[tk.Widget] = []
         self._busy_keep: set[int] = set()  # id(widget)：忙碌时仍可点
+        self._form_widgets: list[tk.Widget] = []
         self._share = DirectoryShare()
         self._advanced_open = False
         self._eth_open = False
@@ -41,6 +44,8 @@ class App(tk.Tk):
         self._chrome: TitleChrome | None = None
         self._env_banner_labels: list[tk.Label] = []
         self._share_log: tk.Text | None = None
+        self._btn_cancel: tk.Widget | None = None
+        self._recent_log_lines: list[str] = []
 
         self.project = tk.StringVar(value=self._cfg.get("project", ""))
         self.build_file = tk.StringVar(value=self._cfg.get("build_file", ""))
@@ -136,6 +141,11 @@ class App(tk.Tk):
         foot.pack(fill=tk.X, padx=14, pady=(4, 8))
         ttk.Label(foot, textvariable=self.status, style="Status.TLabel").pack(side=tk.LEFT)
         ttk.Label(foot, textvariable=self.activity, style="Status.TLabel").pack(side=tk.LEFT, padx=(16, 0))
+        self._btn_cancel = action_button(foot, "取消任务", self._on_cancel)
+        self._btn_cancel.pack(side=tk.RIGHT, padx=(8, 0))
+        paint = getattr(self._btn_cancel, "_paint_enabled", None)
+        if callable(paint):
+            paint(False)
         self._progress = ttk.Progressbar(foot, mode="indeterminate", length=140, style="Busy.Horizontal.TProgressbar")
         # 空闲不显示：clam 停住的不确定进度条会残留一截色块
         self._progress_visible = False
@@ -163,7 +173,7 @@ class App(tk.Tk):
         proj = card(top, "工程")
         proj.pack(fill=tk.X, pady=(0, 8))
         ttk.Label(proj, text="工程目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(proj, textvariable=self.project).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
+        self._track_form(ttk.Entry(proj, textvariable=self.project)).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
         action_button(proj, "浏览…", self._browse_project).grid(row=0, column=2, padx=2)
         recent = self._cfg.get("recent_projects") or []
         if recent:
@@ -177,10 +187,11 @@ class App(tk.Tk):
         ttk.Label(proj, text="构建文件", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
         self.build_combo = ttk.Combobox(proj, textvariable=self.build_file)
         self.build_combo.grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
+        self._track_form(self.build_combo)
         action_button(proj, "刷新", self._refresh_build_files).grid(row=1, column=2, padx=2)
 
         ttk.Label(proj, text="产物目录", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(proj, textvariable=self.out_dir).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=4)
+        self._track_form(ttk.Entry(proj, textvariable=self.out_dir)).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=4)
         action_button(proj, "浏览…", self._browse_out_dir).grid(row=2, column=2, padx=2)
         proj.columnconfigure(1, weight=1)
 
@@ -201,25 +212,29 @@ class App(tk.Tk):
         for v, t in (("auto", "自动"), ("qmake", "qmake"), ("cmake", "CMake")):
             ttk.Radiobutton(sysf, text=t, value=v, variable=self.build_system).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Label(self._adv, text="应用名", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.app_name, width=18).grid(row=1, column=1, sticky=tk.W, padx=8)
+        self._track_form(ttk.Entry(self._adv, textvariable=self.app_name, width=18)).grid(
+            row=1, column=1, sticky=tk.W, padx=8
+        )
         ttk.Label(self._adv, text="可执行文件", style="Card.TLabel").grid(row=1, column=2, sticky=tk.W, padx=(8, 0))
-        ttk.Entry(self._adv, textvariable=self.out_bin, width=24).grid(row=1, column=3, sticky=tk.W, padx=8)
+        self._track_form(ttk.Entry(self._adv, textvariable=self.out_bin, width=24)).grid(
+            row=1, column=3, sticky=tk.W, padx=8
+        )
         ttk.Label(self._adv, text="留空则自动查找", style="Muted.TLabel").grid(row=2, column=3, sticky=tk.W, padx=8)
         ttk.Label(self._adv, text="并行 -j", style="Card.TLabel").grid(row=3, column=0, sticky=tk.W, pady=3)
-        ttk.Spinbox(self._adv, from_=0, to=64, textvariable=self.jobs, width=5).grid(
-            row=3, column=1, sticky=tk.W, padx=8
-        )
+        jobs_sp = ttk.Spinbox(self._adv, from_=0, to=64, textvariable=self.jobs, width=5)
+        jobs_sp.grid(row=3, column=1, sticky=tk.W, padx=8)
+        self._track_form(jobs_sp)
         ttk.Label(self._adv, text="0=自动", style="Muted.TLabel").grid(row=3, column=2, sticky=tk.W)
         ttk.Label(self._adv, text="插件", style="Card.TLabel").grid(row=4, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.plugins).grid(
+        self._track_form(ttk.Entry(self._adv, textvariable=self.plugins)).grid(
             row=4, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
         )
         ttk.Label(self._adv, text="其他 pkg-config", style="Card.TLabel").grid(row=5, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.extra_pkg).grid(
+        self._track_form(ttk.Entry(self._adv, textvariable=self.extra_pkg)).grid(
             row=5, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
         )
         ttk.Label(self._adv, text="额外复制", style="Card.TLabel").grid(row=6, column=0, sticky=tk.W, pady=3)
-        ttk.Entry(self._adv, textvariable=self.extra_copy).grid(
+        self._track_form(ttk.Entry(self._adv, textvariable=self.extra_copy)).grid(
             row=6, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
         )
         self._adv.columnconfigure(1, weight=1)
@@ -312,11 +327,13 @@ class App(tk.Tk):
         envp = card(pad, "交叉编译环境包")
         envp.pack(fill=tk.X, pady=(0, 10))
         ttk.Label(envp, text="安装目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(envp, textvariable=self.env_install_dir).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
+        self._track_form(ttk.Entry(envp, textvariable=self.env_install_dir)).grid(
+            row=0, column=1, sticky=tk.EW, padx=8, pady=4
+        )
         action_button(envp, "浏览…", self._browse_env_install).grid(row=0, column=2, padx=2)
 
         ttk.Label(envp, text="发行版名", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(envp, textvariable=self.distro).grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
+        self._track_form(ttk.Entry(envp, textvariable=self.distro)).grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
         ttk.Label(envp, text="一般保持 Ubuntu-20.04", style="Muted.TLabel").grid(row=1, column=2, sticky=tk.W)
 
         row = ttk.Frame(envp, style="Card.TFrame")
@@ -330,6 +347,7 @@ class App(tk.Tk):
         b_exp = action_button(row, "导出环境包…", self._on_export_env)
         b_exp.pack(side=tk.LEFT, padx=4)
         self._track_action(b_exp)
+        action_button(row, "打开下载页", self._open_env_release, variant="accent").pack(side=tk.LEFT, padx=4)
 
         opts = ttk.Frame(envp, style="Card.TFrame")
         opts.grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
@@ -346,12 +364,10 @@ class App(tk.Tk):
         ).pack(anchor=tk.W, pady=(0, 8))
         row2 = ttk.Frame(rare, style="Card.TFrame")
         row2.pack(anchor=tk.W)
-        b_tc = ttk.Button(row2, text="安装工具链", command=lambda: self._on_install("setup_cross_focal.sh"))
+        b_tc = action_button(row2, "安装工具链", lambda: self._on_install("setup_cross_focal.sh"))
         b_tc.pack(side=tk.LEFT, padx=(0, 6))
         self._track_action(b_tc)
-        b_qt = ttk.Button(
-            row2, text="编译 Qt 5.14.2", command=lambda: self._on_install("build_qt5142_arm64_cross.sh")
-        )
+        b_qt = action_button(row2, "编译 Qt 5.14.2", lambda: self._on_install("build_qt5142_arm64_cross.sh"))
         b_qt.pack(side=tk.LEFT, padx=6)
         self._track_action(b_qt)
 
@@ -368,7 +384,9 @@ class App(tk.Tk):
         share = card(pad, "HTTP 共享")
         share.pack(fill=tk.X)
         ttk.Label(share, text="共享目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(share, textvariable=self.share_dir).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
+        self._track_form(ttk.Entry(share, textvariable=self.share_dir)).grid(
+            row=0, column=1, sticky=tk.EW, padx=8, pady=4
+        )
         action_button(share, "浏览…", self._browse_share).grid(row=0, column=2, padx=2)
         action_button(share, "用产物目录", self._fill_share_from_project, variant="accent").grid(
             row=0, column=3, padx=2
@@ -377,7 +395,9 @@ class App(tk.Tk):
         ttk.Label(share, text="端口", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
         row1 = ttk.Frame(share, style="Card.TFrame")
         row1.grid(row=1, column=1, columnspan=3, sticky=tk.EW, padx=8)
-        ttk.Spinbox(row1, from_=1, to=65535, textvariable=self.share_port, width=8).pack(side=tk.LEFT)
+        port_sp = ttk.Spinbox(row1, from_=1, to=65535, textvariable=self.share_port, width=8)
+        port_sp.pack(side=tk.LEFT)
+        self._track_form(port_sp)
         b_start = action_button(row1, "启动共享", self._share_start, variant="accent")
         b_start.pack(side=tk.LEFT, padx=(10, 4))
         self._track_action(b_start)
@@ -496,6 +516,21 @@ class App(tk.Tk):
             self._busy_keep.add(id(btn))
         return btn
 
+    def _track_form(self, widget: tk.Widget) -> tk.Widget:
+        self._form_widgets.append(widget)
+        return widget
+
+    def _set_form_enabled(self, enabled: bool) -> None:
+        for w in self._form_widgets:
+            try:
+                cls = w.winfo_class()
+                if cls == "TCombobox":
+                    w.configure(state="readonly" if enabled else "disabled")
+                else:
+                    w.configure(state=tk.NORMAL if enabled else tk.DISABLED)
+            except tk.TclError:
+                pass
+
     def _set_actions_enabled(self, enabled: bool) -> None:
         for b in self._action_btns:
             try:
@@ -508,6 +543,57 @@ class App(tk.Tk):
                     b.configure(state=tk.NORMAL if on else tk.DISABLED)
             except tk.TclError:
                 pass
+        if self._btn_cancel is not None:
+            paint = getattr(self._btn_cancel, "_paint_enabled", None)
+            # 取消：忙碌时可点，空闲时禁用
+            try:
+                if callable(paint):
+                    paint(not enabled)
+                else:
+                    self._btn_cancel.configure(state=tk.DISABLED if enabled else tk.NORMAL)
+            except tk.TclError:
+                pass
+
+    def _on_cancel(self) -> None:
+        if not self._busy:
+            return
+        distro = self.distro.get().strip() or wsl.DEFAULT_DISTRO
+        self._append_log("[cancel] 正在取消当前任务…")
+        jobs.cancel(distro=distro)
+
+    def _open_env_release(self) -> None:
+        import webbrowser
+
+        webbrowser.open(ENV_RELEASE_URL)
+
+    def _busy_result_msg(self, code: int, ok: str, fail_prefix: str) -> str:
+        if code == jobs.CANCELLED:
+            return "已取消"
+        if code == 0:
+            return ok
+        return f"{fail_prefix} exit={code}"
+
+    def _fail_summary_from_log(self) -> str:
+        """从最近日志抽一句人话建议。"""
+        blob = "\n".join(self._recent_log_lines[-80:])
+        rules = [
+            ("磁盘空间可能不足", "磁盘空间不足，请换更大的盘或清理空间后重试。"),
+            ("GLIBC_2", "产物需要过高的 glibc，请检查是否链到了过新系统库。"),
+            ("libqxcb", "缺少 qxcb 平台插件。请先「检测环境」，必要时重新导入环境包。"),
+            ("qxcb", "缺少 qxcb 平台插件。请先「检测环境」，必要时重新导入环境包。"),
+            ("pkg-config", "pkg-config 失败。若勾了「附加 FFmpeg」，请确认环境包含 FFmpeg 开发库。"),
+            ("找不到产物", "找不到可执行文件。请在高级里填写「可执行文件」路径，或检查工程 TARGET。"),
+            ("missing", "交叉环境不完整。请去「1 环境」导入环境包或点「检测环境」。"),
+            ("ERROR:", None),
+        ]
+        for key, tip in rules:
+            if key in blob:
+                if tip:
+                    return tip
+                for line in reversed(self._recent_log_lines):
+                    if "ERROR:" in line or line.strip().startswith("ERROR"):
+                        return line.strip()[:200]
+        return "请查看「2 编译」页日志中的 ERROR / 最后几行。"
 
     def _confirm_distro(self) -> bool:
         d = (self.distro.get() or "").strip() or wsl.DEFAULT_DISTRO
@@ -897,12 +983,18 @@ class App(tk.Tk):
         return self.build_system.get(), raw
 
     def _append_log(self, line: str) -> None:
+        self._recent_log_lines.append(line)
+        if len(self._recent_log_lines) > 400:
+            self._recent_log_lines = self._recent_log_lines[-300:]
         self.log.configure(state=tk.NORMAL)
         self.log.insert(tk.END, line + "\n")
         self.log.see(tk.END)
         self.log.configure(state=tk.DISABLED)
         if self._share_log is not None and (
-            line.startswith("[http]") or line.startswith("[net]") or line.startswith("[env]")
+            line.startswith("[http]")
+            or line.startswith("[net]")
+            or line.startswith("[env]")
+            or line.startswith("[cancel]")
         ):
             try:
                 self._share_log.configure(state=tk.NORMAL)
@@ -951,6 +1043,7 @@ class App(tk.Tk):
     def _set_busy(self, busy: bool, msg: str = "") -> None:
         self._busy = busy
         self._set_actions_enabled(not busy)
+        self._set_form_enabled(not busy)
         if not busy:
             self._sync_build_enabled()
         text = msg or ("忙碌…" if busy else "就绪")
@@ -980,6 +1073,8 @@ class App(tk.Tk):
                 self._pill(text.replace("HTTP ", ""), "#99F6E4")
             elif text.startswith("成功") or text.startswith("环境就绪"):
                 self._pill("环境就绪" if "环境就绪" in text else "成功", "#86EFAC")
+            elif text.startswith("已取消"):
+                self._pill("已取消", "#FDE68A")
             elif text.startswith("失败") or "失败" in text or "不完整" in text:
                 self._pill("失败" if "失败" in text else "环境缺项", "#FCA5A5")
             else:
@@ -1046,9 +1141,10 @@ class App(tk.Tk):
         self._show_log_tab()
         low = path.lower()
         compress = low.endswith(".tar.gz") or low.endswith(".tgz") or not low.endswith(".tar")
+        jobs.begin()
+        self._set_busy(True, "导出环境包…")
 
         def work() -> None:
-            self._set_busy(True, "导出环境包…")
             code = envpack.export_distro(
                 path,
                 distro=distro,
@@ -1056,13 +1152,15 @@ class App(tk.Tk):
                 compress=compress,
                 on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
             )
-            self.after(
-                0,
-                lambda: (
-                    self._append_log(f"[env] 导出结束 exit={code}"),
-                    self._set_busy(False, "导出成功" if code == 0 else f"导出失败 exit={code}"),
-                ),
-            )
+
+            def done() -> None:
+                self._append_log(f"[env] 导出结束 exit={code}")
+                msg = self._busy_result_msg(code, "导出成功", "导出失败")
+                self._set_busy(False, msg)
+                if code not in (0, jobs.CANCELLED):
+                    messagebox.showerror("导出失败", self._fail_summary_from_log())
+
+            self.after(0, done)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1113,9 +1211,10 @@ class App(tk.Tk):
     def _start_import(self, archive: str, install_dir: str, distro: str, replace: bool) -> None:
         if hasattr(self, "_nb"):
             self._nb.select(1)  # 日志在编译页
+        jobs.begin()
+        self._set_busy(True, "准备 WSL / 导入环境…")
 
         def work() -> None:
-            self._set_busy(True, "准备 WSL / 导入环境…")
             code = envpack.import_distro(
                 archive,
                 install_dir,
@@ -1128,6 +1227,9 @@ class App(tk.Tk):
 
             def done() -> None:
                 self._append_log(f"[env] 导入结束 exit={code}")
+                if code == jobs.CANCELLED:
+                    self._set_busy(False, "已取消")
+                    return
                 if code == 2:
                     settings.save(
                         {
@@ -1150,7 +1252,11 @@ class App(tk.Tk):
                     self._on_detect()
                 else:
                     self._set_busy(False, f"导入失败 exit={code}")
-                    messagebox.showerror("导入失败", "请查看下方日志。若取消了 UAC，请再点一次「一键导入」。")
+                    messagebox.showerror(
+                        "导入失败",
+                        self._fail_summary_from_log()
+                        + "\n\n若取消了 UAC，请再点一次「一键导入」。",
+                    )
 
             self.after(0, done)
 
@@ -1201,6 +1307,7 @@ class App(tk.Tk):
         # 手动检测时切到编译页看日志；开机自动检测留在当前页
         if not auto and hasattr(self, "_nb"):
             self._nb.select(1)
+        jobs.begin()
         self._set_busy(True, "检测环境")
         if not auto:
             self._append_log("==== 开始检测环境 ====")
@@ -1217,6 +1324,10 @@ class App(tk.Tk):
             )
 
             def ui() -> None:
+                if jobs.is_cancelled():
+                    self._set_env_box("已取消")
+                    self._set_busy(False, "已取消")
+                    return
                 lines = []
                 for it in report.items:
                     mark = "OK" if it.ok else "缺"
@@ -1242,15 +1353,25 @@ class App(tk.Tk):
         if not messagebox.askokcancel("确认", f"将以 WSL root 执行 tools/{script}，可能较久。继续？"):
             return
         self._show_log_tab()
+        jobs.begin()
+        self._set_busy(True, f"安装: {script}")
 
         def work() -> None:
-            self._set_busy(True, f"安装: {script}")
             code = buildmod.run_install(
                 script,
                 distro=self.distro.get().strip() or wsl.DEFAULT_DISTRO,
                 on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
             )
-            self.after(0, lambda: self._set_busy(False, f"安装结束 exit={code}"))
+
+            def done() -> None:
+                msg = self._busy_result_msg(code, f"安装结束 exit={code}", "安装失败")
+                if code == 0:
+                    msg = "安装成功"
+                self._set_busy(False, msg)
+                if code not in (0, jobs.CANCELLED):
+                    messagebox.showerror("安装失败", self._fail_summary_from_log())
+
+            self.after(0, done)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1270,10 +1391,11 @@ class App(tk.Tk):
             messagebox.showerror("错误", "请选择 .pro 或 CMakeLists.txt")
             return
         self._persist()
+        jobs.begin()
+        self._set_busy(True, "交叉编译中…")
+        self._append_log("==== 开始编译 ====")
 
         def work() -> None:
-            self._set_busy(True, "交叉编译中…")
-            self.after(0, lambda: self._append_log("==== 开始编译 ===="))
             code = buildmod.build(
                 project=proj,
                 build_system=kind,
@@ -1294,9 +1416,12 @@ class App(tk.Tk):
 
             def done() -> None:
                 self._append_log(f"==== 结束 exit={code} ====")
-                self._set_busy(False, "成功" if code == 0 else f"失败 exit={code}")
+                msg = self._busy_result_msg(code, "成功", "失败")
+                self._set_busy(False, msg)
                 if code == 0:
                     self._after_build_ok()
+                elif code != jobs.CANCELLED:
+                    messagebox.showerror("编译失败", self._fail_summary_from_log())
 
             self.after(0, done)
 
@@ -1309,7 +1434,18 @@ class App(tk.Tk):
             self.share_dir.set(out)
         else:
             self._fill_share_from_project()
-        if messagebox.askyesno("编译成功", "运行包已生成。是否前往「3 共享」启动下载服务？"):
+            out = self.share_dir.get().strip() or self.out_dir.get().strip()
+        tip = "编译成功。"
+        if out:
+            tip += f"\n产物目录：\n{out}"
+            try:
+                tars = sorted(Path(out).glob("*_bundle.tar.gz"))
+                if tars:
+                    tip += f"\n运行包：{tars[-1].name}"
+            except OSError:
+                pass
+        tip += "\n\n是否前往「3 共享」启动下载服务？"
+        if messagebox.askyesno("编译成功", tip):
             self._nb.select(2)
 
     def _open_out(self) -> None:

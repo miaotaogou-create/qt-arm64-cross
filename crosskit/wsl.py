@@ -7,6 +7,9 @@ import subprocess
 from pathlib import Path
 
 
+from . import jobs
+
+
 DEFAULT_DISTRO = "Ubuntu-20.04"
 
 
@@ -96,8 +99,28 @@ def run_wsl(
         bufsize=1,
         **_hidden_kwargs(),
     )
-    assert proc.stdout is not None
-    for line in proc.stdout:
-        if on_line:
-            on_line(line.rstrip("\n"))
-    return proc.wait()
+    jobs.track(proc)
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            if jobs.is_cancelled():
+                break
+            if on_line:
+                on_line(line.rstrip("\n"))
+        if jobs.is_cancelled():
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+            return jobs.CANCELLED
+        code = proc.wait()
+        return jobs.CANCELLED if jobs.is_cancelled() else code
+    finally:
+        jobs.untrack(proc)

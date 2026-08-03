@@ -32,7 +32,8 @@ Windows 绿色 GUI + WSL `Ubuntu-20.04`，把 Qt 工程（`.pro` / `CMakeLists.t
 发行版名一般保持 `Ubuntu-20.04`（在环境页填写；改非默认名会二次确认）。
 
 首次运行会把 Tcl/Tk 与 `tools/` 缓存到 `%LOCALAPPDATA%\QtArm64Cross\`。  
-设置保存在 `%USERPROFILE%\.qt-arm64-cross\settings.json`。
+设置保存在 `%USERPROFILE%\.qt-arm64-cross\settings.json`。  
+长任务（检测 / 导入 / 编译等）可点底栏 **取消任务** 中止。
 
 ### 2 编译
 

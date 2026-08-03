@@ -38,6 +38,16 @@ def main() -> None:
     need = envpack.estimate_import_need_bytes(ROOT / "README.md")
     assert need >= 2 * 1024**3
 
+    from crosskit import jobs as jobsmod
+
+    assert jobsmod.CANCELLED == 130
+    jobsmod.begin()
+    assert not jobsmod.is_cancelled()
+    jobsmod.cancel()
+    assert jobsmod.is_cancelled()
+    jobsmod.begin()
+    assert not jobsmod.is_cancelled()
+
     qfiles = discover_build_files(ROOT / "examples" / "hello_qmake")
     assert any(k == "qmake" and p.endswith(".pro") for k, p in qfiles), qfiles
 
