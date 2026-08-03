@@ -453,29 +453,56 @@ class EqualTabs:
 
 
 def make_scrollable(parent: tk.Misc):
-    """可垂直滚动的内容区。返回 (inner_frame, sync_scroll)。"""
+    """可垂直滚动的内容区。内容装得下时自动隐藏滚动条。返回 (inner_frame, sync_scroll)。"""
     wrap = ttk.Frame(parent, style="TFrame")
     wrap.pack(fill=tk.BOTH, expand=True)
     canvas = tk.Canvas(wrap, bg=C["bg"], highlightthickness=0, bd=0)
     vsb = ttk.Scrollbar(wrap, orient="vertical", command=canvas.yview)
     canvas.configure(yscrollcommand=vsb.set)
-    vsb.pack(side=tk.RIGHT, fill=tk.Y)
+    # 默认不显示滚动条，避免内容很少时右侧仍占一条灰槽
     canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    vsb._shown = False  # type: ignore[attr-defined]
 
     inner = ttk.Frame(canvas, style="TFrame")
     win = canvas.create_window((0, 0), window=inner, anchor="nw")
 
     def _sync_scroll(_event=None) -> None:
-        canvas.configure(scrollregion=canvas.bbox("all"))
+        canvas.update_idletasks()
+        bbox = canvas.bbox("all")
+        if not bbox:
+            canvas.configure(scrollregion=(0, 0, 0, 0))
+            if getattr(vsb, "_shown", False):
+                vsb.pack_forget()
+                vsb._shown = False  # type: ignore[attr-defined]
+            return
+        content_h = bbox[3] - bbox[1]
+        view_h = max(int(canvas.winfo_height()), 1)
+        need = content_h > view_h + 2
+        if need:
+            canvas.configure(scrollregion=bbox)
+            if not getattr(vsb, "_shown", False):
+                # 先收起 canvas，再右条左内容，避免条叠在内容上
+                canvas.pack_forget()
+                vsb.pack(side=tk.RIGHT, fill=tk.Y)
+                canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                vsb._shown = True  # type: ignore[attr-defined]
+        else:
+            canvas.configure(scrollregion=(0, 0, bbox[2], view_h))
+            canvas.yview_moveto(0)
+            if getattr(vsb, "_shown", False):
+                vsb.pack_forget()
+                vsb._shown = False  # type: ignore[attr-defined]
 
     def _sync_width(event) -> None:
         canvas.itemconfigure(win, width=event.width)
+        _sync_scroll()
 
     inner.bind("<Configure>", _sync_scroll)
     canvas.bind("<Configure>", _sync_width)
 
     def _wheel(event) -> None:
-        # Windows: event.delta 为 ±120 的倍数
+        if not getattr(vsb, "_shown", False):
+            return
         if event.delta:
             canvas.yview_scroll(int(-event.delta / 120), "units")
 

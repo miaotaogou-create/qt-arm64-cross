@@ -40,12 +40,15 @@ class App(tk.Tk):
         self._share = DirectoryShare()
         self._advanced_open = False
         self._eth_open = False
+        self._scratch_open = False
         self._cfg = settings.load()
         self._chrome: TitleChrome | None = None
         self._env_banner_labels: list[tk.Label] = []
+        self._env_hint_lbl: ttk.Label | None = None
         self._share_log: tk.Text | None = None
         self._btn_cancel: tk.Widget | None = None
         self._recent_log_lines: list[str] = []
+        self._btn_download: tk.Widget | None = None
 
         self.project = tk.StringVar(value=self._cfg.get("project", ""))
         self.build_file = tk.StringVar(value=self._cfg.get("build_file", ""))
@@ -315,14 +318,16 @@ class App(tk.Tk):
             anchor="w",
             justify=tk.LEFT,
         )
-        env_lbl.pack(fill=tk.X, pady=(0, 8))
+        env_lbl.pack(fill=tk.X, pady=(0, 6))
         self._env_banner_labels.append(env_lbl)
-        ttk.Label(
+        self._env_hint_lbl = ttk.Label(
             tip,
-            text="未就绪：点「一键导入环境包」。已就绪：直接去「2 编译」。长任务日志在「2 编译」。",
+            text="",
             style="Muted.TLabel",
             justify=tk.LEFT,
-        ).pack(anchor=tk.W)
+        )
+        self._env_hint_lbl.pack(anchor=tk.W)
+        self._refresh_env_hint()
 
         envp = card(pad, "交叉编译环境包")
         envp.pack(fill=tk.X, pady=(0, 10))
@@ -341,13 +346,14 @@ class App(tk.Tk):
         b_imp = primary_button(row, "一键导入环境包…", self._on_import_env)
         b_imp.pack(side=tk.LEFT, padx=(0, 8))
         self._track_action(b_imp)
+        self._btn_download = action_button(row, "下载环境包", self._open_env_release, variant="accent")
+        self._btn_download.pack(side=tk.LEFT, padx=(0, 8))
         b_det = action_button(row, "检测环境", self._on_detect)
         b_det.pack(side=tk.LEFT, padx=4)
         self._track_action(b_det)
-        b_exp = action_button(row, "导出环境包…", self._on_export_env)
+        b_exp = action_button(row, "导出…", self._on_export_env)
         b_exp.pack(side=tk.LEFT, padx=4)
         self._track_action(b_exp)
-        action_button(row, "打开下载页", self._open_env_release, variant="accent").pack(side=tk.LEFT, padx=4)
 
         opts = ttk.Frame(envp, style="Card.TFrame")
         opts.grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
@@ -355,11 +361,17 @@ class App(tk.Tk):
         check_button(opts, "覆盖已有同名发行版", self.env_replace).pack(side=tk.LEFT)
         envp.columnconfigure(1, weight=1)
 
-        rare = card(pad, "从零搭建")
-        rare.pack(fill=tk.X, pady=(0, 10))
+        # 从零搭建默认收起，日常路径更干净
+        self._scratch_btn = ttk.Button(
+            pad, text="从零搭建 ▸", command=self._toggle_scratch, style="Accent.TButton"
+        )
+        self._scratch_btn.pack(anchor=tk.W, pady=(4, 0))
+        self._scratch = ttk.Frame(pad, style="TFrame")
+        rare = card(self._scratch, "从零搭建")
+        rare.pack(fill=tk.X, pady=(8, 0))
         ttk.Label(
             rare,
-            text="已有环境包请直接导入。仅在无包、需本机重新编译工具链/Qt 时使用。",
+            text="无现成环境包、或要本机重编工具链/Qt 时再用。有包请直接导入。",
             style="Muted.TLabel",
         ).pack(anchor=tk.W, pady=(0, 8))
         row2 = ttk.Frame(rare, style="Card.TFrame")
@@ -370,10 +382,6 @@ class App(tk.Tk):
         b_qt = action_button(row2, "编译 Qt 5.14.2", lambda: self._on_install("build_qt5142_arm64_cross.sh"))
         b_qt.pack(side=tk.LEFT, padx=6)
         self._track_action(b_qt)
-
-        ttk.Label(pad, text="导入 / 从零搭建时会自动跳到「2 编译」看日志。", style="Status.TLabel").pack(
-            anchor=tk.W, pady=(4, 0)
-        )
 
     def _build_tab_share(self, parent: ttk.Frame) -> None:
         """第三步：HTTP 共享给麒麟机下载。"""
@@ -499,6 +507,25 @@ class App(tk.Tk):
         else:
             self._adv.pack_forget()
             self._adv_btn.configure(text="高级 ▸")
+
+    def _toggle_scratch(self) -> None:
+        self._scratch_open = not self._scratch_open
+        if self._scratch_open:
+            self._scratch.pack(fill=tk.X, pady=(0, 0))
+            self._scratch_btn.configure(text="从零搭建 ▾")
+        else:
+            self._scratch.pack_forget()
+            self._scratch_btn.configure(text="从零搭建 ▸")
+
+    def _refresh_env_hint(self) -> None:
+        if self._env_hint_lbl is None:
+            return
+        if self._env_ready:
+            self._env_hint_lbl.configure(text="可直接去「2 编译」。需要换机时再用「导出…」打包环境。")
+        else:
+            self._env_hint_lbl.configure(
+                text="① 点「下载环境包」→ ②「一键导入」→ ③ 自动检测通过后去「2 编译」。"
+            )
 
     def _toggle_eth(self) -> None:
         self._eth_open = not self._eth_open
@@ -637,13 +664,14 @@ class App(tk.Tk):
             self.env_banner.set("环境就绪 — 可去「2 编译」")
             fg = C["ok"]
         else:
-            self.env_banner.set("环境未就绪 — 请先「一键导入环境包」或点「检测环境」")
+            self.env_banner.set("环境未就绪 — 请先下载并导入环境包")
             fg = C["err"]
         for lbl in self._env_banner_labels:
             try:
                 lbl.configure(fg=fg)
             except tk.TclError:
                 pass
+        self._refresh_env_hint()
         if not self._busy:
             self._sync_build_enabled()
 
