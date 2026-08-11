@@ -274,19 +274,19 @@ QFrame#ReadyPillBad {{
     border-radius: 999px;
 }}
 QLabel#CheckCircleOk {{
-    background-color: transparent;
-    color: {C["ok"]};
-    border: 1.5px solid {C["ok"]};
-    border-radius: 8px;
-    font-size: 9px;
+    background-color: {C["ok"]};
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-size: 10px;
     font-weight: 700;
 }}
 QLabel#CheckCircleBad {{
-    background-color: transparent;
-    color: {C["warn"]};
-    border: 1.5px solid {C["warn"]};
-    border-radius: 8px;
-    font-size: 9px;
+    background-color: {C["warn"]};
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-size: 10px;
     font-weight: 700;
 }}
 QLabel#ReadyPillTextOk {{

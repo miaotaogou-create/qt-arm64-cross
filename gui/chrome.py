@@ -75,7 +75,7 @@ def make_ready_pill(text: str = "环境就绪", *, ok: bool = True) -> QFrame:
     lay.setSpacing(6)
     circle = QLabel("✓" if ok else "!")
     circle.setObjectName("CheckCircleOk" if ok else "CheckCircleBad")
-    circle.setFixedSize(15, 15)
+    circle.setFixedSize(18, 18)
     circle.setAlignment(Qt.AlignmentFlag.AlignCenter)
     lab = QLabel(text)
     lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
