@@ -406,6 +406,34 @@ QLabel#FlowHintVal {{
     color: #94a3b8;
     font-size: 11px;
 }}
+QFrame#SectionHero {{
+    background-color: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(51, 65, 85, 0.85);
+    border-radius: 14px;
+}}
+QLabel#SectionHeroTitle {{
+    color: #e2e8f0;
+    font-size: 14px;
+    font-weight: 700;
+    background: transparent;
+    border: none;
+}}
+QLabel#SectionHeroDesc {{
+    color: #94a3b8;
+    font-size: 12px;
+    background: transparent;
+    border: none;
+}}
+QFrame#ActionBar {{
+    background-color: rgba(15, 23, 42, 0.72);
+    border: 1px solid {C["border"]};
+    border-radius: 14px;
+}}
+QFrame#TerminalCard {{
+    background-color: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+}}
 QLineEdit, QComboBox, QSpinBox {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border"]};
@@ -486,7 +514,7 @@ QPushButton#Ghost {{
     background-color: transparent;
     border: 1px solid {C["border"]};
 }}
-QTextEdit#Log {{
+QTextEdit#Log, QTextEdit#TerminalLog {{
     background-color: {C["log_bg"]};
     color: {C["log_fg"]};
     border: 1px solid {C["border"]};
