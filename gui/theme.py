@@ -239,8 +239,8 @@ QLabel#AppIcon {{
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
         stop:0 #14b8a6, stop:1 #059669);
     color: white;
-    border-radius: 12px;
-    font-size: 18px;
+    border-radius: 16px;
+    font-size: 22px;
     font-weight: 700;
 }}
 QLabel#EnvBadgeOk {{

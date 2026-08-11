@@ -150,7 +150,7 @@ class TitleChrome(QFrame):
 
         icon = QLabel("▣")
         icon.setObjectName("AppIcon")
-        icon.setFixedSize(42, 42)
+        icon.setFixedSize(48, 48)
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(icon)
 
