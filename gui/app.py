@@ -1959,8 +1959,6 @@ class MainWindow(QMainWindow):
             return
         if not auto and not self._confirm_distro():
             return
-        if not auto:
-            self._select_step(1)
         jobs.begin()
         self._set_busy(True, "检测环境")
         if not auto:
