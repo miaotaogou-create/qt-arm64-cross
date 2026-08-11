@@ -1270,46 +1270,76 @@ class MainWindow(QMainWindow):
         self._detect_icon.stop()
         self._detect_label.setText("重新检测环境")
 
-    def _show_toast(self, msg: str, duration: int = 4000) -> None:
-        """底部右侧弹出 toast 提示（持续上下弹动动画）。"""
-        from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QPoint, QSequentialAnimationGroup
+    def _show_toast(self, msg: str, duration: int = 2500) -> None:
+        """底部右侧弹出 toast（淡入上浮 → 停留 → 淡出下沉）。"""
+        from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QPoint, QParallelAnimationGroup
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
 
         toast = QFrame(self)
-        toast.setStyleSheet(
-            "background-color: #059669; color: white; border-radius: 14px;"
-        )
+        toast.setStyleSheet("background-color: #00A86B; border-radius: 12px;")
         tl = QHBoxLayout(toast)
-        tl.setContentsMargins(16, 12, 20, 12)
+        tl.setContentsMargins(16, 10, 20, 10)
         tl.setSpacing(10)
         icon = QLabel("✓")
-        icon.setStyleSheet("background:transparent; color:white; font-size:16px; font-weight:700; border:none;")
+        icon.setStyleSheet(
+            "color:white; font-weight:bold; font-size:14px;"
+            "border:1.5px solid white; border-radius:10px;"
+            "min-width:20px; max-width:20px; min-height:20px; max-height:20px;"
+            "background:transparent;"
+        )
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         tl.addWidget(icon)
         txt = QLabel(msg)
-        txt.setStyleSheet("background:transparent; color:white; font-size:14px; font-weight:600; border:none;")
+        txt.setStyleSheet(
+            "color:white; font-size:13px; font-weight:600; border:none; background:transparent;"
+            'font-family:"Microsoft YaHei","Segoe UI",sans-serif;'
+        )
         tl.addWidget(txt)
         toast.adjustSize()
+
         x = self.width() - toast.width() - 24
         y = self.height() - toast.height() - 24
-        toast.move(x, y)
+        start = QPoint(x, y + 20)
+        end = QPoint(x, y)
+        toast.move(start)
+
+        opacity = QGraphicsOpacityEffect(toast)
+        toast.setGraphicsEffect(opacity)
+
+        # 进入动画
+        grp_in = QParallelAnimationGroup(toast)
+        pos_in = QPropertyAnimation(toast, b"pos", toast)
+        pos_in.setDuration(350)
+        pos_in.setStartValue(start)
+        pos_in.setEndValue(end)
+        pos_in.setEasingCurve(QEasingCurve.Type.OutCubic)
+        fade_in = QPropertyAnimation(opacity, b"opacity", toast)
+        fade_in.setDuration(300)
+        fade_in.setStartValue(0.0)
+        fade_in.setEndValue(1.0)
+        grp_in.addAnimation(pos_in)
+        grp_in.addAnimation(fade_in)
+
+        # 退出动画
+        grp_out = QParallelAnimationGroup(toast)
+        pos_out = QPropertyAnimation(toast, b"pos", toast)
+        pos_out.setDuration(300)
+        pos_out.setStartValue(end)
+        pos_out.setEndValue(QPoint(x, y + 15))
+        pos_out.setEasingCurve(QEasingCurve.Type.InCubic)
+        fade_out = QPropertyAnimation(opacity, b"opacity", toast)
+        fade_out.setDuration(250)
+        fade_out.setStartValue(1.0)
+        fade_out.setEndValue(0.0)
+        grp_out.addAnimation(pos_out)
+        grp_out.addAnimation(fade_out)
+        grp_out.finished.connect(toast.deleteLater)
+
         toast.show()
         toast.raise_()
-        # 持续上下弹动
-        grp = QSequentialAnimationGroup(toast)
-        up = QPropertyAnimation(toast, b"pos", toast)
-        up.setDuration(400)
-        up.setStartValue(QPoint(x, y))
-        up.setEndValue(QPoint(x, y - 12))
-        up.setEasingCurve(QEasingCurve.Type.OutQuad)
-        down = QPropertyAnimation(toast, b"pos", toast)
-        down.setDuration(400)
-        down.setStartValue(QPoint(x, y - 12))
-        down.setEndValue(QPoint(x, y))
-        down.setEasingCurve(QEasingCurve.Type.OutBounce)
-        grp.addAnimation(up)
-        grp.addAnimation(down)
-        grp.setLoopCount(-1)
-        grp.start()
-        QTimer.singleShot(duration, toast.deleteLater)
+        grp_in.start()
+        toast._anims = (grp_in, grp_out)  # prevent GC
+        QTimer.singleShot(duration, grp_out.start)
 
     def _apply_env_ready(self, ready: bool) -> None:
         self._env_ready = ready
