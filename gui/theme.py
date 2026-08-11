@@ -287,6 +287,63 @@ QScrollBar::handle:vertical {{
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     height: 0;
 }}
+QLabel#FieldLabel {{
+    color: {C["muted"]};
+    font-size: 12px;
+}}
+QFrame#AppFooter {{
+    background-color: #020617;
+    border-top: 1px solid {C["border"]};
+}}
+QLabel#FooterBrand {{
+    color: #64748b;
+    font-size: 11px;
+}}
+QLabel#FooterMuted {{
+    color: #64748b;
+    font-size: 11px;
+}}
+QLabel#FooterSep {{
+    color: #334155;
+    font-size: 11px;
+}}
+QLabel#FooterWsl {{
+    color: #94a3b8;
+    font-size: 11px;
+}}
+QLabel#FlowHint {{
+    color: #5eead4;
+    background-color: rgba(20, 184, 166, 0.08);
+    border: 1px solid rgba(20, 184, 166, 0.18);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+}}
+QFrame#HeroBanner {{
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #0f172a, stop:1 #042f2e);
+    border: 1px solid rgba(20, 184, 166, 0.35);
+    border-radius: 14px;
+}}
+QFrame#HeroBannerBad {{
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #0f172a, stop:1 #3b1d1d);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: 14px;
+}}
+QPushButton#FooterCancel {{
+    background-color: transparent;
+    border: 1px solid {C["border"]};
+    border-radius: 6px;
+    padding: 3px 10px;
+    min-height: 16px;
+    font-size: 11px;
+    color: #cbd5e1;
+}}
+QPushButton#FooterCancel:disabled {{
+    color: #475569;
+    border-color: #1e293b;
+}}
 QStatusBar {{
     background: {C["surface"]};
     border-top: 1px solid {C["border"]};

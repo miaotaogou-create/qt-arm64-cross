@@ -26,7 +26,6 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSpinBox,
     QStackedWidget,
-    QStatusBar,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -41,6 +40,14 @@ from gui.chrome import EdgeResizer, TitleChrome
 from gui.theme import C, apply_theme
 
 ENV_RELEASE_URL = "https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/env-ubuntu-20.04"
+
+
+def _field_label(text: str, width: int = 76) -> QLabel:
+    lb = QLabel(text)
+    lb.setObjectName("FieldLabel")
+    lb.setFixedWidth(width)
+    lb.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    return lb
 
 
 def _card(title: str = "") -> tuple[QFrame, QVBoxLayout]:
@@ -194,7 +201,7 @@ class MainWindow(QMainWindow):
         share_lay.addStretch(1)
         self._stack.addWidget(page_share)
 
-        self._build_statusbar()
+        self._build_footer(root_lay)
         self._select_step(0)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
@@ -222,79 +229,207 @@ class MainWindow(QMainWindow):
     def _build_step_nav(self) -> QWidget:
         wrap = QWidget()
         lay = QHBoxLayout(wrap)
-        lay.setContentsMargins(14, 10, 14, 6)
-        lay.setSpacing(10)
+        lay.setContentsMargins(16, 10, 16, 8)
+        lay.setSpacing(8)
         self._step_cards: list[QFrame] = []
+        self._step_num_lbls: list[QLabel] = []
         specs = [
-            ("1 环境管理", "导入 / 检测交叉环境"),
-            ("2 交叉编译", "选工程 · 产物 · 日志"),
-            ("3 部署与共享", "HTTP 共享给麒麟机"),
+            ("1", "环境管理", "导入 / 检测交叉环境"),
+            ("2", "交叉编译", "选工程 · 产物 · 日志"),
+            ("3", "部署与共享", "HTTP 共享给麒麟机"),
         ]
-        for i, (name, desc) in enumerate(specs):
+        for i, (num, name, desc) in enumerate(specs):
             card = QFrame()
             card.setObjectName("StepIdle")
             card.setCursor(Qt.CursorShape.PointingHandCursor)
-            card.setMinimumHeight(64)
-            cl = QVBoxLayout(card)
-            cl.setContentsMargins(14, 10, 14, 10)
+            card.setMinimumHeight(56)
+            cl = QHBoxLayout(card)
+            cl.setContentsMargins(12, 8, 12, 8)
+            cl.setSpacing(10)
+            badge = QLabel(num)
+            badge.setFixedSize(26, 26)
+            badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            badge.setStyleSheet(
+                f"background:{C['surface2']}; color:{C['muted']}; border-radius:8px; font-weight:700; font-size:11px;"
+            )
+            self._step_num_lbls.append(badge)
+            texts = QVBoxLayout()
+            texts.setSpacing(1)
             n = QLabel(name)
             n.setObjectName("CardTitle")
             d = QLabel(desc)
             d.setObjectName("Muted")
-            cl.addWidget(n)
-            cl.addWidget(d)
+            texts.addWidget(n)
+            texts.addWidget(d)
+            cl.addWidget(badge)
+            cl.addLayout(texts, 1)
             card.mousePressEvent = lambda _e, idx=i: self._select_step(idx)  # type: ignore[method-assign]
             lay.addWidget(card, 1)
             self._step_cards.append(card)
+
+        self._flow_hint = QLabel("当前流程：检测环境…")
+        self._flow_hint.setObjectName("FlowHint")
+        self._flow_hint.setWordWrap(True)
+        self._flow_hint.setMinimumWidth(200)
+        self._flow_hint.setMaximumWidth(280)
+        lay.addWidget(self._flow_hint, 0, Qt.AlignmentFlag.AlignVCenter)
         return wrap
 
     def _select_step(self, idx: int) -> None:
         self._current_step = idx
         self._stack.setCurrentIndex(idx)
         for i, card in enumerate(self._step_cards):
-            card.setObjectName("StepActive" if i == idx else "StepIdle")
-            # 强制刷新 QSS
+            active = i == idx
+            card.setObjectName("StepActive" if active else "StepIdle")
             card.style().unpolish(card)
             card.style().polish(card)
+            badge = self._step_num_lbls[i]
+            if active:
+                badge.setText(str(i + 1))
+                badge.setStyleSheet(
+                    f"background:{C['accent']}; color:white; border-radius:8px; font-weight:700; font-size:11px;"
+                )
+            elif self._env_ready and i == 0:
+                badge.setText("✓")
+                badge.setStyleSheet(
+                    f"background:rgba(16,185,129,0.2); color:{C['ok']}; border-radius:8px; font-weight:700;"
+                )
+            else:
+                badge.setText(str(i + 1))
+                badge.setStyleSheet(
+                    f"background:{C['surface2']}; color:{C['muted']}; border-radius:8px; font-weight:700; font-size:11px;"
+                )
+        self._refresh_flow_hint()
 
-    def _build_statusbar(self) -> None:
-        sb = QStatusBar()
-        self.setStatusBar(sb)
-        self._status_lbl = QLabel("就绪")
-        self._status_lbl.setObjectName("Muted")
-        sb.addWidget(self._status_lbl, 1)
+    def _refresh_flow_hint(self) -> None:
+        if not hasattr(self, "_flow_hint"):
+            return
+        if self._current_step == 0:
+            tip = "已完成 WSL 工具链预检 → 随时可编译" if self._env_ready else "请先导入 / 检测环境包"
+        elif self._current_step == 1:
+            tip = "工程已装载 → 点击开始交叉编译"
+        else:
+            tip = "HTTP 共享运行中" if self._share.running else "服务器就绪，一键启动板端共享"
+        self._flow_hint.setText(f"当前流程：{tip}")
+
+    def _build_footer(self, parent_lay: QVBoxLayout) -> None:
+        foot = QFrame()
+        foot.setObjectName("AppFooter")
+        foot.setFixedHeight(34)
+        lay = QHBoxLayout(foot)
+        lay.setContentsMargins(16, 0, 16, 0)
+        lay.setSpacing(10)
+
+        brand = QLabel("Qt ARM64 交叉编译 Workstation")
+        brand.setObjectName("FooterBrand")
+        lay.addWidget(brand)
+
+        lay.addStretch(1)
+
         self._activity_lbl = QLabel("")
-        self._activity_lbl.setObjectName("Muted")
-        sb.addWidget(self._activity_lbl, 2)
-        self._btn_cancel = _btn("取消任务", "Ghost")
+        self._activity_lbl.setObjectName("FooterMuted")
+        self._activity_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._activity_lbl.setMaximumWidth(420)
+        lay.addWidget(self._activity_lbl)
+
+        self._btn_cancel = QPushButton("取消任务")
+        self._btn_cancel.setObjectName("FooterCancel")
+        self._btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_cancel.clicked.connect(self._on_cancel)
         self._btn_cancel.setEnabled(False)
-        sb.addPermanentWidget(self._btn_cancel)
+        self._btn_cancel.setVisible(False)
+        lay.addWidget(self._btn_cancel)
+
         self._progress = QProgressBar()
         self._progress.setRange(0, 0)
-        self._progress.setFixedWidth(140)
+        self._progress.setFixedWidth(96)
+        self._progress.setFixedHeight(6)
         self._progress.setTextVisible(False)
         self._progress.setVisible(False)
-        sb.addPermanentWidget(self._progress)
+        lay.addWidget(self._progress, 0, Qt.AlignmentFlag.AlignVCenter)
 
-    # ------------------------------------------------------------------ 环境页
+        sep = QLabel("|")
+        sep.setObjectName("FooterSep")
+        lay.addWidget(sep)
+
+        self._status_lbl = QLabel("就绪")
+        self._status_lbl.setObjectName("FooterMuted")
+        lay.addWidget(self._status_lbl)
+
+        sep2 = QLabel("|")
+        sep2.setObjectName("FooterSep")
+        lay.addWidget(sep2)
+
+        self._footer_wsl = QLabel("WSL2 检测中…")
+        self._footer_wsl.setObjectName("FooterWsl")
+        lay.addWidget(self._footer_wsl)
+
+        parent_lay.addWidget(foot)
+
     def _build_tab_env(self, lay: QVBoxLayout) -> None:
-        tip, tip_lay = _card("本机环境")
+        hero = QFrame()
+        hero.setObjectName("HeroBannerBad")
+        self._env_hero = hero
+        hl = QHBoxLayout(hero)
+        hl.setContentsMargins(16, 14, 16, 14)
+        hl.setSpacing(14)
+
+        icon = QLabel("!")
+        icon.setFixedSize(40, 40)
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon.setStyleSheet(
+            f"background:{C['surface2']}; color:{C['warn']}; border-radius:12px; font-size:18px; font-weight:700;"
+        )
+        self._env_hero_icon = icon
+        hl.addWidget(icon)
+
+        mid = QVBoxLayout()
+        mid.setSpacing(4)
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)
+        title = QLabel("本机 WSL2 交叉编译环境状态")
+        title.setObjectName("CardTitle")
+        title_row.addWidget(title)
+        self._env_hero_badge = QLabel("检测中…")
+        self._env_hero_badge.setObjectName("EnvBadgeIdle")
+        title_row.addWidget(self._env_hero_badge)
+        title_row.addStretch(1)
+        mid.addLayout(title_row)
         ban = QLabel("正在检测交叉环境…")
         ban.setWordWrap(True)
-        ban.setStyleSheet(f"font-weight:700; color:{C['muted']};")
-        tip_lay.addWidget(ban)
+        ban.setObjectName("Muted")
+        mid.addWidget(ban)
         self._env_banner_labels.append(ban)
         self._env_hint_lbl = QLabel("")
         self._env_hint_lbl.setObjectName("Muted")
         self._env_hint_lbl.setWordWrap(True)
-        tip_lay.addWidget(self._env_hint_lbl)
+        mid.addWidget(self._env_hint_lbl)
+        hl.addLayout(mid, 1)
+
+        actions = QVBoxLayout()
+        actions.setSpacing(8)
+        b_redetect = _btn("重新检测环境")
+        b_redetect.clicked.connect(lambda: self._on_detect(False))
+        self._track_action(b_redetect)
+        actions.addWidget(b_redetect)
+        self._btn_go_compile = _btn("前往「2 交叉编译」 →", "Primary")
+        self._btn_go_compile.clicked.connect(lambda: self._select_step(1))
+        self._btn_go_compile.setEnabled(False)
+        actions.addWidget(self._btn_go_compile)
+        hl.addLayout(actions)
         self._refresh_env_hint()
-        lay.addWidget(tip)
+        lay.addWidget(hero)
+
+        body = QHBoxLayout()
+        body.setSpacing(12)
+        left = QVBoxLayout()
+        left.setSpacing(10)
+        right = QVBoxLayout()
+        right.setSpacing(10)
 
         envp, env_lay = _card("交叉编译环境包")
         row0 = QHBoxLayout()
-        row0.addWidget(QLabel("安装目录"))
+        row0.addWidget(_field_label("安装目录"))
         self.ed_env_install = QLineEdit(self._env_install_dir)
         self.ed_env_install.textChanged.connect(lambda t: self._on_field("env_install", t))
         self._track_form(self.ed_env_install)
@@ -305,7 +440,7 @@ class MainWindow(QMainWindow):
         env_lay.addLayout(row0)
 
         row1 = QHBoxLayout()
-        row1.addWidget(QLabel("发行版名"))
+        row1.addWidget(_field_label("发行版名"))
         self.ed_distro = QLineEdit(self._distro)
         self.ed_distro.textChanged.connect(lambda t: self._on_field("distro", t))
         self._track_form(self.ed_distro)
@@ -315,7 +450,23 @@ class MainWindow(QMainWindow):
         row1.addWidget(hint)
         env_lay.addLayout(row1)
 
+        opts = QHBoxLayout()
+        opts.addSpacing(76)
+        self.chk_env_slim = QCheckBox("导出时去掉 Qt 源码缓存")
+        self.chk_env_slim.setChecked(self._env_slim)
+        self.chk_env_slim.toggled.connect(lambda v: self._on_field("env_slim", v))
+        self._track_form(self.chk_env_slim)
+        opts.addWidget(self.chk_env_slim)
+        self.chk_env_replace = QCheckBox("覆盖已有同名发行版")
+        self.chk_env_replace.setChecked(self._env_replace)
+        self.chk_env_replace.toggled.connect(lambda v: self._on_field("env_replace", v))
+        self._track_form(self.chk_env_replace)
+        opts.addWidget(self.chk_env_replace)
+        opts.addStretch(1)
+        env_lay.addLayout(opts)
+
         brow = QHBoxLayout()
+        brow.addSpacing(76)
         b_imp = _btn("一键导入环境包…", "Primary")
         b_imp.clicked.connect(self._on_import_env)
         self._track_action(b_imp)
@@ -333,28 +484,14 @@ class MainWindow(QMainWindow):
         brow.addWidget(b_exp)
         brow.addStretch(1)
         env_lay.addLayout(brow)
-
-        opts = QHBoxLayout()
-        self.chk_env_slim = QCheckBox("导出时去掉 Qt 源码缓存")
-        self.chk_env_slim.setChecked(self._env_slim)
-        self.chk_env_slim.toggled.connect(lambda v: self._on_field("env_slim", v))
-        self._track_form(self.chk_env_slim)
-        opts.addWidget(self.chk_env_slim)
-        self.chk_env_replace = QCheckBox("覆盖已有同名发行版")
-        self.chk_env_replace.setChecked(self._env_replace)
-        self.chk_env_replace.toggled.connect(lambda v: self._on_field("env_replace", v))
-        self._track_form(self.chk_env_replace)
-        opts.addWidget(self.chk_env_replace)
-        opts.addStretch(1)
-        env_lay.addLayout(opts)
-        lay.addWidget(envp)
+        left.addWidget(envp)
 
         self._scratch_btn = QToolButton()
         self._scratch_btn.setText("从零搭建 ▸")
         self._scratch_btn.setObjectName("Accent")
         self._scratch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._scratch_btn.clicked.connect(self._toggle_scratch)
-        lay.addWidget(self._scratch_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        left.addWidget(self._scratch_btn, 0, Qt.AlignmentFlag.AlignLeft)
 
         self._scratch = QWidget()
         self._scratch.setVisible(False)
@@ -377,16 +514,39 @@ class MainWindow(QMainWindow):
         r2.addStretch(1)
         rare_lay.addLayout(r2)
         sc_lay.addWidget(rare)
-        lay.addWidget(self._scratch)
+        left.addWidget(self._scratch)
+        left.addStretch(1)
+
+        tool, tool_lay = _card("工具链及 SYSROOT 明细")
+        for k, v in (
+            ("目标架构", "Linux ARM64 (aarch64)"),
+            ("交叉编译器", "aarch64-linux-gnu-gcc 9.4"),
+            ("Qt 目标库", "Qt 5.14.2"),
+            ("配套工具", "readelf / pkg-config / ccache"),
+        ):
+            row = QHBoxLayout()
+            kk = QLabel(k)
+            kk.setObjectName("FieldLabel")
+            kk.setFixedWidth(72)
+            vv = QLabel(v)
+            row.addWidget(kk)
+            row.addWidget(vv, 1)
+            tool_lay.addLayout(row)
+        right.addWidget(tool)
 
         res, res_lay = _card("环境检测结果")
         self.env_box = QTextEdit()
         self.env_box.setReadOnly(True)
         self.env_box.setObjectName("Log")
-        self.env_box.setMaximumHeight(120)
+        self.env_box.setMinimumHeight(160)
         self.env_box.setPlaceholderText("检测结果将显示在这里…")
         res_lay.addWidget(self.env_box)
-        lay.addWidget(res)
+        right.addWidget(res)
+        right.addStretch(1)
+
+        body.addLayout(left, 3)
+        body.addLayout(right, 2)
+        lay.addLayout(body)
 
     # ------------------------------------------------------------------ 编译页
     def _build_tab_compile(self, parent: QWidget) -> None:
@@ -407,7 +567,7 @@ class MainWindow(QMainWindow):
 
         proj, proj_lay = _card("工程")
         r0 = QHBoxLayout()
-        r0.addWidget(QLabel("工程目录"))
+        r0.addWidget(_field_label("工程目录"))
         self.ed_project = QLineEdit(self._project)
         self.ed_project.textChanged.connect(lambda t: self._on_field("project", t))
         self._track_form(self.ed_project)
@@ -426,7 +586,7 @@ class MainWindow(QMainWindow):
         proj_lay.addLayout(r0)
 
         r1 = QHBoxLayout()
-        r1.addWidget(QLabel("构建文件"))
+        r1.addWidget(_field_label("构建文件"))
         self.build_combo = QComboBox()
         self.build_combo.setEditable(True)
         self.build_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -441,7 +601,7 @@ class MainWindow(QMainWindow):
         proj_lay.addLayout(r1)
 
         r2 = QHBoxLayout()
-        r2.addWidget(QLabel("产物目录"))
+        r2.addWidget(_field_label("产物目录"))
         self.ed_out_dir = QLineEdit(self._out_dir)
         self.ed_out_dir.textChanged.connect(lambda t: self._on_field("out_dir", t))
         self._track_form(self.ed_out_dir)
@@ -587,7 +747,7 @@ class MainWindow(QMainWindow):
     def _build_tab_share(self, lay: QVBoxLayout) -> None:
         share, share_lay = _card("HTTP 共享")
         r0 = QHBoxLayout()
-        r0.addWidget(QLabel("共享目录"))
+        r0.addWidget(_field_label("共享目录"))
         self.ed_share_dir = QLineEdit(self._share_dir)
         self.ed_share_dir.textChanged.connect(lambda t: self._on_field("share_dir", t))
         self._track_form(self.ed_share_dir)
@@ -601,7 +761,7 @@ class MainWindow(QMainWindow):
         share_lay.addLayout(r0)
 
         r1 = QHBoxLayout()
-        r1.addWidget(QLabel("端口"))
+        r1.addWidget(_field_label("端口"))
         self.sp_port = QSpinBox()
         self.sp_port.setRange(1, 65535)
         self.sp_port.setValue(self._share_port)
@@ -770,6 +930,7 @@ class MainWindow(QMainWindow):
                 continue
             b.setEnabled(on)
         if self._btn_cancel is not None:
+            self._btn_cancel.setVisible(not enabled)
             self._btn_cancel.setEnabled(not enabled)
 
     def _run_on_ui(self, fn: object) -> None:
@@ -924,17 +1085,65 @@ class MainWindow(QMainWindow):
     def _apply_env_ready(self, ready: bool) -> None:
         self._env_ready = ready
         if ready:
-            text = "环境就绪 — 可去「2 编译」"
+            text = "检测到完整的 WSL2 交叉编译镜像。已预装 aarch64 工具链与 Qt 5.14.2，可直接编译。"
             fg = C["ok"]
+            badge = "环境就绪 — 可直接编译"
+            badge_obj = "EnvBadgeOk"
+            hero_obj = "HeroBanner"
+            icon_txt, icon_fg = "✓", C["ok"]
+            if hasattr(self, "_footer_wsl"):
+                self._footer_wsl.setText(f"WSL2 {self._distro_text()} (aarch64)")
         else:
             text = "环境未就绪 — 请先下载并导入环境包"
             fg = C["err"]
+            badge = "环境未就绪"
+            badge_obj = "EnvBadgeBad"
+            hero_obj = "HeroBannerBad"
+            icon_txt, icon_fg = "!", C["warn"]
+            if hasattr(self, "_footer_wsl"):
+                self._footer_wsl.setText("WSL2 环境未就绪")
         if self._chrome is not None:
             self._chrome.set_env_ready(ready, self._distro_text())
+        if hasattr(self, "_env_hero"):
+            self._env_hero.setObjectName(hero_obj)
+            self._env_hero.style().unpolish(self._env_hero)
+            self._env_hero.style().polish(self._env_hero)
+        if hasattr(self, "_env_hero_icon"):
+            self._env_hero_icon.setText(icon_txt)
+            self._env_hero_icon.setStyleSheet(
+                f"background:{C['surface2']}; color:{icon_fg}; border-radius:12px; font-size:18px; font-weight:700;"
+            )
+        if hasattr(self, "_env_hero_badge"):
+            self._env_hero_badge.setText(badge)
+            self._env_hero_badge.setObjectName(badge_obj)
+            self._env_hero_badge.style().unpolish(self._env_hero_badge)
+            self._env_hero_badge.style().polish(self._env_hero_badge)
+        if hasattr(self, "_btn_go_compile"):
+            self._btn_go_compile.setEnabled(ready and not self._busy)
         for lbl in self._env_banner_labels:
             lbl.setText(text)
-            lbl.setStyleSheet(f"font-weight:700; color:{fg};")
+            lbl.setStyleSheet(f"color:{fg};")
         self._refresh_env_hint()
+        self._refresh_flow_hint()
+        # 只刷新步骤角标，避免重复切页
+        if hasattr(self, "_step_cards") and hasattr(self, "_step_num_lbls"):
+            for i, badge in enumerate(self._step_num_lbls):
+                active = i == self._current_step
+                if active:
+                    badge.setText(str(i + 1))
+                    badge.setStyleSheet(
+                        f"background:{C['accent']}; color:white; border-radius:8px; font-weight:700; font-size:11px;"
+                    )
+                elif ready and i == 0:
+                    badge.setText("✓")
+                    badge.setStyleSheet(
+                        f"background:rgba(16,185,129,0.2); color:{C['ok']}; border-radius:8px; font-weight:700;"
+                    )
+                else:
+                    badge.setText(str(i + 1))
+                    badge.setStyleSheet(
+                        f"background:{C['surface2']}; color:{C['muted']}; border-radius:8px; font-weight:700; font-size:11px;"
+                    )
         if not self._busy:
             self._sync_build_enabled()
 
@@ -1031,10 +1240,16 @@ class MainWindow(QMainWindow):
         self._status_lbl.setText(text)
         if busy:
             self._progress.setVisible(True)
+            if self._btn_cancel is not None:
+                self._btn_cancel.setVisible(True)
+                self._btn_cancel.setEnabled(True)
             self._start_pulse(text.rstrip("…").rstrip("."))
             self._pill(text, "#FDE68A")
         else:
             self._progress.setVisible(False)
+            if self._btn_cancel is not None:
+                self._btn_cancel.setVisible(False)
+                self._btn_cancel.setEnabled(False)
             self._stop_pulse()
             self._activity_lbl.setText("")
             if "共享" in text:
@@ -1048,6 +1263,8 @@ class MainWindow(QMainWindow):
             else:
                 self._pill("空闲" if text == "就绪" else text, "#99F6E4")
             self._status_lbl.setText(text)
+        if hasattr(self, "_btn_go_compile"):
+            self._btn_go_compile.setEnabled((not busy) and self._env_ready)
 
     # ------------------------------------------------------------------ 工程 / 浏览
     def _on_recent_picked(self, idx: int) -> None:
