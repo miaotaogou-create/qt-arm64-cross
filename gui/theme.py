@@ -264,29 +264,27 @@ QLabel#EnvBadgeBad, QLabel#EnvBadgeIdle {{
     font-weight: 600;
 }}
 QFrame#ReadyPillOk {{
-    background-color: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.45);
-    border-radius: 999px;
+    background-color: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 14px;
 }}
 QFrame#ReadyPillBad {{
-    background-color: rgba(251, 191, 36, 0.08);
-    border: 1px solid rgba(251, 191, 36, 0.35);
-    border-radius: 999px;
+    background-color: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 14px;
 }}
-QLabel#CheckCircleOk {{
-    background-color: {C["ok"]};
-    color: white;
+QLabel#ReadyPillIconOk {{
+    background: transparent;
+    color: {C["ok"]};
     border: none;
-    border-radius: 9px;
-    font-size: 10px;
+    font-size: 14px;
     font-weight: 700;
 }}
-QLabel#CheckCircleBad {{
-    background-color: {C["warn"]};
-    color: white;
+QLabel#ReadyPillIconBad {{
+    background: transparent;
+    color: {C["warn"]};
     border: none;
-    border-radius: 9px;
-    font-size: 10px;
+    font-size: 14px;
     font-weight: 700;
 }}
 QLabel#ReadyPillTextOk {{
