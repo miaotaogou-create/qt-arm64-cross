@@ -247,6 +247,7 @@ class MainWindow(QMainWindow):
         for i, (num, name, desc) in enumerate(specs):
             card = QFrame()
             card.setObjectName("StepIdle")
+            card.setFrameShape(QFrame.Shape.NoFrame)
             card.setCursor(Qt.CursorShape.PointingHandCursor)
             card.setMinimumHeight(56)
             cl = QHBoxLayout(card)
@@ -256,15 +257,16 @@ class MainWindow(QMainWindow):
             badge.setFixedSize(26, 26)
             badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
             badge.setStyleSheet(
-                f"background:{C['surface2']}; color:{C['muted']}; border-radius:8px; font-weight:700; font-size:11px;"
+                f"background:{C['surface2']}; color:{C['muted']}; border:none; border-radius:8px; font-weight:700; font-size:11px;"
             )
             self._step_num_lbls.append(badge)
             texts = QVBoxLayout()
             texts.setSpacing(1)
+            texts.setContentsMargins(0, 0, 0, 0)
             n = QLabel(name)
-            n.setObjectName("CardTitle")
+            n.setObjectName("StepTitle")
             d = QLabel(desc)
-            d.setObjectName("Muted")
+            d.setObjectName("StepDesc")
             texts.addWidget(n)
             texts.addWidget(d)
             cl.addWidget(badge)
@@ -279,16 +281,27 @@ class MainWindow(QMainWindow):
             self._step_cards.append(card)
 
         lay.addStretch(1)
-        self._flow_hint = QLabel("当前流程状态：检测环境…")
-        self._flow_hint.setObjectName("FlowHint")
-        self._flow_hint.setWordWrap(True)
-        self._flow_hint.setMinimumWidth(220)
-        self._flow_hint.setMaximumWidth(320)
-        lay.addWidget(self._flow_hint, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        flow = QFrame()
+        flow.setObjectName("FlowHintBox")
+        flow.setFrameShape(QFrame.Shape.NoFrame)
+        flow.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        fl = QHBoxLayout(flow)
+        fl.setContentsMargins(12, 6, 12, 6)
+        fl.setSpacing(6)
+        self._flow_hint_key = QLabel("当前流程状态：")
+        self._flow_hint_key.setObjectName("FlowHintKey")
+        self._flow_hint_val = QLabel("检测环境…")
+        self._flow_hint_val.setObjectName("FlowHintVal")
+        self._flow_hint_val.setWordWrap(False)
+        fl.addWidget(self._flow_hint_key)
+        fl.addWidget(self._flow_hint_val)
+        self._flow_hint = flow  # 兼容 hasattr 检查
+        lay.addWidget(flow, 0, Qt.AlignmentFlag.AlignVCenter)
         return wrap
 
     def _refresh_flow_hint(self) -> None:
-        if not hasattr(self, "_flow_hint"):
+        if not hasattr(self, "_flow_hint_val"):
             return
         if self._current_step == 0:
             tip = "已完成 WSL 工具链预检 → 随时可编译" if self._env_ready else "请先导入 / 检测环境包"
@@ -296,7 +309,7 @@ class MainWindow(QMainWindow):
             tip = "工程已装载 → 点击开始交叉编译"
         else:
             tip = "HTTP 共享运行中" if self._share.running else "服务器就绪，一键启动板端共享"
-        self._flow_hint.setText(f"当前流程状态：{tip}")
+        self._flow_hint_val.setText(tip)
 
     def _select_step(self, idx: int) -> None:
         self._current_step = idx
@@ -310,30 +323,19 @@ class MainWindow(QMainWindow):
             if active:
                 badge.setText(str(i + 1))
                 badge.setStyleSheet(
-                    f"background:{C['accent']}; color:white; border-radius:8px; font-weight:700; font-size:11px;"
+                    f"background:{C['accent']}; color:white; border:none; border-radius:8px; font-weight:700; font-size:11px;"
                 )
             elif self._env_ready and i == 0:
                 badge.setText("✓")
                 badge.setStyleSheet(
-                    f"background:rgba(16,185,129,0.2); color:{C['ok']}; border-radius:8px; font-weight:700;"
+                    f"background:rgba(16,185,129,0.2); color:{C['ok']}; border:none; border-radius:8px; font-weight:700;"
                 )
             else:
                 badge.setText(str(i + 1))
                 badge.setStyleSheet(
-                    f"background:{C['surface2']}; color:{C['muted']}; border-radius:8px; font-weight:700; font-size:11px;"
+                    f"background:{C['surface2']}; color:{C['muted']}; border:none; border-radius:8px; font-weight:700; font-size:11px;"
                 )
         self._refresh_flow_hint()
-
-    def _refresh_flow_hint(self) -> None:
-        if not hasattr(self, "_flow_hint"):
-            return
-        if self._current_step == 0:
-            tip = "已完成 WSL 工具链预检 → 随时可编译" if self._env_ready else "请先导入 / 检测环境包"
-        elif self._current_step == 1:
-            tip = "工程已装载 → 点击开始交叉编译"
-        else:
-            tip = "HTTP 共享运行中" if self._share.running else "服务器就绪，一键启动板端共享"
-        self._flow_hint.setText(f"当前流程：{tip}")
 
     def _build_footer(self, parent_lay: QVBoxLayout) -> None:
         foot = QFrame()

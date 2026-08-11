@@ -89,11 +89,13 @@ class TitleChrome(QFrame):
 
         name = QLabel("Qt ARM64 交叉编译助手")
         name.setObjectName("TitleAppName")
-        lay.addWidget(name)
+        lay.addWidget(name, 0, Qt.AlignmentFlag.AlignVCenter)
 
         ver = QLabel(f"v{VERSION} Modern")
         ver.setObjectName("TitleVerBadge")
-        lay.addWidget(ver)
+        ver.setFixedHeight(14)
+        ver.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter)
+        lay.addWidget(ver, 0, Qt.AlignmentFlag.AlignVCenter)
 
         lay.addStretch(1)
 

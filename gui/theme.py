@@ -46,6 +46,8 @@ QLabel#Muted {{
 QLabel#CardTitle {{
     font-weight: 600;
     font-size: 13px;
+    background: transparent;
+    border: none;
 }}
 QFrame#Card {{
     background-color: {C["surface"]};
@@ -207,10 +209,12 @@ QLabel#TitleVerBadge {{
     color: {C["accent"]};
     background-color: transparent;
     border: 1px solid rgba(20, 184, 166, 0.55);
-    border-radius: 4px;
-    padding: 1px 7px;
+    border-radius: 3px;
+    padding: 0px 5px;
+    margin: 0px;
     font-size: 10px;
     font-family: Consolas, monospace;
+    max-height: 13px;
 }}
 QLabel#TitleCenter {{
     color: #94a3b8;
@@ -356,9 +360,51 @@ QFrame#StepActive {{
     border-radius: 12px;
 }}
 QFrame#StepIdle {{
-    background-color: rgba(15, 23, 42, 0.6);
+    background-color: rgba(15, 23, 42, 0.55);
     border: 1px solid {C["border"]};
     border-radius: 12px;
+}}
+QFrame#StepActive QLabel, QFrame#StepIdle QLabel {{
+    background: transparent;
+    border: none;
+}}
+QLabel#StepTitle {{
+    background: transparent;
+    border: none;
+    color: {C["text"]};
+    font-weight: 700;
+    font-size: 13px;
+}}
+QLabel#StepDesc {{
+    background: transparent;
+    border: none;
+    color: {C["muted"]};
+    font-size: 11px;
+}}
+QLabel#StepChevron {{
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 16px;
+    font-weight: 300;
+}}
+QFrame#FlowHintBox {{
+    background-color: rgba(20, 184, 166, 0.06);
+    border: 1px solid rgba(20, 184, 166, 0.22);
+    border-radius: 10px;
+}}
+QFrame#FlowHintBox QLabel {{
+    background: transparent;
+    border: none;
+}}
+QLabel#FlowHintKey {{
+    color: #5eead4;
+    font-size: 11px;
+    font-weight: 600;
+}}
+QLabel#FlowHintVal {{
+    color: #94a3b8;
+    font-size: 11px;
 }}
 QLineEdit, QComboBox, QSpinBox {{
     background-color: {C["surface2"]};
@@ -501,19 +547,6 @@ QLabel#FooterWsl {{
     color: #94a3b8;
     font-size: 11px;
 }}
-QLabel#FlowHint {{
-    color: #94a3b8;
-    background-color: rgba(20, 184, 166, 0.06);
-    border: 1px solid rgba(20, 184, 166, 0.22);
-    border-radius: 999px;
-    padding: 8px 14px;
-    font-size: 11px;
-}}
-QLabel#StepChevron {{
-    color: #64748b;
-    font-size: 18px;
-    font-weight: 300;
-}}
 QFrame#HeroBanner {{
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
         stop:0 #0b1220, stop:1 #042f2e);
@@ -525,6 +558,19 @@ QFrame#HeroBannerBad {{
         stop:0 #0b1220, stop:1 #3b1d1d);
     border: 1px solid rgba(248, 113, 113, 0.35);
     border-radius: 14px;
+}}
+QLabel#HeroTitle {{
+    color: {C["text"]};
+    font-size: 15px;
+    font-weight: 700;
+    background: transparent;
+    border: none;
+}}
+QLabel#HeroDesc {{
+    color: {C["muted"]};
+    font-size: 12px;
+    background: transparent;
+    border: none;
 }}
 QPushButton#HeroGhost {{
     background-color: {C["surface2"]};
@@ -554,15 +600,6 @@ QPushButton#HeroPrimary:hover {{
 QPushButton#HeroPrimary:disabled {{
     background-color: #1f3a3a;
     color: #64748b;
-}}
-QLabel#HeroTitle {{
-    font-size: 14px;
-    font-weight: 700;
-    color: {C["text"]};
-}}
-QLabel#HeroDesc {{
-    color: #94a3b8;
-    font-size: 12px;
 }}
 QPushButton#FooterCancel {{
     background-color: transparent;
