@@ -218,6 +218,7 @@ QLabel#TitleVerBadge {{
 QLabel#TitleCenter {{
     color: #94a3b8;
     font-size: 11px;
+    background: transparent;
 }}
 QLabel#TitleDotOk {{
     background-color: {C["ok"]};
@@ -234,6 +235,7 @@ QLabel#TitleDotWarn {{
 QLabel#TitleCenterSep {{
     color: #334155;
     font-size: 11px;
+    background: transparent;
 }}
 QLabel#AppIcon {{
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
