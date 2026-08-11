@@ -1,596 +1,865 @@
-"""主界面：工程选择、交叉编译、HTTP 共享、日志。"""
+"""主界面：环境管理、交叉编译、HTTP 共享、日志（PySide6）。"""
 from __future__ import annotations
 
 import os
 import threading
-import tkinter as tk
+import webbrowser
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QRadioButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QStackedWidget,
+    QStatusBar,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+    QTextEdit,
+    QButtonGroup,
+)
 
 from crosskit import build as buildmod
 from crosskit import detect, envpack, jobs, netip, settings, wsl, wsl_setup
+from crosskit.app_version import BUILD, VERSION
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
-from gui.chrome import TitleChrome
-from gui.theme import (
-    C,
-    EqualTabs,
-    action_button,
-    apply_theme,
-    card,
-    check_button,
-    make_scrollable,
-    mono_font,
-    primary_button,
-)
+from gui.theme import C, apply_theme
 
 ENV_RELEASE_URL = "https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/env-ubuntu-20.04"
 
 
-class App(tk.Tk):
+def _card(title: str = "") -> tuple[QFrame, QVBoxLayout]:
+    frame = QFrame()
+    frame.setObjectName("Card")
+    lay = QVBoxLayout(frame)
+    lay.setContentsMargins(14, 12, 14, 12)
+    lay.setSpacing(8)
+    if title:
+        t = QLabel(title)
+        t.setObjectName("CardTitle")
+        lay.addWidget(t)
+    return frame, lay
+
+
+def _btn(text: str, kind: str = "Ghost") -> QPushButton:
+    b = QPushButton(text)
+    b.setObjectName(kind)  # Primary / Accent / Ghost
+    b.setCursor(Qt.CursorShape.PointingHandCursor)
+    return b
+
+
+def _scroll_page() -> tuple[QWidget, QVBoxLayout]:
+    area = QScrollArea()
+    area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.Shape.NoFrame)
+    inner = QWidget()
+    lay = QVBoxLayout(inner)
+    lay.setContentsMargins(12, 12, 12, 12)
+    lay.setSpacing(10)
+    area.setWidget(inner)
+    # 外层包一层，方便塞进 stacked
+    wrap = QWidget()
+    wl = QVBoxLayout(wrap)
+    wl.setContentsMargins(0, 0, 0, 0)
+    wl.addWidget(area)
+    return wrap, lay
+
+
+class MainWindow(QMainWindow):
+    sig_log = Signal(str)
+    sig_busy_done = Signal(object)  # callable，在 UI 线程执行
+
     def __init__(self) -> None:
         super().__init__()
-        self.title("Qt ARM64 交叉编译工具")
-        self.geometry("980x720")
-        self.minsize(820, 560)
+        self.setWindowTitle("Qt ARM64 交叉编译工具")
+        self.resize(1080, 760)
+        self.setMinimumSize(900, 600)
+
         self._busy = False
         self._env_ready = False
-        self._action_btns: list[tk.Widget] = []
-        self._busy_keep: set[int] = set()  # id(widget)：忙碌时仍可点
-        self._form_widgets: list[tk.Widget] = []
+        self._action_btns: list[QWidget] = []
+        self._busy_keep: set[int] = set()
+        self._form_widgets: list[QWidget] = []
         self._share = DirectoryShare()
         self._advanced_open = False
         self._eth_open = False
         self._scratch_open = False
         self._cfg = settings.load()
-        self._chrome: TitleChrome | None = None
-        self._env_banner_labels: list[tk.Label] = []
-        self._env_hint_lbl: ttk.Label | None = None
-        self._share_log: tk.Text | None = None
-        self._btn_cancel: tk.Widget | None = None
+        self._env_banner_labels: list[QLabel] = []
+        self._env_hint_lbl: QLabel | None = None
+        self._share_log: QTextEdit | None = None
+        self._btn_cancel: QPushButton | None = None
         self._recent_log_lines: list[str] = []
-        self._btn_download: tk.Widget | None = None
+        self._btn_download: QPushButton | None = None
+        self._pulse_timer: QTimer | None = None
+        self._pulse_base = ""
+        self._pulse_n = 0
+        self._persist_timer = QTimer(self)
+        self._persist_timer.setSingleShot(True)
+        self._persist_timer.timeout.connect(self._persist)
+        self._log_auto_scroll = True
+        self._log_line_count = 0
+        self._current_step = 0
 
-        self.project = tk.StringVar(value=self._cfg.get("project", ""))
-        self.build_file = tk.StringVar(value=self._cfg.get("build_file", ""))
-        self.build_system = tk.StringVar(value=self._cfg.get("build_system", "auto"))
-        self.app_name = tk.StringVar(value=self._cfg.get("app_name", ""))
-        self.out_dir = tk.StringVar(value=self._cfg.get("out_dir", ""))
-        self.out_bin = tk.StringVar(value=self._cfg.get("out_bin", ""))
-        self.jobs = tk.IntVar(value=int(self._cfg.get("jobs") or 0))
-        self.do_bundle = tk.BooleanVar(value=bool(self._cfg.get("do_bundle", True)))
-        self.do_clean = tk.BooleanVar(value=bool(self._cfg.get("do_clean", False)))
-        self.use_ffmpeg = tk.BooleanVar(value=bool(self._cfg.get("use_ffmpeg", False)))
-        self.plugins = tk.StringVar(value=self._cfg.get("plugins", ""))
-        self.extra_pkg = tk.StringVar(value=self._cfg.get("extra_pkgconfig", ""))
-        self.extra_copy = tk.StringVar(value=self._cfg.get("extra_copy", ""))
-        self.distro = tk.StringVar(value=self._cfg.get("distro", wsl.DEFAULT_DISTRO))
-        self.share_dir = tk.StringVar(value=self._cfg.get("share_dir", ""))
-        self.share_port = tk.IntVar(value=int(self._cfg.get("share_port") or 18080))
-        self.share_urls = tk.StringVar(value="—")
-        self.share_local = tk.StringVar(value="—")
-        self.share_state = tk.StringVar(value="未启动")
-        self.eth_add_ip = tk.StringVar(value=self._cfg.get("eth_add_ip", ""))
-        self.eth_add_mask = tk.StringVar(value=self._cfg.get("eth_add_mask") or "255.255.255.0")
-        self.eth_list = tk.StringVar(value="（尚未刷新）")
-        self.eth_pick = tk.StringVar(value="")
-        self.env_banner = tk.StringVar(value="正在检测交叉环境…")
+        # —— 配置字段 ——
         default_env = self._cfg.get("env_install_dir") or str(
             Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WSL" / "Ubuntu-20.04"
         )
-        self.env_install_dir = tk.StringVar(value=default_env)
-        self.env_slim = tk.BooleanVar(value=bool(self._cfg.get("env_slim_export", False)))
-        self.env_replace = tk.BooleanVar(value=bool(self._cfg.get("env_replace_on_import", False)))
-        self.status = tk.StringVar(value="就绪")
-        self.header_status = tk.StringVar(value="空闲")
-        self.activity = tk.StringVar(value="")
-        self._pulse_job: int | None = None
-        self._pulse_base = ""
-        self._pulse_n = 0
+        self._project = self._cfg.get("project", "") or ""
+        self._build_file = self._cfg.get("build_file", "") or ""
+        self._build_system = self._cfg.get("build_system", "auto") or "auto"
+        self._app_name = self._cfg.get("app_name", "") or ""
+        self._out_dir = self._cfg.get("out_dir", "") or ""
+        self._out_bin = self._cfg.get("out_bin", "") or ""
+        self._jobs_n = int(self._cfg.get("jobs") or 0)
+        self._do_bundle = bool(self._cfg.get("do_bundle", True))
+        self._do_clean = bool(self._cfg.get("do_clean", False))
+        self._use_ffmpeg = bool(self._cfg.get("use_ffmpeg", False))
+        self._plugins = self._cfg.get("plugins", "") or ""
+        self._extra_pkg = self._cfg.get("extra_pkgconfig", "") or ""
+        self._extra_copy = self._cfg.get("extra_copy", "") or ""
+        self._distro = self._cfg.get("distro", wsl.DEFAULT_DISTRO) or wsl.DEFAULT_DISTRO
+        self._share_dir = self._cfg.get("share_dir", "") or ""
+        self._share_port = int(self._cfg.get("share_port") or 18080)
+        self._eth_add_ip = self._cfg.get("eth_add_ip", "") or ""
+        self._eth_add_mask = self._cfg.get("eth_add_mask") or "255.255.255.0"
+        self._env_install_dir = default_env
+        self._env_slim = bool(self._cfg.get("env_slim_export", False))
+        self._env_replace = bool(self._cfg.get("env_replace_on_import", False))
 
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
-        apply_theme(self)
+        self.sig_log.connect(self._append_log)
+        self.sig_busy_done.connect(self._run_on_ui)
+
         self._build_ui()
-        if self.project.get():
+        if self._project:
             self._refresh_build_files()
-        if not self.share_dir.get():
+        if not self._share_dir:
             self._fill_share_from_project()
         self._set_http_dot(False)
-        self.after(600, self._maybe_resume_pending_import)
-        self.after(200, self._refresh_eth_list)
-        # 开机自动检测：已导入则直接可用，未导入则引导去环境页
-        self.after(500, lambda: self._on_detect(auto=True))
-        # 字段一改就记，下次打开不用重配
-        for var in (
-            self.project,
-            self.build_file,
-            self.build_system,
-            self.app_name,
-            self.out_dir,
-            self.out_bin,
-            self.jobs,
-            self.do_bundle,
-            self.do_clean,
-            self.use_ffmpeg,
-            self.plugins,
-            self.extra_pkg,
-            self.extra_copy,
-            self.distro,
-            self.share_dir,
-            self.share_port,
-            self.eth_add_ip,
-            self.eth_add_mask,
-            self.env_install_dir,
-            self.env_slim,
-            self.env_replace,
-        ):
-            var.trace_add("write", lambda *_a: self._schedule_persist())
-        self._persist_after: int | None = None
 
+        QTimer.singleShot(600, self._maybe_resume_pending_import)
+        QTimer.singleShot(200, self._refresh_eth_list)
+        QTimer.singleShot(500, lambda: self._on_detect(auto=True))
+
+    # ------------------------------------------------------------------ UI
     def _build_ui(self) -> None:
-        self._chrome = TitleChrome(self, on_close=self._on_close)
-        self._chrome.build(self)
-        self._status_pill = self._chrome.status_pill
-        self._status_pill.configure(textvariable=self.header_status)
+        root = QWidget()
+        self.setCentralWidget(root)
+        root_lay = QVBoxLayout(root)
+        root_lay.setContentsMargins(0, 0, 0, 0)
+        root_lay.setSpacing(0)
 
-        shell = ttk.Frame(self, style="TFrame")
-        shell.pack(fill=tk.BOTH, expand=True, padx=12, pady=(8, 0))
+        root_lay.addWidget(self._build_header())
+        root_lay.addWidget(self._build_step_nav())
+        self._stack = QStackedWidget()
+        root_lay.addWidget(self._stack, 1)
 
-        self._nb = EqualTabs(shell, ["1 环境", "2 编译", "3 共享"])
-        self._build_tab_env(self._nb.page(0))
-        self._build_tab_compile(self._nb.page(1))
-        self._build_tab_share(self._nb.page(2))
+        page_env, env_lay = _scroll_page()
+        self._build_tab_env(env_lay)
+        env_lay.addStretch(1)
+        self._stack.addWidget(page_env)
 
-        foot = ttk.Frame(self)
-        foot.pack(fill=tk.X, padx=14, pady=(4, 8))
-        ttk.Label(foot, textvariable=self.status, style="Status.TLabel").pack(side=tk.LEFT)
-        ttk.Label(foot, textvariable=self.activity, style="Status.TLabel").pack(side=tk.LEFT, padx=(16, 0))
-        self._btn_cancel = action_button(foot, "取消任务", self._on_cancel)
-        self._btn_cancel.pack(side=tk.RIGHT, padx=(8, 0))
-        paint = getattr(self._btn_cancel, "_paint_enabled", None)
-        if callable(paint):
-            paint(False)
-        self._progress = ttk.Progressbar(foot, mode="indeterminate", length=140, style="Busy.Horizontal.TProgressbar")
-        # 空闲不显示：clam 停住的不确定进度条会残留一截色块
-        self._progress_visible = False
+        page_compile = QWidget()
+        self._build_tab_compile(page_compile)
+        self._stack.addWidget(page_compile)
 
-    def _build_tab_compile(self, parent: ttk.Frame) -> None:
-        """主路径：选工程 → 产物目录 → 交叉编译 → 看日志。"""
-        top = ttk.Frame(parent, style="TFrame")
-        top.pack(fill=tk.X, padx=10, pady=(10, 0))
+        page_share, share_lay = _scroll_page()
+        self._build_tab_share(share_lay)
+        share_lay.addStretch(1)
+        self._stack.addWidget(page_share)
 
-        ban = ttk.Frame(top, style="TFrame")
-        ban.pack(fill=tk.X, pady=(0, 8))
-        ban_lbl = tk.Label(
-            ban,
-            textvariable=self.env_banner,
-            bg=C["bg"],
-            fg=C["muted"],
-            font=("Microsoft YaHei UI", 9, "bold"),
-            anchor="w",
-            justify=tk.LEFT,
+        self._build_statusbar()
+        self._select_step(0)
+
+    def _build_header(self) -> QFrame:
+        hdr = QFrame()
+        hdr.setObjectName("Header")
+        lay = QHBoxLayout(hdr)
+        lay.setContentsMargins(18, 14, 18, 14)
+
+        left = QVBoxLayout()
+        left.setSpacing(2)
+        title = QLabel("Qt ARM64 交叉编译 Workstation")
+        title.setObjectName("Title")
+        left.addWidget(title)
+        self._subtitle = QLabel(f"v{VERSION} · {BUILD}  ·  环境 → 编译 → 部署共享")
+        self._subtitle.setObjectName("Subtitle")
+        left.addWidget(self._subtitle)
+        lay.addLayout(left, 1)
+
+        right = QVBoxLayout()
+        right.setSpacing(4)
+        right.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._status_pill = QLabel("  空闲  ")
+        self._status_pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._status_pill.setStyleSheet(
+            f"background:{C['surface2']}; color:{C['ok']}; border-radius:10px; padding:4px 12px; font-weight:600;"
         )
-        ban_lbl.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self._env_banner_labels.append(ban_lbl)
-        action_button(ban, "去环境页", lambda: self._nb.select(0)).pack(side=tk.RIGHT)
+        right.addWidget(self._status_pill, 0, Qt.AlignmentFlag.AlignRight)
+        self._wsl_status_lbl = QLabel("WSL: 检测中…")
+        self._wsl_status_lbl.setObjectName("Muted")
+        self._wsl_status_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
+        right.addWidget(self._wsl_status_lbl)
+        lay.addLayout(right)
+        return hdr
 
-        proj = card(top, "工程")
-        proj.pack(fill=tk.X, pady=(0, 8))
-        ttk.Label(proj, text="工程目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
-        self._track_form(ttk.Entry(proj, textvariable=self.project)).grid(row=0, column=1, sticky=tk.EW, padx=8, pady=4)
-        action_button(proj, "浏览…", self._browse_project).grid(row=0, column=2, padx=2)
+    def _build_step_nav(self) -> QWidget:
+        wrap = QWidget()
+        lay = QHBoxLayout(wrap)
+        lay.setContentsMargins(14, 10, 14, 6)
+        lay.setSpacing(10)
+        self._step_cards: list[QFrame] = []
+        specs = [
+            ("1 环境管理", "导入 / 检测交叉环境"),
+            ("2 交叉编译", "选工程 · 产物 · 日志"),
+            ("3 部署与共享", "HTTP 共享给麒麟机"),
+        ]
+        for i, (name, desc) in enumerate(specs):
+            card = QFrame()
+            card.setObjectName("StepIdle")
+            card.setCursor(Qt.CursorShape.PointingHandCursor)
+            card.setMinimumHeight(64)
+            cl = QVBoxLayout(card)
+            cl.setContentsMargins(14, 10, 14, 10)
+            n = QLabel(name)
+            n.setObjectName("CardTitle")
+            d = QLabel(desc)
+            d.setObjectName("Muted")
+            cl.addWidget(n)
+            cl.addWidget(d)
+            card.mousePressEvent = lambda _e, idx=i: self._select_step(idx)  # type: ignore[method-assign]
+            lay.addWidget(card, 1)
+            self._step_cards.append(card)
+        return wrap
+
+    def _select_step(self, idx: int) -> None:
+        self._current_step = idx
+        self._stack.setCurrentIndex(idx)
+        for i, card in enumerate(self._step_cards):
+            card.setObjectName("StepActive" if i == idx else "StepIdle")
+            # 强制刷新 QSS
+            card.style().unpolish(card)
+            card.style().polish(card)
+
+    def _build_statusbar(self) -> None:
+        sb = QStatusBar()
+        self.setStatusBar(sb)
+        self._status_lbl = QLabel("就绪")
+        self._status_lbl.setObjectName("Muted")
+        sb.addWidget(self._status_lbl, 1)
+        self._activity_lbl = QLabel("")
+        self._activity_lbl.setObjectName("Muted")
+        sb.addWidget(self._activity_lbl, 2)
+        self._btn_cancel = _btn("取消任务", "Ghost")
+        self._btn_cancel.clicked.connect(self._on_cancel)
+        self._btn_cancel.setEnabled(False)
+        sb.addPermanentWidget(self._btn_cancel)
+        self._progress = QProgressBar()
+        self._progress.setRange(0, 0)
+        self._progress.setFixedWidth(140)
+        self._progress.setTextVisible(False)
+        self._progress.setVisible(False)
+        sb.addPermanentWidget(self._progress)
+
+    # ------------------------------------------------------------------ 环境页
+    def _build_tab_env(self, lay: QVBoxLayout) -> None:
+        tip, tip_lay = _card("本机环境")
+        ban = QLabel("正在检测交叉环境…")
+        ban.setWordWrap(True)
+        ban.setStyleSheet(f"font-weight:700; color:{C['muted']};")
+        tip_lay.addWidget(ban)
+        self._env_banner_labels.append(ban)
+        self._env_hint_lbl = QLabel("")
+        self._env_hint_lbl.setObjectName("Muted")
+        self._env_hint_lbl.setWordWrap(True)
+        tip_lay.addWidget(self._env_hint_lbl)
+        self._refresh_env_hint()
+        lay.addWidget(tip)
+
+        envp, env_lay = _card("交叉编译环境包")
+        row0 = QHBoxLayout()
+        row0.addWidget(QLabel("安装目录"))
+        self.ed_env_install = QLineEdit(self._env_install_dir)
+        self.ed_env_install.textChanged.connect(lambda t: self._on_field("env_install", t))
+        self._track_form(self.ed_env_install)
+        row0.addWidget(self.ed_env_install, 1)
+        b_br = _btn("浏览…")
+        b_br.clicked.connect(self._browse_env_install)
+        row0.addWidget(b_br)
+        env_lay.addLayout(row0)
+
+        row1 = QHBoxLayout()
+        row1.addWidget(QLabel("发行版名"))
+        self.ed_distro = QLineEdit(self._distro)
+        self.ed_distro.textChanged.connect(lambda t: self._on_field("distro", t))
+        self._track_form(self.ed_distro)
+        row1.addWidget(self.ed_distro, 1)
+        hint = QLabel("一般保持 Ubuntu-20.04")
+        hint.setObjectName("Muted")
+        row1.addWidget(hint)
+        env_lay.addLayout(row1)
+
+        brow = QHBoxLayout()
+        b_imp = _btn("一键导入环境包…", "Primary")
+        b_imp.clicked.connect(self._on_import_env)
+        self._track_action(b_imp)
+        brow.addWidget(b_imp)
+        self._btn_download = _btn("下载环境包", "Accent")
+        self._btn_download.clicked.connect(self._open_env_release)
+        brow.addWidget(self._btn_download)
+        b_det = _btn("检测环境")
+        b_det.clicked.connect(lambda: self._on_detect(False))
+        self._track_action(b_det)
+        brow.addWidget(b_det)
+        b_exp = _btn("导出…")
+        b_exp.clicked.connect(self._on_export_env)
+        self._track_action(b_exp)
+        brow.addWidget(b_exp)
+        brow.addStretch(1)
+        env_lay.addLayout(brow)
+
+        opts = QHBoxLayout()
+        self.chk_env_slim = QCheckBox("导出时去掉 Qt 源码缓存")
+        self.chk_env_slim.setChecked(self._env_slim)
+        self.chk_env_slim.toggled.connect(lambda v: self._on_field("env_slim", v))
+        self._track_form(self.chk_env_slim)
+        opts.addWidget(self.chk_env_slim)
+        self.chk_env_replace = QCheckBox("覆盖已有同名发行版")
+        self.chk_env_replace.setChecked(self._env_replace)
+        self.chk_env_replace.toggled.connect(lambda v: self._on_field("env_replace", v))
+        self._track_form(self.chk_env_replace)
+        opts.addWidget(self.chk_env_replace)
+        opts.addStretch(1)
+        env_lay.addLayout(opts)
+        lay.addWidget(envp)
+
+        self._scratch_btn = QToolButton()
+        self._scratch_btn.setText("从零搭建 ▸")
+        self._scratch_btn.setObjectName("Accent")
+        self._scratch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._scratch_btn.clicked.connect(self._toggle_scratch)
+        lay.addWidget(self._scratch_btn, 0, Qt.AlignmentFlag.AlignLeft)
+
+        self._scratch = QWidget()
+        self._scratch.setVisible(False)
+        sc_lay = QVBoxLayout(self._scratch)
+        sc_lay.setContentsMargins(0, 0, 0, 0)
+        rare, rare_lay = _card("从零搭建")
+        tip2 = QLabel("无现成环境包、或要本机重编工具链/Qt 时再用。有包请直接导入。")
+        tip2.setObjectName("Muted")
+        tip2.setWordWrap(True)
+        rare_lay.addWidget(tip2)
+        r2 = QHBoxLayout()
+        b_tc = _btn("安装工具链")
+        b_tc.clicked.connect(lambda: self._on_install("setup_cross_focal.sh"))
+        self._track_action(b_tc)
+        r2.addWidget(b_tc)
+        b_qt = _btn("编译 Qt 5.14.2")
+        b_qt.clicked.connect(lambda: self._on_install("build_qt5142_arm64_cross.sh"))
+        self._track_action(b_qt)
+        r2.addWidget(b_qt)
+        r2.addStretch(1)
+        rare_lay.addLayout(r2)
+        sc_lay.addWidget(rare)
+        lay.addWidget(self._scratch)
+
+        res, res_lay = _card("环境检测结果")
+        self.env_box = QTextEdit()
+        self.env_box.setReadOnly(True)
+        self.env_box.setObjectName("Log")
+        self.env_box.setMaximumHeight(120)
+        self.env_box.setPlaceholderText("检测结果将显示在这里…")
+        res_lay.addWidget(self.env_box)
+        lay.addWidget(res)
+
+    # ------------------------------------------------------------------ 编译页
+    def _build_tab_compile(self, parent: QWidget) -> None:
+        outer = QVBoxLayout(parent)
+        outer.setContentsMargins(12, 8, 12, 8)
+        outer.setSpacing(8)
+
+        ban_row = QHBoxLayout()
+        ban = QLabel("正在检测交叉环境…")
+        ban.setWordWrap(True)
+        ban.setStyleSheet(f"font-weight:700; color:{C['muted']};")
+        ban_row.addWidget(ban, 1)
+        self._env_banner_labels.append(ban)
+        b_go_env = _btn("去环境页", "Accent")
+        b_go_env.clicked.connect(lambda: self._select_step(0))
+        ban_row.addWidget(b_go_env)
+        outer.addLayout(ban_row)
+
+        proj, proj_lay = _card("工程")
+        r0 = QHBoxLayout()
+        r0.addWidget(QLabel("工程目录"))
+        self.ed_project = QLineEdit(self._project)
+        self.ed_project.textChanged.connect(lambda t: self._on_field("project", t))
+        self._track_form(self.ed_project)
+        r0.addWidget(self.ed_project, 1)
+        b_bp = _btn("浏览…")
+        b_bp.clicked.connect(self._browse_project)
+        r0.addWidget(b_bp)
         recent = self._cfg.get("recent_projects") or []
         if recent:
-            mb = ttk.Menubutton(proj, text="最近")
-            menu = tk.Menu(mb, tearoff=0, bg=C["surface"], fg=C["text"], activebackground=C["accent_soft"])
+            self.cmb_recent = QComboBox()
+            self.cmb_recent.addItem("最近…")
             for p in recent:
-                menu.add_command(label=p, command=lambda x=p: self._set_project(x))
-            mb["menu"] = menu
-            mb.grid(row=0, column=3, padx=2)
+                self.cmb_recent.addItem(p)
+            self.cmb_recent.activated.connect(self._on_recent_picked)
+            r0.addWidget(self.cmb_recent)
+        proj_lay.addLayout(r0)
 
-        ttk.Label(proj, text="构建文件", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
-        self.build_combo = ttk.Combobox(proj, textvariable=self.build_file)
-        self.build_combo.grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
+        r1 = QHBoxLayout()
+        r1.addWidget(QLabel("构建文件"))
+        self.build_combo = QComboBox()
+        self.build_combo.setEditable(True)
+        self.build_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        if self._build_file:
+            self.build_combo.setEditText(self._build_file)
+        self.build_combo.currentTextChanged.connect(lambda t: self._on_field("build_file", t))
         self._track_form(self.build_combo)
-        action_button(proj, "刷新", self._refresh_build_files).grid(row=1, column=2, padx=2)
+        r1.addWidget(self.build_combo, 1)
+        b_ref = _btn("刷新")
+        b_ref.clicked.connect(self._refresh_build_files)
+        r1.addWidget(b_ref)
+        proj_lay.addLayout(r1)
 
-        ttk.Label(proj, text="产物目录", style="Card.TLabel").grid(row=2, column=0, sticky=tk.W, pady=4)
-        self._track_form(ttk.Entry(proj, textvariable=self.out_dir)).grid(row=2, column=1, sticky=tk.EW, padx=8, pady=4)
-        action_button(proj, "浏览…", self._browse_out_dir).grid(row=2, column=2, padx=2)
-        proj.columnconfigure(1, weight=1)
+        r2 = QHBoxLayout()
+        r2.addWidget(QLabel("产物目录"))
+        self.ed_out_dir = QLineEdit(self._out_dir)
+        self.ed_out_dir.textChanged.connect(lambda t: self._on_field("out_dir", t))
+        self._track_form(self.ed_out_dir)
+        r2.addWidget(self.ed_out_dir, 1)
+        b_bo = _btn("浏览…")
+        b_bo.clicked.connect(self._browse_out_dir)
+        r2.addWidget(b_bo)
+        proj_lay.addLayout(r2)
+        outer.addWidget(proj)
 
-        opts = card(top, "选项")
-        opts.pack(fill=tk.X, pady=(0, 8))
-        flags = ttk.Frame(opts, style="Card.TFrame")
-        flags.pack(fill=tk.X)
-        check_button(flags, "生成运行包", self.do_bundle).pack(side=tk.LEFT, padx=(0, 14))
-        check_button(flags, "附加 FFmpeg", self.use_ffmpeg).pack(side=tk.LEFT, padx=(0, 14))
-        check_button(flags, "全量清理", self.do_clean).pack(side=tk.LEFT, padx=(0, 14))
-        self._adv_btn = ttk.Button(flags, text="高级 ▸", command=self._toggle_advanced, style="Accent.TButton")
-        self._adv_btn.pack(side=tk.LEFT)
+        opts, opts_lay = _card("选项")
+        flags = QHBoxLayout()
+        self.chk_bundle = QCheckBox("生成运行包")
+        self.chk_bundle.setChecked(self._do_bundle)
+        self.chk_bundle.toggled.connect(lambda v: self._on_field("do_bundle", v))
+        self._track_form(self.chk_bundle)
+        flags.addWidget(self.chk_bundle)
+        self.chk_ffmpeg = QCheckBox("附加 FFmpeg")
+        self.chk_ffmpeg.setChecked(self._use_ffmpeg)
+        self.chk_ffmpeg.toggled.connect(lambda v: self._on_field("use_ffmpeg", v))
+        self._track_form(self.chk_ffmpeg)
+        flags.addWidget(self.chk_ffmpeg)
+        self.chk_clean = QCheckBox("全量清理")
+        self.chk_clean.setChecked(self._do_clean)
+        self.chk_clean.toggled.connect(lambda v: self._on_field("do_clean", v))
+        self._track_form(self.chk_clean)
+        flags.addWidget(self.chk_clean)
+        self._adv_btn = _btn("高级 ▸", "Accent")
+        self._adv_btn.clicked.connect(self._toggle_advanced)
+        flags.addWidget(self._adv_btn)
+        flags.addStretch(1)
+        opts_lay.addLayout(flags)
 
-        self._adv = ttk.Frame(opts, style="Card.TFrame")
-        ttk.Label(self._adv, text="构建系统", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=3)
-        sysf = ttk.Frame(self._adv, style="Card.TFrame")
-        sysf.grid(row=0, column=1, sticky=tk.W, padx=8)
+        self._adv = QWidget()
+        self._adv.setVisible(False)
+        adv_lay = QVBoxLayout(self._adv)
+        adv_lay.setContentsMargins(0, 8, 0, 0)
+
+        sys_row = QHBoxLayout()
+        sys_row.addWidget(QLabel("构建系统"))
+        self._sys_group = QButtonGroup(self)
         for v, t in (("auto", "自动"), ("qmake", "qmake"), ("cmake", "CMake")):
-            ttk.Radiobutton(sysf, text=t, value=v, variable=self.build_system).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Label(self._adv, text="应用名", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=3)
-        self._track_form(ttk.Entry(self._adv, textvariable=self.app_name, width=18)).grid(
-            row=1, column=1, sticky=tk.W, padx=8
-        )
-        ttk.Label(self._adv, text="可执行文件", style="Card.TLabel").grid(row=1, column=2, sticky=tk.W, padx=(8, 0))
-        self._track_form(ttk.Entry(self._adv, textvariable=self.out_bin, width=24)).grid(
-            row=1, column=3, sticky=tk.W, padx=8
-        )
-        ttk.Label(self._adv, text="留空则自动查找", style="Muted.TLabel").grid(row=2, column=3, sticky=tk.W, padx=8)
-        ttk.Label(self._adv, text="并行 -j", style="Card.TLabel").grid(row=3, column=0, sticky=tk.W, pady=3)
-        jobs_sp = ttk.Spinbox(self._adv, from_=0, to=64, textvariable=self.jobs, width=5)
-        jobs_sp.grid(row=3, column=1, sticky=tk.W, padx=8)
-        self._track_form(jobs_sp)
-        ttk.Label(self._adv, text="0=自动", style="Muted.TLabel").grid(row=3, column=2, sticky=tk.W)
-        ttk.Label(self._adv, text="插件", style="Card.TLabel").grid(row=4, column=0, sticky=tk.W, pady=3)
-        self._track_form(ttk.Entry(self._adv, textvariable=self.plugins)).grid(
-            row=4, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
-        )
-        ttk.Label(self._adv, text="其他 pkg-config", style="Card.TLabel").grid(row=5, column=0, sticky=tk.W, pady=3)
-        self._track_form(ttk.Entry(self._adv, textvariable=self.extra_pkg)).grid(
-            row=5, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
-        )
-        ttk.Label(self._adv, text="额外复制", style="Card.TLabel").grid(row=6, column=0, sticky=tk.W, pady=3)
-        self._track_form(ttk.Entry(self._adv, textvariable=self.extra_copy)).grid(
-            row=6, column=1, columnspan=3, sticky=tk.EW, padx=8, pady=3
-        )
-        self._adv.columnconfigure(1, weight=1)
+            rb = QRadioButton(t)
+            rb.setChecked(self._build_system == v)
+            rb.toggled.connect(lambda on, val=v: on and self._on_field("build_system", val))
+            self._sys_group.addButton(rb)
+            self._track_form(rb)
+            sys_row.addWidget(rb)
+        sys_row.addStretch(1)
+        adv_lay.addLayout(sys_row)
 
-        actions = ttk.Frame(top)
-        actions.pack(fill=tk.X, pady=(0, 8))
-        self._btn_build = primary_button(actions, "交叉编译", self._on_build)
-        self._btn_build.pack(side=tk.LEFT, padx=(0, 8))
-        self._btn_build.configure(state=tk.DISABLED)
+        name_row = QHBoxLayout()
+        name_row.addWidget(QLabel("应用名"))
+        self.ed_app_name = QLineEdit(self._app_name)
+        self.ed_app_name.setMaximumWidth(160)
+        self.ed_app_name.textChanged.connect(lambda t: self._on_field("app_name", t))
+        self._track_form(self.ed_app_name)
+        name_row.addWidget(self.ed_app_name)
+        name_row.addWidget(QLabel("可执行文件"))
+        self.ed_out_bin = QLineEdit(self._out_bin)
+        self.ed_out_bin.textChanged.connect(lambda t: self._on_field("out_bin", t))
+        self._track_form(self.ed_out_bin)
+        name_row.addWidget(self.ed_out_bin, 1)
+        adv_lay.addLayout(name_row)
+        mute = QLabel("留空则自动查找")
+        mute.setObjectName("Muted")
+        adv_lay.addWidget(mute)
+
+        jobs_row = QHBoxLayout()
+        jobs_row.addWidget(QLabel("并行 -j"))
+        self.sp_jobs = QSpinBox()
+        self.sp_jobs.setRange(0, 64)
+        self.sp_jobs.setValue(self._jobs_n)
+        self.sp_jobs.valueChanged.connect(lambda v: self._on_field("jobs", v))
+        self._track_form(self.sp_jobs)
+        jobs_row.addWidget(self.sp_jobs)
+        jh = QLabel("0=自动")
+        jh.setObjectName("Muted")
+        jobs_row.addWidget(jh)
+        jobs_row.addStretch(1)
+        adv_lay.addLayout(jobs_row)
+
+        for label, attr, key in (
+            ("插件", "_plugins", "plugins"),
+            ("其他 pkg-config", "_extra_pkg", "extra_pkg"),
+            ("额外复制", "_extra_copy", "extra_copy"),
+        ):
+            row = QHBoxLayout()
+            row.addWidget(QLabel(label))
+            ed = QLineEdit(getattr(self, attr))
+            ed.textChanged.connect(lambda t, k=key: self._on_field(k, t))
+            self._track_form(ed)
+            setattr(self, f"ed_{key}", ed)
+            row.addWidget(ed, 1)
+            adv_lay.addLayout(row)
+
+        opts_lay.addWidget(self._adv)
+        outer.addWidget(opts)
+
+        actions = QHBoxLayout()
+        self._btn_build = _btn("开始交叉编译 (aarch64)", "Primary")
+        self._btn_build.clicked.connect(self._on_build)
+        self._btn_build.setEnabled(False)
         self._track_action(self._btn_build)
-        b_out = action_button(actions, "打开产物文件夹", self._open_out)
-        b_out.pack(side=tk.LEFT, padx=3)
+        actions.addWidget(self._btn_build)
+        b_out = _btn("打开产物文件夹")
+        b_out.clicked.connect(self._open_out)
         self._track_action(b_out)
-        b_share = action_button(actions, "去共享", lambda: self._nb.select(2), variant="accent")
-        b_share.pack(side=tk.LEFT, padx=3)
+        actions.addWidget(b_out)
+        b_share = _btn("去共享", "Accent")
+        b_share.clicked.connect(lambda: self._select_step(2))
         self._track_action(b_share)
-        b_copy = action_button(actions, "复制日志", self._copy_log)
-        b_copy.pack(side=tk.RIGHT, padx=3)
+        actions.addWidget(b_share)
+        actions.addStretch(1)
+        b_clear = _btn("清空")
+        b_clear.clicked.connect(self._clear_log)
+        actions.addWidget(b_clear)
+        b_copy = _btn("复制日志")
+        b_copy.clicked.connect(self._copy_log)
         self._track_action(b_copy, keep_when_busy=True)
-        action_button(actions, "清空", self._clear_log).pack(side=tk.RIGHT, padx=3)
+        actions.addWidget(b_copy)
+        outer.addLayout(actions)
 
-        env_card = card(top, "环境明细")
-        env_card.pack(fill=tk.X, pady=(0, 8))
-        self.env_box = tk.Text(
-            env_card,
-            height=3,
-            wrap=tk.WORD,
-            bg=C["surface2"],
-            fg=C["text"],
-            relief=tk.FLAT,
-            font=mono_font(9),
-            insertbackground=C["text"],
-            highlightthickness=1,
-            highlightbackground=C["border"],
-            highlightcolor=C["primary"],
-            padx=8,
-            pady=6,
-        )
-        self.env_box.pack(fill=tk.X)
-        self.env_box.configure(state=tk.DISABLED)
+        log_card, log_lay = _card("构建日志")
+        meta = QHBoxLayout()
+        self._log_count_lbl = QLabel("0 行")
+        self._log_count_lbl.setObjectName("Muted")
+        meta.addWidget(self._log_count_lbl)
+        meta.addStretch(1)
+        self.chk_autoscroll = QCheckBox("自动滚动")
+        self.chk_autoscroll.setChecked(True)
+        self.chk_autoscroll.toggled.connect(lambda v: setattr(self, "_log_auto_scroll", v))
+        meta.addWidget(self.chk_autoscroll)
+        log_lay.addLayout(meta)
+        self.log = QTextEdit()
+        self.log.setReadOnly(True)
+        self.log.setObjectName("Log")
+        self.log.setMinimumHeight(220)
+        log_lay.addWidget(self.log, 1)
+        outer.addWidget(log_card, 1)
 
-        log_card = card(parent, "构建日志")
-        log_card.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
-        log_wrap = tk.Frame(log_card, bg=C["log_border"])
-        log_wrap.pack(fill=tk.BOTH, expand=True)
-        self.log = tk.Text(
-            log_wrap,
-            wrap=tk.WORD,
-            bg=C["log_bg"],
-            fg=C["log_fg"],
-            insertbackground=C["log_fg"],
-            relief=tk.FLAT,
-            font=mono_font(9),
-            padx=10,
-            pady=8,
-            highlightthickness=0,
-        )
-        scroll = ttk.Scrollbar(log_wrap, command=self.log.yview)
-        self.log.configure(yscrollcommand=scroll.set)
-        self.log.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.log.configure(state=tk.DISABLED)
+    # ------------------------------------------------------------------ 共享页
+    def _build_tab_share(self, lay: QVBoxLayout) -> None:
+        share, share_lay = _card("HTTP 共享")
+        r0 = QHBoxLayout()
+        r0.addWidget(QLabel("共享目录"))
+        self.ed_share_dir = QLineEdit(self._share_dir)
+        self.ed_share_dir.textChanged.connect(lambda t: self._on_field("share_dir", t))
+        self._track_form(self.ed_share_dir)
+        r0.addWidget(self.ed_share_dir, 1)
+        b_bs = _btn("浏览…")
+        b_bs.clicked.connect(self._browse_share)
+        r0.addWidget(b_bs)
+        b_use = _btn("用产物目录", "Accent")
+        b_use.clicked.connect(self._fill_share_from_project)
+        r0.addWidget(b_use)
+        share_lay.addLayout(r0)
 
-    def _build_tab_env(self, parent: ttk.Frame) -> None:
-        """第一步：检测 / 导入交叉环境。"""
-        inner, _sync = make_scrollable(parent)
-        pad = ttk.Frame(inner, style="TFrame")
-        pad.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
-
-        tip = card(pad, "本机环境")
-        tip.pack(fill=tk.X, pady=(0, 10))
-        env_lbl = tk.Label(
-            tip,
-            textvariable=self.env_banner,
-            bg=C["surface"],
-            fg=C["muted"],
-            font=("Microsoft YaHei UI", 10, "bold"),
-            anchor="w",
-            justify=tk.LEFT,
-        )
-        env_lbl.pack(fill=tk.X, pady=(0, 6))
-        self._env_banner_labels.append(env_lbl)
-        self._env_hint_lbl = ttk.Label(
-            tip,
-            text="",
-            style="Muted.TLabel",
-            justify=tk.LEFT,
-        )
-        self._env_hint_lbl.pack(anchor=tk.W)
-        self._refresh_env_hint()
-
-        envp = card(pad, "交叉编译环境包")
-        envp.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(envp, text="安装目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
-        self._track_form(ttk.Entry(envp, textvariable=self.env_install_dir)).grid(
-            row=0, column=1, sticky=tk.EW, padx=8, pady=4
-        )
-        action_button(envp, "浏览…", self._browse_env_install).grid(row=0, column=2, padx=2)
-
-        ttk.Label(envp, text="发行版名", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
-        self._track_form(ttk.Entry(envp, textvariable=self.distro)).grid(row=1, column=1, sticky=tk.EW, padx=8, pady=4)
-        ttk.Label(envp, text="一般保持 Ubuntu-20.04", style="Muted.TLabel").grid(row=1, column=2, sticky=tk.W)
-
-        row = ttk.Frame(envp, style="Card.TFrame")
-        row.grid(row=2, column=0, columnspan=3, sticky=tk.EW, pady=(10, 4))
-        b_imp = primary_button(row, "一键导入环境包…", self._on_import_env)
-        b_imp.pack(side=tk.LEFT, padx=(0, 8))
-        self._track_action(b_imp)
-        self._btn_download = action_button(row, "下载环境包", self._open_env_release, variant="accent")
-        self._btn_download.pack(side=tk.LEFT, padx=(0, 8))
-        b_det = action_button(row, "检测环境", self._on_detect)
-        b_det.pack(side=tk.LEFT, padx=4)
-        self._track_action(b_det)
-        b_exp = action_button(row, "导出…", self._on_export_env)
-        b_exp.pack(side=tk.LEFT, padx=4)
-        self._track_action(b_exp)
-
-        opts = ttk.Frame(envp, style="Card.TFrame")
-        opts.grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
-        check_button(opts, "导出时去掉 Qt 源码缓存", self.env_slim).pack(side=tk.LEFT, padx=(0, 14))
-        check_button(opts, "覆盖已有同名发行版", self.env_replace).pack(side=tk.LEFT)
-        envp.columnconfigure(1, weight=1)
-
-        # 从零搭建默认收起，日常路径更干净
-        self._scratch_btn = ttk.Button(
-            pad, text="从零搭建 ▸", command=self._toggle_scratch, style="Accent.TButton"
-        )
-        self._scratch_btn.pack(anchor=tk.W, pady=(4, 0))
-        self._scratch = ttk.Frame(pad, style="TFrame")
-        rare = card(self._scratch, "从零搭建")
-        rare.pack(fill=tk.X, pady=(8, 0))
-        ttk.Label(
-            rare,
-            text="无现成环境包、或要本机重编工具链/Qt 时再用。有包请直接导入。",
-            style="Muted.TLabel",
-        ).pack(anchor=tk.W, pady=(0, 8))
-        row2 = ttk.Frame(rare, style="Card.TFrame")
-        row2.pack(anchor=tk.W)
-        b_tc = action_button(row2, "安装工具链", lambda: self._on_install("setup_cross_focal.sh"))
-        b_tc.pack(side=tk.LEFT, padx=(0, 6))
-        self._track_action(b_tc)
-        b_qt = action_button(row2, "编译 Qt 5.14.2", lambda: self._on_install("build_qt5142_arm64_cross.sh"))
-        b_qt.pack(side=tk.LEFT, padx=6)
-        self._track_action(b_qt)
-
-    def _build_tab_share(self, parent: ttk.Frame) -> None:
-        """第三步：HTTP 共享给麒麟机下载。"""
-        inner, _sync = make_scrollable(parent)
-        pad = ttk.Frame(inner, style="TFrame")
-        pad.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
-
-        share = card(pad, "HTTP 共享")
-        share.pack(fill=tk.X)
-        ttk.Label(share, text="共享目录", style="Card.TLabel").grid(row=0, column=0, sticky=tk.W, pady=4)
-        self._track_form(ttk.Entry(share, textvariable=self.share_dir)).grid(
-            row=0, column=1, sticky=tk.EW, padx=8, pady=4
-        )
-        action_button(share, "浏览…", self._browse_share).grid(row=0, column=2, padx=2)
-        action_button(share, "用产物目录", self._fill_share_from_project, variant="accent").grid(
-            row=0, column=3, padx=2
-        )
-
-        ttk.Label(share, text="端口", style="Card.TLabel").grid(row=1, column=0, sticky=tk.W, pady=4)
-        row1 = ttk.Frame(share, style="Card.TFrame")
-        row1.grid(row=1, column=1, columnspan=3, sticky=tk.EW, padx=8)
-        port_sp = ttk.Spinbox(row1, from_=1, to=65535, textvariable=self.share_port, width=8)
-        port_sp.pack(side=tk.LEFT)
-        self._track_form(port_sp)
-        b_start = action_button(row1, "启动共享", self._share_start, variant="accent")
-        b_start.pack(side=tk.LEFT, padx=(10, 4))
+        r1 = QHBoxLayout()
+        r1.addWidget(QLabel("端口"))
+        self.sp_port = QSpinBox()
+        self.sp_port.setRange(1, 65535)
+        self.sp_port.setValue(self._share_port)
+        self.sp_port.valueChanged.connect(lambda v: self._on_field("share_port", v))
+        self._track_form(self.sp_port)
+        r1.addWidget(self.sp_port)
+        b_start = _btn("启动共享", "Accent")
+        b_start.clicked.connect(self._share_start)
         self._track_action(b_start)
-        b_stop = action_button(row1, "停止", self._share_stop)
-        b_stop.pack(side=tk.LEFT, padx=2)
+        r1.addWidget(b_start)
+        b_stop = _btn("停止")
+        b_stop.clicked.connect(self._share_stop)
         self._track_action(b_stop, keep_when_busy=True)
+        r1.addWidget(b_stop)
+        r1.addStretch(1)
+        share_lay.addLayout(r1)
 
-        box = ttk.Frame(share, style="Card.TFrame")
-        box.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=(12, 2))
-        box.columnconfigure(1, weight=1)
+        head = QHBoxLayout()
+        self._http_dot = QLabel("●")
+        self._http_dot.setStyleSheet(f"color:{C['idle']}; font-size:14px;")
+        head.addWidget(self._http_dot)
+        self._share_state_lbl = QLabel("未启动")
+        self._share_state_lbl.setObjectName("Muted")
+        head.addWidget(self._share_state_lbl)
+        head.addStretch(1)
+        share_lay.addLayout(head)
 
-        head = ttk.Frame(box, style="Card.TFrame")
-        head.grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=(0, 8))
-        self._http_dot = tk.Canvas(head, width=12, height=12, bg=C["surface"], highlightthickness=0)
-        self._http_dot.pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(head, textvariable=self.share_state, style="Muted.TLabel").pack(side=tk.LEFT)
+        local_row = QHBoxLayout()
+        local_row.addWidget(QLabel("本机测试"))
+        self.ed_share_local = QLineEdit("—")
+        self.ed_share_local.setReadOnly(True)
+        local_row.addWidget(self.ed_share_local, 1)
+        b_open = _btn("打开")
+        b_open.clicked.connect(self._share_open_local)
+        local_row.addWidget(b_open)
+        b_probe = _btn("自检", "Accent")
+        b_probe.clicked.connect(self._share_probe_local)
+        local_row.addWidget(b_probe)
+        share_lay.addLayout(local_row)
 
-        ttk.Label(box, text="本机测试", style="Card.TLabel", width=10).grid(row=1, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(box, textvariable=self.share_local, state="readonly").grid(
-            row=1, column=1, sticky=tk.EW, padx=8, pady=4
-        )
-        btns_local = ttk.Frame(box, style="Card.TFrame")
-        btns_local.grid(row=1, column=2, sticky=tk.E, pady=4)
-        action_button(btns_local, "打开", self._share_open_local).pack(side=tk.LEFT, padx=2)
-        action_button(btns_local, "自检", self._share_probe_local, variant="accent").pack(side=tk.LEFT, padx=2)
+        lan_row = QHBoxLayout()
+        lan_row.addWidget(QLabel("局域网地址"))
+        self.ed_share_urls = QLineEdit("—")
+        self.ed_share_urls.setReadOnly(True)
+        lan_row.addWidget(self.ed_share_urls, 1)
+        b_copy_u = _btn("复制")
+        b_copy_u.clicked.connect(self._share_copy_url)
+        lan_row.addWidget(b_copy_u)
+        share_lay.addLayout(lan_row)
+        lay.addWidget(share)
 
-        ttk.Label(box, text="局域网地址", style="Card.TLabel", width=10).grid(row=2, column=0, sticky=tk.W, pady=4)
-        ttk.Entry(box, textvariable=self.share_urls, state="readonly").grid(
-            row=2, column=1, sticky=tk.EW, padx=8, pady=4
-        )
-        btns_lan = ttk.Frame(box, style="Card.TFrame")
-        btns_lan.grid(row=2, column=2, sticky=tk.E, pady=4)
-        action_button(btns_lan, "复制", self._share_copy_url).pack(side=tk.LEFT, padx=2)
+        tip = QLabel("麒麟机浏览器打开「局域网地址」。本机打不开时先点「自检」，并确认代理绕过 127.0.0.1。")
+        tip.setObjectName("Muted")
+        tip.setWordWrap(True)
+        lay.addWidget(tip)
 
-        share.columnconfigure(1, weight=1)
+        slog, slog_lay = _card("本页日志")
+        self._share_log = QTextEdit()
+        self._share_log.setReadOnly(True)
+        self._share_log.setObjectName("Log")
+        self._share_log.setMaximumHeight(140)
+        slog_lay.addWidget(self._share_log)
+        lay.addWidget(slog)
 
-        ttk.Label(
-            pad,
-            text="麒麟机浏览器打开「局域网地址」。本机打不开时先点「自检」，并确认代理绕过 127.0.0.1。",
-            style="Muted.TLabel",
-            justify=tk.LEFT,
-            wraplength=720,
-        ).pack(anchor=tk.W, pady=(10, 0))
+        self._eth_btn = QToolButton()
+        self._eth_btn.setText("网卡高级 ▸")
+        self._eth_btn.setObjectName("Accent")
+        self._eth_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._eth_btn.clicked.connect(self._toggle_eth)
+        lay.addWidget(self._eth_btn, 0, Qt.AlignmentFlag.AlignLeft)
 
-        slog = card(pad, "本页日志")
-        slog.pack(fill=tk.X, pady=(10, 0))
-        self._share_log = tk.Text(
-            slog,
-            height=5,
-            wrap=tk.WORD,
-            bg=C["log_bg"],
-            fg=C["log_fg"],
-            relief=tk.FLAT,
-            font=mono_font(8),
-            padx=8,
-            pady=6,
-            highlightthickness=0,
-        )
-        self._share_log.pack(fill=tk.X)
-        self._share_log.configure(state=tk.DISABLED)
-
-        self._eth_btn = ttk.Button(pad, text="网卡高级 ▸", command=self._toggle_eth, style="Accent.TButton")
-        self._eth_btn.pack(anchor=tk.W, pady=(12, 0))
-        self._eth = ttk.Frame(pad, style="TFrame")
-        eth = card(self._eth, "有线网卡 IP（追加地址）")
-        eth.pack(fill=tk.X, pady=(8, 0))
-        ttk.Label(
-            eth,
-            text="等同 Windows「IP 设置 → 添加」；不改网关，需 UAC。",
-            style="Muted.TLabel",
-            wraplength=720,
-            justify=tk.LEFT,
-        ).pack(anchor=tk.W, pady=(0, 8))
-        ttk.Label(eth, textvariable=self.eth_list, style="Card.TLabel", justify=tk.LEFT).pack(anchor=tk.W)
-        row_e = ttk.Frame(eth, style="Card.TFrame")
-        row_e.pack(fill=tk.X, pady=(10, 0))
-        ttk.Label(row_e, text="附加 IP", style="Card.TLabel").pack(side=tk.LEFT)
-        ttk.Entry(row_e, textvariable=self.eth_add_ip, width=16).pack(side=tk.LEFT, padx=(6, 12))
-        ttk.Label(row_e, text="掩码", style="Card.TLabel").pack(side=tk.LEFT)
-        ttk.Entry(row_e, textvariable=self.eth_add_mask, width=14).pack(side=tk.LEFT, padx=(6, 12))
-        b_add = action_button(row_e, "添加 IP", self._on_add_eth_ip, variant="accent")
-        b_add.pack(side=tk.LEFT, padx=2)
+        self._eth = QWidget()
+        self._eth.setVisible(False)
+        eth_outer = QVBoxLayout(self._eth)
+        eth_outer.setContentsMargins(0, 0, 0, 0)
+        eth, eth_lay = _card("有线网卡 IP（追加地址）")
+        eth_tip = QLabel("等同 Windows「IP 设置 → 添加」；不改网关，需 UAC。")
+        eth_tip.setObjectName("Muted")
+        eth_tip.setWordWrap(True)
+        eth_lay.addWidget(eth_tip)
+        self._eth_list_lbl = QLabel("（尚未刷新）")
+        self._eth_list_lbl.setWordWrap(True)
+        eth_lay.addWidget(self._eth_list_lbl)
+        erow = QHBoxLayout()
+        erow.addWidget(QLabel("附加 IP"))
+        self.ed_eth_ip = QLineEdit(self._eth_add_ip)
+        self.ed_eth_ip.setMaximumWidth(140)
+        self.ed_eth_ip.textChanged.connect(lambda t: self._on_field("eth_add_ip", t))
+        self._track_form(self.ed_eth_ip)
+        erow.addWidget(self.ed_eth_ip)
+        erow.addWidget(QLabel("掩码"))
+        self.ed_eth_mask = QLineEdit(self._eth_add_mask)
+        self.ed_eth_mask.setMaximumWidth(130)
+        self.ed_eth_mask.textChanged.connect(lambda t: self._on_field("eth_add_mask", t))
+        self._track_form(self.ed_eth_mask)
+        erow.addWidget(self.ed_eth_mask)
+        b_add = _btn("添加 IP", "Accent")
+        b_add.clicked.connect(self._on_add_eth_ip)
         self._track_action(b_add)
-        b_del = action_button(row_e, "删除所选", self._on_remove_eth_ip)
-        b_del.pack(side=tk.LEFT, padx=2)
+        erow.addWidget(b_add)
+        b_del = _btn("删除所选")
+        b_del.clicked.connect(self._on_remove_eth_ip)
         self._track_action(b_del)
-        b_ref = action_button(row_e, "刷新", self._refresh_eth_list)
-        b_ref.pack(side=tk.LEFT, padx=2)
-        self._track_action(b_ref)
-        ttk.Label(eth, text="删除时在下方选一个已有地址：", style="Muted.TLabel").pack(anchor=tk.W, pady=(8, 2))
-        self.eth_combo = ttk.Combobox(eth, textvariable=self.eth_pick, state="readonly", width=48)
-        self.eth_combo.pack(anchor=tk.W)
+        erow.addWidget(b_del)
+        b_er = _btn("刷新")
+        b_er.clicked.connect(self._refresh_eth_list)
+        self._track_action(b_er)
+        erow.addWidget(b_er)
+        erow.addStretch(1)
+        eth_lay.addLayout(erow)
+        mute = QLabel("删除时在下方选一个已有地址：")
+        mute.setObjectName("Muted")
+        eth_lay.addWidget(mute)
+        self.eth_combo = QComboBox()
+        self._track_form(self.eth_combo)
+        eth_lay.addWidget(self.eth_combo)
+        eth_outer.addWidget(eth)
+        lay.addWidget(self._eth)
 
+    # ------------------------------------------------------------------ 折叠 / 跟踪
     def _toggle_advanced(self) -> None:
         self._advanced_open = not self._advanced_open
-        if self._advanced_open:
-            self._adv.pack(fill=tk.X, pady=(8, 0))
-            self._adv_btn.configure(text="高级 ▾")
-        else:
-            self._adv.pack_forget()
-            self._adv_btn.configure(text="高级 ▸")
+        self._adv.setVisible(self._advanced_open)
+        self._adv_btn.setText("高级 ▾" if self._advanced_open else "高级 ▸")
 
     def _toggle_scratch(self) -> None:
         self._scratch_open = not self._scratch_open
-        if self._scratch_open:
-            self._scratch.pack(fill=tk.X, pady=(0, 0))
-            self._scratch_btn.configure(text="从零搭建 ▾")
-        else:
-            self._scratch.pack_forget()
-            self._scratch_btn.configure(text="从零搭建 ▸")
+        self._scratch.setVisible(self._scratch_open)
+        self._scratch_btn.setText("从零搭建 ▾" if self._scratch_open else "从零搭建 ▸")
+
+    def _toggle_eth(self) -> None:
+        self._eth_open = not self._eth_open
+        self._eth.setVisible(self._eth_open)
+        self._eth_btn.setText("网卡高级 ▾" if self._eth_open else "网卡高级 ▸")
+        if self._eth_open:
+            self._refresh_eth_list()
 
     def _refresh_env_hint(self) -> None:
         if self._env_hint_lbl is None:
             return
         if self._env_ready:
-            self._env_hint_lbl.configure(text="可直接去「2 编译」。需要换机时再用「导出…」打包环境。")
+            self._env_hint_lbl.setText("可直接去「2 编译」。需要换机时再用「导出…」打包环境。")
         else:
-            self._env_hint_lbl.configure(
-                text="① 点「下载环境包」→ ②「一键导入」→ ③ 自动检测通过后去「2 编译」。"
-            )
+            self._env_hint_lbl.setText("① 点「下载环境包」→ ②「一键导入」→ ③ 自动检测通过后去「2 编译」。")
 
-    def _toggle_eth(self) -> None:
-        self._eth_open = not self._eth_open
-        if self._eth_open:
-            self._eth.pack(fill=tk.X, pady=(0, 0))
-            self._eth_btn.configure(text="网卡高级 ▾")
-            self._refresh_eth_list()
-        else:
-            self._eth.pack_forget()
-            self._eth_btn.configure(text="网卡高级 ▸")
-
-    def _track_action(self, btn: tk.Widget, *, keep_when_busy: bool = False) -> tk.Widget:
+    def _track_action(self, btn: QWidget, *, keep_when_busy: bool = False) -> QWidget:
         self._action_btns.append(btn)
         if keep_when_busy:
             self._busy_keep.add(id(btn))
         return btn
 
-    def _track_form(self, widget: tk.Widget) -> tk.Widget:
+    def _track_form(self, widget: QWidget) -> QWidget:
         self._form_widgets.append(widget)
         return widget
 
     def _set_form_enabled(self, enabled: bool) -> None:
         for w in self._form_widgets:
-            try:
-                cls = w.winfo_class()
-                if cls == "TCombobox":
-                    w.configure(state="readonly" if enabled else "disabled")
-                else:
-                    w.configure(state=tk.NORMAL if enabled else tk.DISABLED)
-            except tk.TclError:
-                pass
+            w.setEnabled(enabled)
 
     def _set_actions_enabled(self, enabled: bool) -> None:
         for b in self._action_btns:
-            try:
-                keep = (not enabled) and id(b) in self._busy_keep
-                on = enabled or keep
-                paint = getattr(b, "_paint_enabled", None)
-                if callable(paint):
-                    paint(on)
-                else:
-                    b.configure(state=tk.NORMAL if on else tk.DISABLED)
-            except tk.TclError:
-                pass
+            keep = (not enabled) and id(b) in self._busy_keep
+            on = enabled or keep
+            # 编译按钮另由 _sync_build_enabled 管
+            if b is getattr(self, "_btn_build", None):
+                continue
+            b.setEnabled(on)
         if self._btn_cancel is not None:
-            paint = getattr(self._btn_cancel, "_paint_enabled", None)
-            # 取消：忙碌时可点，空闲时禁用
-            try:
-                if callable(paint):
-                    paint(not enabled)
-                else:
-                    self._btn_cancel.configure(state=tk.DISABLED if enabled else tk.NORMAL)
-            except tk.TclError:
-                pass
+            self._btn_cancel.setEnabled(not enabled)
 
+    def _run_on_ui(self, fn: object) -> None:
+        if callable(fn):
+            fn()
+
+    def _ui(self, fn) -> None:
+        """工作线程里把回调丢回 UI 线程。"""
+        self.sig_busy_done.emit(fn)
+
+    # ------------------------------------------------------------------ 字段 / 持久化
+    def _on_field(self, key: str, value) -> None:
+        mapping = {
+            "project": ("_project",),
+            "build_file": ("_build_file",),
+            "build_system": ("_build_system",),
+            "app_name": ("_app_name",),
+            "out_dir": ("_out_dir",),
+            "out_bin": ("_out_bin",),
+            "jobs": ("_jobs_n",),
+            "do_bundle": ("_do_bundle",),
+            "do_clean": ("_do_clean",),
+            "use_ffmpeg": ("_use_ffmpeg",),
+            "plugins": ("_plugins",),
+            "extra_pkg": ("_extra_pkg",),
+            "extra_copy": ("_extra_copy",),
+            "distro": ("_distro",),
+            "share_dir": ("_share_dir",),
+            "share_port": ("_share_port",),
+            "eth_add_ip": ("_eth_add_ip",),
+            "eth_add_mask": ("_eth_add_mask",),
+            "env_install": ("_env_install_dir",),
+            "env_slim": ("_env_slim",),
+            "env_replace": ("_env_replace",),
+        }
+        attrs = mapping.get(key)
+        if attrs:
+            setattr(self, attrs[0], value)
+        self._schedule_persist()
+
+    def _schedule_persist(self) -> None:
+        self._persist_timer.start(400)
+
+    def _persist(self) -> None:
+        kind, path = self._parse_build_combo()
+        settings.save(
+            {
+                "project": (self.ed_project.text() if hasattr(self, "ed_project") else self._project).strip(),
+                "build_file": f"{kind}: {path}" if path else "",
+                "build_system": self._build_system,
+                "app_name": self._app_name,
+                "out_dir": self._out_dir.strip() if isinstance(self._out_dir, str) else str(self._out_dir),
+                "out_bin": self._out_bin,
+                "jobs": int(self._jobs_n or 0),
+                "do_bundle": bool(self._do_bundle),
+                "do_clean": bool(self._do_clean),
+                "use_ffmpeg": bool(self._use_ffmpeg),
+                "plugins": self._plugins,
+                "extra_pkgconfig": self._extra_pkg,
+                "extra_copy": self._extra_copy,
+                "distro": (self._distro or "").strip() or wsl.DEFAULT_DISTRO,
+                "share_dir": (self._share_dir or "").strip(),
+                "share_port": int(self._share_port or 18080),
+                "eth_add_ip": (self._eth_add_ip or "").strip(),
+                "eth_add_mask": (self._eth_add_mask or "").strip() or "255.255.255.0",
+                "env_install_dir": (self._env_install_dir or "").strip(),
+                "env_slim_export": bool(self._env_slim),
+                "env_replace_on_import": bool(self._env_replace),
+            }
+        )
+
+    def _project_text(self) -> str:
+        return self.ed_project.text().strip() if hasattr(self, "ed_project") else self._project.strip()
+
+    def _out_dir_text(self) -> str:
+        return self.ed_out_dir.text().strip() if hasattr(self, "ed_out_dir") else self._out_dir.strip()
+
+    def _distro_text(self) -> str:
+        if hasattr(self, "ed_distro"):
+            return self.ed_distro.text().strip() or wsl.DEFAULT_DISTRO
+        return (self._distro or "").strip() or wsl.DEFAULT_DISTRO
+
+    # ------------------------------------------------------------------ 忙碌 / 日志
     def _on_cancel(self) -> None:
         if not self._busy:
             return
-        distro = self.distro.get().strip() or wsl.DEFAULT_DISTRO
+        distro = self._distro_text()
         self._append_log("[cancel] 正在取消当前任务…")
         jobs.cancel(distro=distro)
 
     def _open_env_release(self) -> None:
-        import webbrowser
-
         webbrowser.open(ENV_RELEASE_URL)
 
     def _busy_result_msg(self, code: int, ok: str, fail_prefix: str) -> str:
@@ -601,7 +870,6 @@ class App(tk.Tk):
         return f"{fail_prefix} exit={code}"
 
     def _fail_summary_from_log(self) -> str:
-        """从最近日志抽一句人话建议。"""
         blob = "\n".join(self._recent_log_lines[-80:])
         rules = [
             ("磁盘空间可能不足", "磁盘空间不足，请换更大的盘或清理空间后重试。"),
@@ -623,450 +891,137 @@ class App(tk.Tk):
         return "请查看「2 编译」页日志中的 ERROR / 最后几行。"
 
     def _confirm_distro(self) -> bool:
-        d = (self.distro.get() or "").strip() or wsl.DEFAULT_DISTRO
-        self.distro.set(d)
+        d = self._distro_text()
+        if hasattr(self, "ed_distro"):
+            self.ed_distro.setText(d)
+        self._distro = d
         if d == wsl.DEFAULT_DISTRO:
             return True
-        return messagebox.askyesno(
+        r = QMessageBox.question(
+            self,
             "发行版名称",
             f"当前发行版为「{d}」（默认是 {wsl.DEFAULT_DISTRO}）。\n"
             "导入 / 导出 / 检测都会用这个名字。确认继续？",
         )
+        return r == QMessageBox.StandardButton.Yes
 
     def _sync_build_enabled(self) -> None:
-        """忙碌时禁用；空闲时仅环境就绪才可点「交叉编译」。"""
         if not hasattr(self, "_btn_build"):
             return
-        try:
-            on = (not self._busy) and self._env_ready
-            paint = getattr(self._btn_build, "_paint_enabled", None)
-            if callable(paint):
-                paint(on)
-            else:
-                self._btn_build.configure(state=tk.NORMAL if on else tk.DISABLED)
-        except tk.TclError:
-            pass
+        on = (not self._busy) and self._env_ready
+        self._btn_build.setEnabled(on)
 
     def _clear_log(self) -> None:
-        self.log.configure(state=tk.NORMAL)
-        self.log.delete("1.0", tk.END)
-        self.log.configure(state=tk.DISABLED)
+        self.log.clear()
+        self._log_line_count = 0
+        self._log_count_lbl.setText("0 行")
 
     def _set_env_box(self, text: str) -> None:
-        self.env_box.configure(state=tk.NORMAL)
-        self.env_box.delete("1.0", tk.END)
-        self.env_box.insert(tk.END, text)
-        self.env_box.configure(state=tk.DISABLED)
+        self.env_box.setPlainText(text)
 
     def _apply_env_ready(self, ready: bool) -> None:
         self._env_ready = ready
         if ready:
-            self.env_banner.set("环境就绪 — 可去「2 编译」")
+            text = "环境就绪 — 可去「2 编译」"
             fg = C["ok"]
+            self._wsl_status_lbl.setText(f"WSL: {self._distro_text()} · 就绪")
         else:
-            self.env_banner.set("环境未就绪 — 请先下载并导入环境包")
+            text = "环境未就绪 — 请先下载并导入环境包"
             fg = C["err"]
+            self._wsl_status_lbl.setText("WSL: 环境未就绪")
         for lbl in self._env_banner_labels:
-            try:
-                lbl.configure(fg=fg)
-            except tk.TclError:
-                pass
+            lbl.setText(text)
+            lbl.setStyleSheet(f"font-weight:700; color:{fg};")
         self._refresh_env_hint()
         if not self._busy:
             self._sync_build_enabled()
 
     def _show_log_tab(self) -> None:
-        """长任务切到编译页看日志。"""
-        if hasattr(self, "_nb"):
-            self._nb.select(1)
+        self._select_step(1)
 
     def _pill(self, text: str, fg: str | None = None) -> None:
-        self.header_status.set(text)
-        if self._chrome is not None:
-            self._chrome.set_status(text, fg=fg)
-        else:
-            try:
-                self._status_pill.configure(fg=fg or "#99F6E4")
-            except Exception:
-                pass
+        color = fg or C["ok"]
+        self._status_pill.setText(f"  {text}  ")
+        self._status_pill.setStyleSheet(
+            f"background:{C['surface2']}; color:{color}; border-radius:10px; padding:4px 12px; font-weight:600;"
+        )
 
     def _set_http_dot(self, on: bool) -> None:
-        self._http_dot.delete("all")
         color = C["ok"] if on else C["idle"]
-        self._http_dot.create_oval(2, 2, 10, 10, fill=color, outline=color)
+        self._http_dot.setStyleSheet(f"color:{color}; font-size:14px;")
 
-    def _set_project(self, path: str) -> None:
-        self.project.set(path)
-        self.build_file.set("")  # 强制刷新时按新工程重选
-        self._refresh_build_files()
-        self._reset_out_dir_if_foreign()
-        # 不覆盖已记住的共享目录；仅在空时自动填
-        if not self.share_dir.get().strip():
-            self._fill_share_from_project()
-
-    def _reset_out_dir_if_foreign(self) -> None:
-        """产物目录若不属于当前工程，清空（换工程后常残留上一份路径）。"""
-        proj = self.project.get().strip()
-        out = self.out_dir.get().strip()
-        if not proj or not out:
-            return
-        try:
-            Path(out).resolve().relative_to(Path(proj).resolve())
-        except (ValueError, OSError):
-            self.out_dir.set("")
-
-    def _browse_project(self) -> None:
-        d = filedialog.askdirectory(initialdir=self.project.get() or os.path.expanduser("~"))
-        if d:
-            self._set_project(d)
-
-    def _browse_out_dir(self) -> None:
-        init = self.out_dir.get().strip() or self.project.get().strip() or os.path.expanduser("~")
-        if init and not Path(init).is_dir():
-            init = self.project.get().strip() or os.path.expanduser("~")
-        d = filedialog.askdirectory(title="选择产物目录（压缩包放置位置）", initialdir=init)
-        if d:
-            self.out_dir.set(d)
-
-    def _browse_share(self) -> None:
-        d = filedialog.askdirectory(
-            initialdir=self.share_dir.get() or self.project.get() or os.path.expanduser("~")
-        )
-        if d:
-            self.share_dir.set(d)
-
-    def _fill_share_from_project(self) -> None:
-        out = self.out_dir.get().strip()
-        if out and Path(out).is_dir():
-            self.share_dir.set(out)
-            return
-        g = guess_share_dir(self.project.get().strip(), self.app_name.get())
-        if g is not None:
-            self.share_dir.set(str(g))
-            if not self.out_dir.get().strip():
-                self.out_dir.set(str(g))
-
-    def _share_start(self) -> None:
-        if self._busy:
-            return
-        if self._share.running:
-            messagebox.showinfo("提示", "共享已在运行")
-            return
-        directory = self.share_dir.get().strip()
-        if not directory or not Path(directory).is_dir():
-            messagebox.showerror("错误", "请先选择有效的共享目录（可用「用产物目录」）")
-            return
-        port = int(self.share_port.get() or 18080)
-        self._set_busy(True, "启动共享…")
-        self._append_log(f"[http] 正在启动共享 :{port} …")
-        self.share_state.set("启动中…")
-        self.update_idletasks()
-
-        def work() -> None:
-            err: str | None = None
-            primary = local = ""
-            eth: list = []
-            ok, detail = False, ""
-            try:
-                self.after(0, lambda: self._append_log(f"[http] 监听目录: {directory}"))
-                self.after(0, lambda: self.share_state.set("启动中 · 监听端口…"))
-                self._share.start(directory, port)
-                self.after(0, lambda: self.share_state.set("启动中 · 防火墙…"))
-                self.after(0, lambda: self._append_log("[http] 尝试放行防火墙…"))
-                ensure_firewall_allow(
-                    port, on_line=lambda line: self.after(0, lambda l=line: self._append_log(l))
-                )
-                primary = self._share.primary_url()
-                local = self._share.local_url()
-                self.after(0, lambda: self.share_state.set("启动中 · 解析网卡…"))
-                self.after(0, lambda: self._append_log("[http] 解析局域网地址…"))
-                eth = ethernet_ipv4()
-                self.after(0, lambda: self.share_state.set("启动中 · 本机自检…"))
-                self.after(0, lambda: self._append_log("[http] 本机自检…"))
-                ok, detail = self._share.probe_local()
-            except OSError as e:
-                err = str(e)
-
-            def done() -> None:
-                if err:
-                    self._append_log(f"[http] 启动失败: {err}")
-                    self.share_state.set("未启动")
-                    self._set_busy(False, "共享启动失败")
-                    messagebox.showerror("错误", f"无法监听端口 {port}: {err}")
-                    return
-                self.share_urls.set(primary or "—")
-                self.share_local.set(local or f"http://127.0.0.1:{port}/")
-                self.share_state.set(f"运行中 · 端口 {port}")
-                self._set_http_dot(True)
-                self._persist()
-                self._append_log(f"[http] 共享已启动: {directory}")
-                self._append_log(f"[http] 本机测试: {local}")
-                if eth:
-                    self._append_log(f"[http] 局域网地址: {primary}")
-                else:
-                    self._append_log(f"[http] 未检测到有线网卡，局域网地址退回: {primary}")
-                self._append_log(f"[http] 本机自检: {detail}")
-                if not ok:
-                    messagebox.showwarning(
-                        "本机自检失败",
-                        "服务已启动，但本机探测未通过。\n"
-                        "若浏览器也打不开，请换端口（如 18080），并确认代理绕过 127.0.0.1。",
-                    )
-                self._append_log("[http] 客户机示例: wget <局域网地址><包名>.tar.gz")
-                self._set_busy(False, f"HTTP 共享中 :{port}")
-                self.header_status.set(f"共享 :{port}")
-
-            self.after(0, done)
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _share_stop(self) -> None:
-        if not self._share.running:
-            self.share_urls.set("—")
-            self.share_local.set("—")
-            self.share_state.set("未启动")
-            self._set_http_dot(False)
-            return
-        self._share.stop()
-        self.share_urls.set("—")
-        self.share_local.set("—")
-        self.share_state.set("未启动")
-        self._set_http_dot(False)
-        self._append_log("[http] 共享已停止")
-        self._set_busy(False, "就绪")
-
-    def _share_copy_url(self) -> None:
-        url = self._share.primary_url()
-        if not url:
-            messagebox.showinfo("提示", "请先启动共享")
-            return
-        self.clipboard_clear()
-        self.clipboard_append(url)
-        self.status.set("局域网地址已复制")
-
-    def _refresh_eth_list(self) -> None:
-        adapters = netip.list_ethernet_adapters()
-        if not adapters:
-            self.eth_list.set("未检测到物理以太网卡")
-            self.eth_combo["values"] = ()
-            self.eth_pick.set("")
-            return
-        lines: list[str] = []
-        picks: list[str] = []
-        for a in adapters:
-            ip_s = ", ".join(f"{x.address}/{x.prefix}" for x in a.ips) or "（无 IPv4）"
-            lines.append(f"{a.name} [{a.status}]  ifIndex={a.if_index}  {ip_s}")
-            for x in a.ips:
-                picks.append(f"{x.address}  ({a.name})")
-        self.eth_list.set("\n".join(lines))
-        self.eth_combo["values"] = picks
-        if picks:
-            cur = self.eth_pick.get()
-            if cur not in picks:
-                self.eth_pick.set(picks[0])
-        else:
-            self.eth_pick.set("")
-
-    def _on_add_eth_ip(self) -> None:
-        if self._busy:
-            return
-        ip = self.eth_add_ip.get().strip()
-        mask = self.eth_add_mask.get().strip() or "255.255.255.0"
-        if not ip:
-            messagebox.showerror("错误", "请填写要附加的 IP")
-            return
-        self._persist()
-        # 留在共享页看日志流到编译页底栏；不强制切页
-
-        def work() -> None:
-            self._set_busy(True, "添加网卡 IP…")
-            status, msg = netip.add_ethernet_ipv4(
-                ip,
-                mask,
-                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
-            )
-            self.after(
-                0,
-                lambda: (
-                    self._append_log(f"[net] {msg}"),
-                    self._refresh_eth_list(),
-                    self._set_busy(False, "就绪" if status in ("ok", "exists") else f"失败: {msg}"),
-                    messagebox.showinfo("网卡 IP", msg)
-                    if status in ("ok", "exists")
-                    else messagebox.showerror("网卡 IP", msg),
-                ),
-            )
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_remove_eth_ip(self) -> None:
-        if self._busy:
-            return
-        pick = self.eth_pick.get().strip()
-        if not pick:
-            messagebox.showinfo("提示", "请先在列表中选一个要删除的地址")
-            return
-        ip = pick.split()[0]
-        if not messagebox.askyesno("确认", f"从有线网卡删除附加地址 {ip}？"):
-            return
-
-        def work() -> None:
-            self._set_busy(True, "删除网卡 IP…")
-            status, msg = netip.remove_ethernet_ipv4(
-                ip,
-                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
-            )
-            self.after(
-                0,
-                lambda: (
-                    self._append_log(f"[net] {msg}"),
-                    self._refresh_eth_list(),
-                    self._set_busy(False, "就绪" if status == "ok" else f"失败: {msg}"),
-                    messagebox.showinfo("网卡 IP", msg)
-                    if status == "ok"
-                    else messagebox.showerror("网卡 IP", msg),
-                ),
-            )
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _share_open_local(self) -> None:
-        url = self._share.local_url()
-        if not url:
-            messagebox.showinfo("提示", "请先启动共享")
-            return
-        # 先自检，避免代理导致空页
-        ok, detail = self._share.probe_local()
-        self._append_log(f"[http] 打开前自检: {detail}")
-        if not ok:
-            messagebox.showwarning(
-                "本机自检失败",
-                f"{detail}\n\n服务进程可能未真正响应，或端口冲突。请换端口后重试。",
-            )
-            return
-        try:
-            os.startfile(url)  # noqa: S606
-        except OSError as e:
-            messagebox.showerror("错误", f"无法打开浏览器: {e}")
-
-    def _share_probe_local(self) -> None:
-        if not self._share.running:
-            messagebox.showinfo("提示", "请先启动共享")
-            return
-        ok, detail = self._share.probe_local()
-        self._append_log(f"[http] 自检: {detail}")
-        if ok:
-            messagebox.showinfo("自检通过", f"本机服务正常（已绕过系统代理）。\n{detail}")
-        else:
-            messagebox.showerror(
-                "自检失败",
-                f"{detail}\n\n可换端口（如 18080）后重试；浏览器打不开时请让代理绕过 localhost。",
-            )
-
-    def _on_close(self) -> None:
-        self._persist()
-        try:
-            self._share.stop()
-        except Exception:
-            pass
-        self.destroy()
-
-    def _schedule_persist(self) -> None:
-        if self._persist_after is not None:
-            try:
-                self.after_cancel(self._persist_after)
-            except Exception:
-                pass
-        self._persist_after = self.after(400, self._persist)
-
-    def _refresh_build_files(self) -> None:
-        files = buildmod.discover_build_files(self.project.get().strip())
-        values = [f"{k}: {p}" for k, p in files]
-        self.build_combo["values"] = values
-        if not values:
-            self.build_file.set("")
-            return
-        cur = self.build_file.get().strip()
-        # 旧工程残留的构建文件不在新列表里时，自动选第一项
-        if cur not in values:
-            self.build_file.set(values[0])
-            cur = values[0]
-        try:
-            self.build_combo.current(values.index(cur))
-        except (ValueError, tk.TclError):
-            self.build_combo.current(0)
-        self._parse_build_combo()
-        self._reset_out_dir_if_foreign()
-
-    def _parse_build_combo(self) -> tuple[str, str]:
-        raw = self.build_file.get().strip()
-        if ": " in raw and raw.split(": ", 1)[0] in ("qmake", "cmake"):
-            kind, path = raw.split(": ", 1)
-            self.build_system.set(kind)
-            return kind, path
-        if raw.endswith(".pro"):
-            return "qmake", raw
-        if raw.endswith("CMakeLists.txt"):
-            return "cmake", raw
-        return self.build_system.get(), raw
+    def _log_color_for(self, line: str) -> str:
+        low = line.lower()
+        if "error" in low or "fail" in low or "失败" in line or line.strip().startswith("ERROR"):
+            return C["err"]
+        if " ok" in low or low.startswith("[ok]") or "成功" in line or "就绪" in line:
+            return C["ok"]
+        if line.startswith("[http]") or line.startswith("[env]") or line.startswith("[net]") or line.startswith("[detect]"):
+            return C["accent"]
+        return C["log_fg"]
 
     def _append_log(self, line: str) -> None:
         self._recent_log_lines.append(line)
         if len(self._recent_log_lines) > 400:
             self._recent_log_lines = self._recent_log_lines[-300:]
-        self.log.configure(state=tk.NORMAL)
-        self.log.insert(tk.END, line + "\n")
-        self.log.see(tk.END)
-        self.log.configure(state=tk.DISABLED)
+
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(self._log_color_for(line)))
+        cur = self.log.textCursor()
+        cur.movePosition(QTextCursor.MoveOperation.End)
+        cur.insertText(line + "\n", fmt)
+        self._log_line_count += 1
+        self._log_count_lbl.setText(f"{self._log_line_count} 行")
+        if self._log_auto_scroll:
+            self.log.moveCursor(QTextCursor.MoveOperation.End)
+
         if self._share_log is not None and (
             line.startswith("[http]")
             or line.startswith("[net]")
             or line.startswith("[env]")
             or line.startswith("[cancel]")
         ):
-            try:
-                self._share_log.configure(state=tk.NORMAL)
-                self._share_log.insert(tk.END, line + "\n")
-                self._share_log.see(tk.END)
-                # 只保留末尾约 200 行，避免无限涨
-                total = int(float(self._share_log.index("end-1c").split(".")[0]))
-                if total > 220:
-                    self._share_log.delete("1.0", f"{total - 200}.0")
-                self._share_log.configure(state=tk.DISABLED)
-            except tk.TclError:
-                pass
-        # 底栏即时显示最近一条底层输出
+            sfmt = QTextCharFormat()
+            sfmt.setForeground(QColor(self._log_color_for(line)))
+            sc = self._share_log.textCursor()
+            sc.movePosition(QTextCursor.MoveOperation.End)
+            sc.insertText(line + "\n", sfmt)
+            # 只保留末尾约 200 行
+            doc = self._share_log.document()
+            if doc.blockCount() > 220:
+                c = QTextCursor(doc)
+                c.movePosition(QTextCursor.MoveOperation.Start)
+                for _ in range(doc.blockCount() - 200):
+                    c.movePosition(QTextCursor.MoveOperation.Down, QTextCursor.MoveMode.KeepAnchor)
+                c.removeSelectedText()
+            self._share_log.moveCursor(QTextCursor.MoveOperation.End)
+
         short = line.strip()
         if len(short) > 72:
             short = short[:69] + "…"
-        self.activity.set(short)
-        try:
-            self.update_idletasks()
-        except tk.TclError:
-            pass
+        self._activity_lbl.setText(short)
 
     def _start_pulse(self, base: str) -> None:
         self._stop_pulse()
         self._pulse_base = base.rstrip(".")
         self._pulse_n = 0
+        self._pulse_timer = QTimer(self)
+        self._pulse_timer.timeout.connect(self._pulse_tick)
+        self._pulse_timer.start(400)
+        self._pulse_tick()
 
-        def tick() -> None:
-            self._pulse_n = (self._pulse_n % 3) + 1
-            dots = "." * self._pulse_n
-            text = f"{self._pulse_base}{dots}"
-            self.status.set(text)
-            self._pill(text, "#FDE68A")
-            self._pulse_job = self.after(400, tick)
-
-        tick()
+    def _pulse_tick(self) -> None:
+        self._pulse_n = (self._pulse_n % 3) + 1
+        dots = "." * self._pulse_n
+        text = f"{self._pulse_base}{dots}"
+        self._status_lbl.setText(text)
+        self._pill(text, "#FDE68A")
 
     def _stop_pulse(self) -> None:
-        if self._pulse_job is not None:
-            try:
-                self.after_cancel(self._pulse_job)
-            except Exception:
-                pass
-            self._pulse_job = None
+        if self._pulse_timer is not None:
+            self._pulse_timer.stop()
+            self._pulse_timer.deleteLater()
+            self._pulse_timer = None
 
     def _set_busy(self, busy: bool, msg: str = "") -> None:
         self._busy = busy
@@ -1075,28 +1030,15 @@ class App(tk.Tk):
         if not busy:
             self._sync_build_enabled()
         text = msg or ("忙碌…" if busy else "就绪")
-        self.status.set(text)
-        # 不用整窗「转圈」光标：看起来像卡死；忙碌只靠底栏进度条 + 顶栏状态字
+        self._status_lbl.setText(text)
         if busy:
-            if not self._progress_visible:
-                self._progress.pack(side=tk.RIGHT, padx=(8, 0))
-                self._progress_visible = True
-            try:
-                self._progress.start(12)
-            except tk.TclError:
-                pass
+            self._progress.setVisible(True)
             self._start_pulse(text.rstrip("…").rstrip("."))
-            self._pill(self.header_status.get() or text, "#FDE68A")
+            self._pill(text, "#FDE68A")
         else:
-            try:
-                self._progress.stop()
-            except tk.TclError:
-                pass
-            if self._progress_visible:
-                self._progress.pack_forget()
-                self._progress_visible = False
+            self._progress.setVisible(False)
             self._stop_pulse()
-            self.activity.set("")
+            self._activity_lbl.setText("")
             if "共享" in text:
                 self._pill(text.replace("HTTP ", ""), "#99F6E4")
             elif text.startswith("成功") or text.startswith("环境就绪"):
@@ -1107,63 +1049,348 @@ class App(tk.Tk):
                 self._pill("失败" if "失败" in text else "环境缺项", "#FCA5A5")
             else:
                 self._pill("空闲" if text == "就绪" else text, "#99F6E4")
-            self.status.set(text)
-        self.update_idletasks()
+            self._status_lbl.setText(text)
 
-    def _persist(self) -> None:
-        kind, path = self._parse_build_combo()
-        settings.save(
-            {
-                "project": self.project.get().strip(),
-                "build_file": f"{kind}: {path}" if path else "",
-                "build_system": self.build_system.get(),
-                "app_name": self.app_name.get(),
-                "out_dir": self.out_dir.get().strip(),
-                "out_bin": self.out_bin.get(),
-                "jobs": int(self.jobs.get() or 0),
-                "do_bundle": bool(self.do_bundle.get()),
-                "do_clean": bool(self.do_clean.get()),
-                "use_ffmpeg": bool(self.use_ffmpeg.get()),
-                "plugins": self.plugins.get(),
-                "extra_pkgconfig": self.extra_pkg.get(),
-                "extra_copy": self.extra_copy.get(),
-                "distro": self.distro.get().strip() or wsl.DEFAULT_DISTRO,
-                "share_dir": self.share_dir.get().strip(),
-                "share_port": int(self.share_port.get() or 18080),
-                "eth_add_ip": self.eth_add_ip.get().strip(),
-                "eth_add_mask": self.eth_add_mask.get().strip() or "255.255.255.0",
-                "env_install_dir": self.env_install_dir.get().strip(),
-                "env_slim_export": bool(self.env_slim.get()),
-                "env_replace_on_import": bool(self.env_replace.get()),
-            }
+    # ------------------------------------------------------------------ 工程 / 浏览
+    def _on_recent_picked(self, idx: int) -> None:
+        if idx <= 0:
+            return
+        path = self.cmb_recent.itemText(idx)
+        if path:
+            self._set_project(path)
+
+    def _set_project(self, path: str) -> None:
+        self.ed_project.setText(path)
+        self.build_combo.setEditText("")
+        self._refresh_build_files()
+        self._reset_out_dir_if_foreign()
+        if not self.ed_share_dir.text().strip():
+            self._fill_share_from_project()
+
+    def _reset_out_dir_if_foreign(self) -> None:
+        proj = self._project_text()
+        out = self._out_dir_text()
+        if not proj or not out:
+            return
+        try:
+            Path(out).resolve().relative_to(Path(proj).resolve())
+        except (ValueError, OSError):
+            self.ed_out_dir.setText("")
+
+    def _browse_project(self) -> None:
+        d = QFileDialog.getExistingDirectory(
+            self, "选择工程目录", self._project_text() or os.path.expanduser("~")
         )
+        if d:
+            self._set_project(d)
+
+    def _browse_out_dir(self) -> None:
+        init = self._out_dir_text() or self._project_text() or os.path.expanduser("~")
+        if init and not Path(init).is_dir():
+            init = self._project_text() or os.path.expanduser("~")
+        d = QFileDialog.getExistingDirectory(self, "选择产物目录（压缩包放置位置）", init)
+        if d:
+            self.ed_out_dir.setText(d)
+
+    def _browse_share(self) -> None:
+        d = QFileDialog.getExistingDirectory(
+            self,
+            "选择共享目录",
+            self.ed_share_dir.text().strip() or self._project_text() or os.path.expanduser("~"),
+        )
+        if d:
+            self.ed_share_dir.setText(d)
 
     def _browse_env_install(self) -> None:
-        d = filedialog.askdirectory(initialdir=self.env_install_dir.get() or os.path.expanduser("~"))
+        d = QFileDialog.getExistingDirectory(
+            self, "选择安装目录", self.ed_env_install.text().strip() or os.path.expanduser("~")
+        )
         if d:
-            self.env_install_dir.set(d)
+            self.ed_env_install.setText(d)
 
+    def _fill_share_from_project(self) -> None:
+        out = self._out_dir_text()
+        if out and Path(out).is_dir():
+            self.ed_share_dir.setText(out)
+            return
+        g = guess_share_dir(self._project_text(), self._app_name)
+        if g is not None:
+            self.ed_share_dir.setText(str(g))
+            if not self._out_dir_text():
+                self.ed_out_dir.setText(str(g))
+
+    def _refresh_build_files(self) -> None:
+        files = buildmod.discover_build_files(self._project_text())
+        values = [f"{k}: {p}" for k, p in files]
+        cur = self.build_combo.currentText().strip()
+        self.build_combo.blockSignals(True)
+        self.build_combo.clear()
+        self.build_combo.addItems(values)
+        if not values:
+            self.build_combo.setEditText("")
+            self.build_combo.blockSignals(False)
+            return
+        if cur not in values:
+            cur = values[0]
+        self.build_combo.setCurrentText(cur)
+        self.build_combo.blockSignals(False)
+        self._build_file = cur
+        self._parse_build_combo()
+        self._reset_out_dir_if_foreign()
+
+    def _parse_build_combo(self) -> tuple[str, str]:
+        raw = self.build_combo.currentText().strip() if hasattr(self, "build_combo") else self._build_file
+        if ": " in raw and raw.split(": ", 1)[0] in ("qmake", "cmake"):
+            kind, path = raw.split(": ", 1)
+            self._build_system = kind
+            return kind, path
+        if raw.endswith(".pro"):
+            return "qmake", raw
+        if raw.endswith("CMakeLists.txt"):
+            return "cmake", raw
+        return self._build_system, raw
+
+    # ------------------------------------------------------------------ 共享业务
+    def _share_start(self) -> None:
+        if self._busy:
+            return
+        if self._share.running:
+            QMessageBox.information(self, "提示", "共享已在运行")
+            return
+        directory = self.ed_share_dir.text().strip()
+        if not directory or not Path(directory).is_dir():
+            QMessageBox.critical(self, "错误", "请先选择有效的共享目录（可用「用产物目录」）")
+            return
+        port = int(self.sp_port.value() or 18080)
+        self._set_busy(True, "启动共享…")
+        self._append_log(f"[http] 正在启动共享 :{port} …")
+        self._share_state_lbl.setText("启动中…")
+
+        def work() -> None:
+            err: str | None = None
+            primary = local = ""
+            eth: list = []
+            ok, detail = False, ""
+            try:
+                self._ui(lambda: self._append_log(f"[http] 监听目录: {directory}"))
+                self._ui(lambda: self._share_state_lbl.setText("启动中 · 监听端口…"))
+                self._share.start(directory, port)
+                self._ui(lambda: self._share_state_lbl.setText("启动中 · 防火墙…"))
+                self._ui(lambda: self._append_log("[http] 尝试放行防火墙…"))
+                ensure_firewall_allow(port, on_line=lambda line: self.sig_log.emit(line))
+                primary = self._share.primary_url()
+                local = self._share.local_url()
+                self._ui(lambda: self._share_state_lbl.setText("启动中 · 解析网卡…"))
+                self._ui(lambda: self._append_log("[http] 解析局域网地址…"))
+                eth = ethernet_ipv4()
+                self._ui(lambda: self._share_state_lbl.setText("启动中 · 本机自检…"))
+                self._ui(lambda: self._append_log("[http] 本机自检…"))
+                ok, detail = self._share.probe_local()
+            except OSError as e:
+                err = str(e)
+
+            def done() -> None:
+                if err:
+                    self._append_log(f"[http] 启动失败: {err}")
+                    self._share_state_lbl.setText("未启动")
+                    self._set_busy(False, "共享启动失败")
+                    QMessageBox.critical(self, "错误", f"无法监听端口 {port}: {err}")
+                    return
+                self.ed_share_urls.setText(primary or "—")
+                self.ed_share_local.setText(local or f"http://127.0.0.1:{port}/")
+                self._share_state_lbl.setText(f"运行中 · 端口 {port}")
+                self._set_http_dot(True)
+                self._persist()
+                self._append_log(f"[http] 共享已启动: {directory}")
+                self._append_log(f"[http] 本机测试: {local}")
+                if eth:
+                    self._append_log(f"[http] 局域网地址: {primary}")
+                else:
+                    self._append_log(f"[http] 未检测到有线网卡，局域网地址退回: {primary}")
+                self._append_log(f"[http] 本机自检: {detail}")
+                if not ok:
+                    QMessageBox.warning(
+                        self,
+                        "本机自检失败",
+                        "服务已启动，但本机探测未通过。\n"
+                        "若浏览器也打不开，请换端口（如 18080），并确认代理绕过 127.0.0.1。",
+                    )
+                self._append_log("[http] 客户机示例: wget <局域网地址><包名>.tar.gz")
+                self._set_busy(False, f"HTTP 共享中 :{port}")
+                self._pill(f"共享 :{port}", "#99F6E4")
+
+            self._ui(done)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _share_stop(self) -> None:
+        if not self._share.running:
+            self.ed_share_urls.setText("—")
+            self.ed_share_local.setText("—")
+            self._share_state_lbl.setText("未启动")
+            self._set_http_dot(False)
+            return
+        self._share.stop()
+        self.ed_share_urls.setText("—")
+        self.ed_share_local.setText("—")
+        self._share_state_lbl.setText("未启动")
+        self._set_http_dot(False)
+        self._append_log("[http] 共享已停止")
+        self._set_busy(False, "就绪")
+
+    def _share_copy_url(self) -> None:
+        url = self._share.primary_url()
+        if not url:
+            QMessageBox.information(self, "提示", "请先启动共享")
+            return
+        QApplication.clipboard().setText(url)
+        self._status_lbl.setText("局域网地址已复制")
+
+    def _refresh_eth_list(self) -> None:
+        adapters = netip.list_ethernet_adapters()
+        if not adapters:
+            self._eth_list_lbl.setText("未检测到物理以太网卡")
+            self.eth_combo.clear()
+            return
+        lines: list[str] = []
+        picks: list[str] = []
+        for a in adapters:
+            ip_s = ", ".join(f"{x.address}/{x.prefix}" for x in a.ips) or "（无 IPv4）"
+            lines.append(f"{a.name} [{a.status}]  ifIndex={a.if_index}  {ip_s}")
+            for x in a.ips:
+                picks.append(f"{x.address}  ({a.name})")
+        self._eth_list_lbl.setText("\n".join(lines))
+        cur = self.eth_combo.currentText()
+        self.eth_combo.clear()
+        self.eth_combo.addItems(picks)
+        if picks:
+            if cur in picks:
+                self.eth_combo.setCurrentText(cur)
+            else:
+                self.eth_combo.setCurrentIndex(0)
+
+    def _on_add_eth_ip(self) -> None:
+        if self._busy:
+            return
+        ip = self.ed_eth_ip.text().strip()
+        mask = self.ed_eth_mask.text().strip() or "255.255.255.0"
+        if not ip:
+            QMessageBox.critical(self, "错误", "请填写要附加的 IP")
+            return
+        self._persist()
+
+        def work() -> None:
+            self._ui(lambda: self._set_busy(True, "添加网卡 IP…"))
+            status, msg = netip.add_ethernet_ipv4(ip, mask, on_line=lambda line: self.sig_log.emit(line))
+
+            def done() -> None:
+                self._append_log(f"[net] {msg}")
+                self._refresh_eth_list()
+                self._set_busy(False, "就绪" if status in ("ok", "exists") else f"失败: {msg}")
+                if status in ("ok", "exists"):
+                    QMessageBox.information(self, "网卡 IP", msg)
+                else:
+                    QMessageBox.critical(self, "网卡 IP", msg)
+
+            self._ui(done)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_remove_eth_ip(self) -> None:
+        if self._busy:
+            return
+        pick = self.eth_combo.currentText().strip()
+        if not pick:
+            QMessageBox.information(self, "提示", "请先在列表中选一个要删除的地址")
+            return
+        ip = pick.split()[0]
+        if (
+            QMessageBox.question(self, "确认", f"从有线网卡删除附加地址 {ip}？")
+            != QMessageBox.StandardButton.Yes
+        ):
+            return
+
+        def work() -> None:
+            self._ui(lambda: self._set_busy(True, "删除网卡 IP…"))
+            status, msg = netip.remove_ethernet_ipv4(ip, on_line=lambda line: self.sig_log.emit(line))
+
+            def done() -> None:
+                self._append_log(f"[net] {msg}")
+                self._refresh_eth_list()
+                self._set_busy(False, "就绪" if status == "ok" else f"失败: {msg}")
+                if status == "ok":
+                    QMessageBox.information(self, "网卡 IP", msg)
+                else:
+                    QMessageBox.critical(self, "网卡 IP", msg)
+
+            self._ui(done)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _share_open_local(self) -> None:
+        url = self._share.local_url()
+        if not url:
+            QMessageBox.information(self, "提示", "请先启动共享")
+            return
+        ok, detail = self._share.probe_local()
+        self._append_log(f"[http] 打开前自检: {detail}")
+        if not ok:
+            QMessageBox.warning(
+                self,
+                "本机自检失败",
+                f"{detail}\n\n服务进程可能未真正响应，或端口冲突。请换端口后重试。",
+            )
+            return
+        try:
+            os.startfile(url)  # noqa: S606
+        except OSError as e:
+            QMessageBox.critical(self, "错误", f"无法打开浏览器: {e}")
+
+    def _share_probe_local(self) -> None:
+        if not self._share.running:
+            QMessageBox.information(self, "提示", "请先启动共享")
+            return
+        ok, detail = self._share.probe_local()
+        self._append_log(f"[http] 自检: {detail}")
+        if ok:
+            QMessageBox.information(self, "自检通过", f"本机服务正常（已绕过系统代理）。\n{detail}")
+        else:
+            QMessageBox.critical(
+                self,
+                "自检失败",
+                f"{detail}\n\n可换端口（如 18080）后重试；浏览器打不开时请让代理绕过 localhost。",
+            )
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        self._persist()
+        try:
+            self._share.stop()
+        except Exception:
+            pass
+        event.accept()
+
+    # ------------------------------------------------------------------ 环境导入导出
     def _on_export_env(self) -> None:
         if self._busy:
             return
         if not self._confirm_distro():
             return
-        distro = self.distro.get().strip() or wsl.DEFAULT_DISTRO
-        path = filedialog.asksaveasfilename(
-            title="导出交叉编译环境包",
-            defaultextension=".tar.gz",
-            filetypes=[("环境包", "*.tar.gz"), ("未压缩 tar", "*.tar"), ("全部", "*.*")],
-            initialfile=f"{distro}-cross-env.tar.gz",
+        distro = self._distro_text()
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "导出交叉编译环境包",
+            f"{distro}-cross-env.tar.gz",
+            "环境包 (*.tar.gz);;未压缩 tar (*.tar);;全部 (*.*)",
         )
         if not path:
             return
-        slim = bool(self.env_slim.get())
+        slim = bool(self.chk_env_slim.isChecked())
         tip = (
             "将导出完整 WSL 发行版（含已安装的 Qt、sysroot、FFmpeg、交叉编译器）。\n"
             + ("另：会删除 /opt/qt5142-cross 源码缓存以减小体积，不影响交叉编译。\n" if slim else "")
             + "体积可能数 GB，耗时较长。继续？"
         )
-        if not messagebox.askokcancel("导出环境包", tip):
+        if QMessageBox.question(self, "导出环境包", tip) != QMessageBox.StandardButton.Yes:
             return
         self._persist()
         self._show_log_tab()
@@ -1178,7 +1405,7 @@ class App(tk.Tk):
                 distro=distro,
                 slim=slim,
                 compress=compress,
-                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+                on_line=lambda line: self.sig_log.emit(line),
             )
 
             def done() -> None:
@@ -1186,9 +1413,9 @@ class App(tk.Tk):
                 msg = self._busy_result_msg(code, "导出成功", "导出失败")
                 self._set_busy(False, msg)
                 if code not in (0, jobs.CANCELLED):
-                    messagebox.showerror("导出失败", self._fail_summary_from_log())
+                    QMessageBox.critical(self, "导出失败", self._fail_summary_from_log())
 
-            self.after(0, done)
+            self._ui(done)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1197,26 +1424,31 @@ class App(tk.Tk):
             return
         if not self._confirm_distro():
             return
-        distro = self.distro.get().strip() or wsl.DEFAULT_DISTRO
-        archive = filedialog.askopenfilename(
-            title="选择环境包",
-            filetypes=[("环境包", "*.tar.gz;*.tgz;*.tar"), ("全部", "*.*")],
+        distro = self._distro_text()
+        archive, _ = QFileDialog.getOpenFileName(
+            self,
+            "选择环境包",
+            "",
+            "环境包 (*.tar.gz *.tgz *.tar);;全部 (*.*)",
         )
         if not archive:
             return
-        install_dir = self.env_install_dir.get().strip()
+        install_dir = self.ed_env_install.text().strip()
         if not install_dir:
-            messagebox.showerror("错误", "请填写导入安装目录")
+            QMessageBox.critical(self, "错误", "请填写导入安装目录")
             return
-        replace = bool(self.env_replace.get())
-        # 傻瓜式：同名已存在且未勾选覆盖 → 直接问要不要覆盖
+        replace = bool(self.chk_env_replace.isChecked())
         if wsl_setup.wsl_usable() and wsl.distro_exists(distro) and not replace:
-            if messagebox.askyesno(
-                "已有同名环境",
-                f"本机已有发行版「{distro}」。\n是否覆盖后重新导入？",
+            if (
+                QMessageBox.question(
+                    self,
+                    "已有同名环境",
+                    f"本机已有发行版「{distro}」。\n是否覆盖后重新导入？",
+                )
+                == QMessageBox.StandardButton.Yes
             ):
                 replace = True
-                self.env_replace.set(True)
+                self.chk_env_replace.setChecked(True)
             else:
                 return
         tip = (
@@ -1231,14 +1463,13 @@ class App(tk.Tk):
             if free < need:
                 tip += "空间可能不足，导入可能失败。\n"
         tip += "继续？"
-        if not messagebox.askokcancel("一键导入环境包", tip):
+        if QMessageBox.question(self, "一键导入环境包", tip) != QMessageBox.StandardButton.Yes:
             return
         self._persist()
         self._start_import(archive, install_dir, distro, replace)
 
     def _start_import(self, archive: str, install_dir: str, distro: str, replace: bool) -> None:
-        if hasattr(self, "_nb"):
-            self._nb.select(1)  # 日志在编译页
+        self._select_step(1)
         jobs.begin()
         self._set_busy(True, "准备 WSL / 导入环境…")
 
@@ -1250,7 +1481,7 @@ class App(tk.Tk):
                 replace=replace,
                 set_default=True,
                 auto_enable_wsl=True,
-                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+                on_line=lambda line: self.sig_log.emit(line),
             )
 
             def done() -> None:
@@ -1268,7 +1499,8 @@ class App(tk.Tk):
                         }
                     )
                     self._set_busy(False, "请重启后再打开本工具")
-                    messagebox.showinfo(
+                    QMessageBox.information(
+                        self,
                         "需要重启",
                         "已尝试启用 WSL，但需要重启 Windows 一次才能继续。\n\n"
                         "请重启电脑，然后重新打开本工具——会自动接着导入刚才选中的环境包。",
@@ -1276,17 +1508,19 @@ class App(tk.Tk):
                 elif code == 0:
                     self._clear_pending_import()
                     self._set_busy(False, "导入成功")
-                    messagebox.showinfo("导入成功", "环境已导入，正在自动检测。通过后即可去「2 编译」。")
+                    QMessageBox.information(
+                        self, "导入成功", "环境已导入，正在自动检测。通过后即可去「2 编译」。"
+                    )
                     self._on_detect()
                 else:
                     self._set_busy(False, f"导入失败 exit={code}")
-                    messagebox.showerror(
+                    QMessageBox.critical(
+                        self,
                         "导入失败",
-                        self._fail_summary_from_log()
-                        + "\n\n若取消了 UAC，请再点一次「一键导入」。",
+                        self._fail_summary_from_log() + "\n\n若取消了 UAC，请再点一次「一键导入」。",
                     )
 
-            self.after(0, done)
+            self._ui(done)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1305,26 +1539,33 @@ class App(tk.Tk):
         archive = (cfg.get("pending_import_archive") or "").strip()
         if not archive:
             return
-        install_dir = (cfg.get("pending_import_dir") or "").strip() or self.env_install_dir.get().strip()
-        distro = (cfg.get("pending_import_distro") or "").strip() or (
-            self.distro.get().strip() or wsl.DEFAULT_DISTRO
-        )
+        install_dir = (cfg.get("pending_import_dir") or "").strip() or self.ed_env_install.text().strip()
+        distro = (cfg.get("pending_import_distro") or "").strip() or self._distro_text()
         replace = bool(cfg.get("pending_import_replace", False))
         if not Path(archive).is_file():
             self._append_log(f"[env] 待续导入的环境包已不存在: {archive}")
             self._clear_pending_import()
             return
-        if not messagebox.askyesno(
-            "继续导入",
-            "检测到上次因启用 WSL 需要重启，导入尚未完成。\n\n"
-            f"环境包：{archive}\n是否现在继续导入？",
+        if (
+            QMessageBox.question(
+                self,
+                "继续导入",
+                "检测到上次因启用 WSL 需要重启，导入尚未完成。\n\n"
+                f"环境包：{archive}\n是否现在继续导入？",
+            )
+            != QMessageBox.StandardButton.Yes
         ):
-            if messagebox.askyesno("放弃", "是否清除「待续导入」记录？（以后需手动再选文件）"):
+            if (
+                QMessageBox.question(
+                    self, "放弃", "是否清除「待续导入」记录？（以后需手动再选文件）"
+                )
+                == QMessageBox.StandardButton.Yes
+            ):
                 self._clear_pending_import()
             return
-        self.env_install_dir.set(install_dir)
-        self.distro.set(distro)
-        self.env_replace.set(replace)
+        self.ed_env_install.setText(install_dir)
+        self.ed_distro.setText(distro)
+        self.chk_env_replace.setChecked(replace)
         self._start_import(archive, install_dir, distro, replace)
 
     def _on_detect(self, auto: bool = False) -> None:
@@ -1332,23 +1573,19 @@ class App(tk.Tk):
             return
         if not auto and not self._confirm_distro():
             return
-        # 手动检测时切到编译页看日志；开机自动检测留在当前页
-        if not auto and hasattr(self, "_nb"):
-            self._nb.select(1)
+        if not auto:
+            self._select_step(1)
         jobs.begin()
         self._set_busy(True, "检测环境")
         if not auto:
             self._append_log("==== 开始检测环境 ====")
             self._append_log("[detect] 准备调用 WSL（可能稍慢，请看底栏进度）…")
         self._set_env_box("检测中…")
-        self.update_idletasks()
 
         def work() -> None:
             report = detect.detect(
-                self.distro.get().strip() or wsl.DEFAULT_DISTRO,
-                on_line=None
-                if auto
-                else (lambda line: self.after(0, lambda l=line: self._append_log(l))),
+                self._distro_text(),
+                on_line=None if auto else (lambda line: self.sig_log.emit(line)),
             )
 
             def ui() -> None:
@@ -1367,18 +1604,20 @@ class App(tk.Tk):
                 if not auto:
                     self._append_log("==== 检测结束 ====")
                 self._set_busy(False, "环境就绪" if report.ready else "环境不完整")
-                # 开机未就绪：停在环境页；已就绪可留在当前页
-                if auto and not report.ready and hasattr(self, "_nb"):
-                    self._nb.select(0)
+                if auto and not report.ready:
+                    self._select_step(0)
 
-            self.after(0, ui)
+            self._ui(ui)
 
         threading.Thread(target=work, daemon=True).start()
 
     def _on_install(self, script: str) -> None:
         if self._busy:
             return
-        if not messagebox.askokcancel("确认", f"将以 WSL root 执行 tools/{script}，可能较久。继续？"):
+        if (
+            QMessageBox.question(self, "确认", f"将以 WSL root 执行 tools/{script}，可能较久。继续？")
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         self._show_log_tab()
         jobs.begin()
@@ -1387,8 +1626,8 @@ class App(tk.Tk):
         def work() -> None:
             code = buildmod.run_install(
                 script,
-                distro=self.distro.get().strip() or wsl.DEFAULT_DISTRO,
-                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+                distro=self._distro_text(),
+                on_line=lambda line: self.sig_log.emit(line),
             )
 
             def done() -> None:
@@ -1397,9 +1636,9 @@ class App(tk.Tk):
                     msg = "安装成功"
                 self._set_busy(False, msg)
                 if code not in (0, jobs.CANCELLED):
-                    messagebox.showerror("安装失败", self._fail_summary_from_log())
+                    QMessageBox.critical(self, "安装失败", self._fail_summary_from_log())
 
-            self.after(0, done)
+            self._ui(done)
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1407,16 +1646,19 @@ class App(tk.Tk):
         if self._busy:
             return
         if not self._env_ready:
-            if messagebox.askyesno("环境未就绪", "交叉环境尚未就绪。是否前往「1 环境」导入/检测？"):
-                self._nb.select(0)
+            if (
+                QMessageBox.question(self, "环境未就绪", "交叉环境尚未就绪。是否前往「1 环境」导入/检测？")
+                == QMessageBox.StandardButton.Yes
+            ):
+                self._select_step(0)
             return
-        proj = self.project.get().strip()
+        proj = self._project_text()
         if not proj or not Path(proj).is_dir():
-            messagebox.showerror("错误", "请先选择有效的工程目录")
+            QMessageBox.critical(self, "错误", "请先选择有效的工程目录")
             return
         kind, bfile = self._parse_build_combo()
         if not bfile:
-            messagebox.showerror("错误", "请选择 .pro 或 CMakeLists.txt")
+            QMessageBox.critical(self, "错误", "请选择 .pro 或 CMakeLists.txt")
             return
         self._persist()
         jobs.begin()
@@ -1428,18 +1670,18 @@ class App(tk.Tk):
                 project=proj,
                 build_system=kind,
                 build_file=bfile,
-                app_name=self.app_name.get(),
-                out_bin=self.out_bin.get(),
-                jobs=int(self.jobs.get() or 0),
-                do_bundle=bool(self.do_bundle.get()),
-                plugins=self.plugins.get(),
-                extra_pkgconfig=self.extra_pkg.get(),
-                extra_copy=self.extra_copy.get(),
-                use_ffmpeg=bool(self.use_ffmpeg.get()),
-                out_dir=self.out_dir.get().strip(),
-                clean=bool(self.do_clean.get()),
-                distro=self.distro.get().strip() or wsl.DEFAULT_DISTRO,
-                on_line=lambda line: self.after(0, lambda l=line: self._append_log(l)),
+                app_name=self._app_name,
+                out_bin=self._out_bin,
+                jobs=int(self._jobs_n or 0),
+                do_bundle=bool(self._do_bundle),
+                plugins=self._plugins,
+                extra_pkgconfig=self._extra_pkg,
+                extra_copy=self._extra_copy,
+                use_ffmpeg=bool(self._use_ffmpeg),
+                out_dir=self._out_dir_text(),
+                clean=bool(self._do_clean),
+                distro=self._distro_text(),
+                on_line=lambda line: self.sig_log.emit(line),
             )
 
             def done() -> None:
@@ -1449,20 +1691,19 @@ class App(tk.Tk):
                 if code == 0:
                     self._after_build_ok()
                 elif code != jobs.CANCELLED:
-                    messagebox.showerror("编译失败", self._fail_summary_from_log())
+                    QMessageBox.critical(self, "编译失败", self._fail_summary_from_log())
 
-            self.after(0, done)
+            self._ui(done)
 
         threading.Thread(target=work, daemon=True).start()
 
     def _after_build_ok(self) -> None:
-        """编成功后自动对齐共享目录，并引导去共享。"""
-        out = self.out_dir.get().strip()
+        out = self._out_dir_text()
         if out and Path(out).is_dir():
-            self.share_dir.set(out)
+            self.ed_share_dir.setText(out)
         else:
             self._fill_share_from_project()
-            out = self.share_dir.get().strip() or self.out_dir.get().strip()
+            out = self.ed_share_dir.text().strip() or self._out_dir_text()
         tip = "编译成功。"
         if out:
             tip += f"\n产物目录：\n{out}"
@@ -1473,16 +1714,16 @@ class App(tk.Tk):
             except OSError:
                 pass
         tip += "\n\n是否前往「3 共享」启动下载服务？"
-        if messagebox.askyesno("编译成功", tip):
-            self._nb.select(2)
+        if QMessageBox.question(self, "编译成功", tip) == QMessageBox.StandardButton.Yes:
+            self._select_step(2)
 
     def _open_out(self) -> None:
-        out = self.out_dir.get().strip()
+        out = self._out_dir_text()
         if out and Path(out).is_dir():
             os.startfile(out)  # noqa: S606
             return
-        proj = Path(self.project.get().strip())
-        name = self.app_name.get().strip()
+        proj = Path(self._project_text())
+        name = self._app_name.strip()
         candidates = []
         if name:
             candidates.append(proj / "dist" / "arm64-kylin" / name)
@@ -1495,21 +1736,25 @@ class App(tk.Tk):
         ]
         for c in candidates:
             if c.is_dir():
-                if not self.out_dir.get().strip():
-                    self.out_dir.set(str(c))
+                if not self._out_dir_text():
+                    self.ed_out_dir.setText(str(c))
                 os.startfile(str(c))  # noqa: S606
                 return
-        messagebox.showinfo("提示", "尚未找到产物文件夹（通常在工程下的 dist/arm64-kylin）")
+        QMessageBox.information(self, "提示", "尚未找到产物文件夹（通常在工程下的 dist/arm64-kylin）")
 
     def _copy_log(self) -> None:
-        text = self.log.get("1.0", tk.END)
-        self.clipboard_clear()
-        self.clipboard_append(text)
-        self.status.set("日志已复制")
+        QApplication.clipboard().setText(self.log.toPlainText())
+        self._status_lbl.setText("日志已复制")
 
 
 def main() -> None:
-    App().mainloop()
+    import sys
+
+    app = QApplication(sys.argv)
+    apply_theme(app)
+    win = MainWindow()
+    win.show()
+    raise SystemExit(app.exec())
 
 
 if __name__ == "__main__":
