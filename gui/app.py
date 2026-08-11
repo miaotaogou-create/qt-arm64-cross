@@ -437,12 +437,17 @@ class MainWindow(QMainWindow):
 
         actions = QHBoxLayout()
         actions.setSpacing(10)
-        b_redetect = QPushButton("↻  重新检测环境")
-        b_redetect.setObjectName("HeroGhost")
-        b_redetect.setCursor(Qt.CursorShape.PointingHandCursor)
-        b_redetect.clicked.connect(lambda: self._on_detect(False))
-        self._track_action(b_redetect)
-        actions.addWidget(b_redetect)
+        self._btn_redetect = QPushButton("↻  重新检测环境")
+        self._btn_redetect.setObjectName("HeroGhost")
+        self._btn_redetect.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_redetect.clicked.connect(lambda: self._on_detect(False))
+        self._track_action(self._btn_redetect)
+        actions.addWidget(self._btn_redetect)
+        self._spin_frames = ["◐", "◓", "◑", "◒"]
+        self._spin_idx = 0
+        self._spin_timer = QTimer(self)
+        self._spin_timer.setInterval(150)
+        self._spin_timer.timeout.connect(self._spin_detect_icon)
         self._btn_go_compile = QPushButton("前往「2 交叉编译」 ↗")
         self._btn_go_compile.setObjectName("HeroPrimary")
         self._btn_go_compile.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -597,18 +602,9 @@ class MainWindow(QMainWindow):
         sc_outer.addWidget(self._scratch)
         right.addWidget(scratch)
 
-        res = QFrame()
-        res.setObjectName("Card")
-        res_lay = QVBoxLayout(res)
-        res_lay.setContentsMargins(14, 10, 14, 10)
-        res_lay.addWidget(card_header("☰", "环境检测结果", icon_color=C["muted"]))
+        # ponytail: env_box 保留为隐藏 dummy，避免 _set_env_box 崩溃
         self.env_box = QTextEdit()
-        self.env_box.setReadOnly(True)
-        self.env_box.setObjectName("Log")
-        self.env_box.setMinimumHeight(100)
-        self.env_box.setPlaceholderText("检测结果将显示在这里…")
-        res_lay.addWidget(self.env_box)
-        right.addWidget(res)
+        self.env_box.hide()
         right.addStretch(1)
 
         body.addLayout(left, 3)
@@ -1204,6 +1200,53 @@ class MainWindow(QMainWindow):
 
     def _set_env_box(self, text: str) -> None:
         self.env_box.setPlainText(text)
+
+    def _spin_detect_icon(self) -> None:
+        f = self._spin_frames[self._spin_idx % len(self._spin_frames)]
+        self._btn_redetect.setText(f"{f}  检测中…")
+        self._spin_idx += 1
+
+    def _start_detect_spin(self) -> None:
+        self._spin_idx = 0
+        self._spin_timer.start()
+
+    def _stop_detect_spin(self) -> None:
+        self._spin_timer.stop()
+        self._btn_redetect.setText("↻  重新检测环境")
+
+    def _show_toast(self, msg: str, duration: int = 3000) -> None:
+        """底部右侧弹出 toast 提示（带跳动动画）。"""
+        toast = QFrame(self)
+        toast.setStyleSheet(
+            "background-color: #059669; color: white; border-radius: 12px;"
+            "padding: 10px 16px; font-size: 12px; font-weight: 600;"
+        )
+        tl = QHBoxLayout(toast)
+        tl.setContentsMargins(12, 8, 16, 8)
+        tl.setSpacing(8)
+        icon = QLabel("✓")
+        icon.setStyleSheet("background:transparent; color:white; font-size:14px; font-weight:700; border:none;")
+        tl.addWidget(icon)
+        txt = QLabel(msg)
+        txt.setStyleSheet("background:transparent; color:white; font-size:12px; border:none;")
+        tl.addWidget(txt)
+        toast.adjustSize()
+        # 定位到右下角
+        x = self.width() - toast.width() - 24
+        y = self.height() - toast.height() - 24
+        toast.move(x, y)
+        toast.show()
+        toast.raise_()
+        # 跳动动画
+        from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QPoint
+        anim = QPropertyAnimation(toast, b"pos", self)
+        anim.setDuration(600)
+        anim.setStartValue(QPoint(x, y + 30))
+        anim.setEndValue(QPoint(x, y))
+        anim.setEasingCurve(QEasingCurve.Type.OutBounce)
+        anim.start()
+        toast._anim = anim  # prevent GC
+        QTimer.singleShot(duration, toast.deleteLater)
 
     def _apply_env_ready(self, ready: bool) -> None:
         self._env_ready = ready
@@ -1924,6 +1967,7 @@ class MainWindow(QMainWindow):
             self._append_log("==== 开始检测环境 ====")
             self._append_log("[detect] 准备调用 WSL（可能稍慢，请看底栏进度）…")
         self._set_env_box("检测中…")
+        self._start_detect_spin()
 
         def work() -> None:
             report = detect.detect(
@@ -1932,6 +1976,7 @@ class MainWindow(QMainWindow):
             )
 
             def ui() -> None:
+                self._stop_detect_spin()
                 if jobs.is_cancelled():
                     self._set_env_box("已取消")
                     self._set_busy(False, "已取消")
@@ -1947,6 +1992,10 @@ class MainWindow(QMainWindow):
                 if not auto:
                     self._append_log("==== 检测结束 ====")
                 self._set_busy(False, "环境就绪" if report.ready else "环境不完整")
+                if report.ready:
+                    self._show_toast("环境全面检测完成：aarch64 交叉编译器与 Qt 库正常！")
+                else:
+                    self._show_toast("环境检测完成：部分组件缺失，请导入环境包。")
                 if auto and not report.ready:
                     self._select_step(0)
 
