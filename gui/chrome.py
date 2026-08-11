@@ -122,7 +122,7 @@ class TitleChrome(QFrame):
     def _build_titlebar(self) -> QWidget:
         bar = QFrame()
         bar.setObjectName("TitleBar")
-        bar.setFixedHeight(34)
+        bar.setFixedHeight(40)
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(12, 0, 10, 0)
         lay.setSpacing(8)
