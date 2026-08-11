@@ -273,18 +273,20 @@ QFrame#ReadyPillBad {{
     border: 1px solid rgba(251, 191, 36, 0.3);
     border-radius: 14px;
 }}
-QLabel#ReadyPillIconOk {{
-    background: transparent;
-    color: {C["ok"]};
+QLabel#ReadyPillCircleOk {{
+    background-color: {C["ok"]};
+    color: white;
     border: none;
-    font-size: 14px;
+    border-radius: 9px;
+    font-size: 11px;
     font-weight: 700;
 }}
-QLabel#ReadyPillIconBad {{
-    background: transparent;
-    color: {C["warn"]};
+QLabel#ReadyPillCircleBad {{
+    background-color: {C["warn"]};
+    color: white;
     border: none;
-    font-size: 14px;
+    border-radius: 9px;
+    font-size: 11px;
     font-weight: 700;
 }}
 QLabel#ReadyPillTextOk {{

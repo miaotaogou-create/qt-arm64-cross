@@ -71,10 +71,12 @@ def make_ready_pill(text: str = "环境就绪", *, ok: bool = True) -> QFrame:
     pill = QFrame()
     pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
     lay = QHBoxLayout(pill)
-    lay.setContentsMargins(10, 4, 12, 4)
-    lay.setSpacing(5)
+    lay.setContentsMargins(6, 4, 12, 4)
+    lay.setSpacing(6)
     icon = QLabel("✓" if ok else "!")
-    icon.setObjectName("ReadyPillIconOk" if ok else "ReadyPillIconBad")
+    icon.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
+    icon.setFixedSize(18, 18)
+    icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
     lab = QLabel(text)
     lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
     lay.addWidget(icon)
@@ -89,7 +91,7 @@ def set_ready_pill(pill: QFrame, text: str, *, ok: bool) -> None:
     circle: QLabel = pill._circle  # type: ignore[attr-defined]
     lab: QLabel = pill._label  # type: ignore[attr-defined]
     circle.setText("✓" if ok else "!")
-    circle.setObjectName("ReadyPillIconOk" if ok else "ReadyPillIconBad")
+    circle.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
     lab.setText(text)
     lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
     for w in (pill, circle, lab):
