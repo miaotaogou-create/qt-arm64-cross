@@ -1294,6 +1294,10 @@ class MainWindow(QMainWindow):
             "color:white; font-size:13px; font-weight:600; border:none; background:transparent;"
             'font-family:"Microsoft YaHei","Segoe UI",sans-serif;'
         )
+        # 防止在某些缩放/布局裁剪下仅剩首字：给文字控件明确尺寸策略与伸缩
+        txt.setWordWrap(True)
+        txt.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        tl.setStretchFactor(txt, 1)
         tl.addWidget(txt)
         toast.adjustSize()
 
