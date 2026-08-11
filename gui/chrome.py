@@ -83,9 +83,9 @@ class TitleChrome(QFrame):
 
         logo = QLabel("Qt")
         logo.setObjectName("TitleLogo")
-        logo.setFixedSize(22, 22)
+        logo.setFixedSize(20, 20)
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(logo)
+        lay.addWidget(logo, 0, Qt.AlignmentFlag.AlignVCenter)
 
         name = QLabel("Qt ARM64 交叉编译助手")
         name.setObjectName("TitleAppName")
@@ -93,20 +93,25 @@ class TitleChrome(QFrame):
 
         ver = QLabel(f"v{VERSION} Modern")
         ver.setObjectName("TitleVerBadge")
-        ver.setFixedHeight(14)
-        ver.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter)
         lay.addWidget(ver, 0, Qt.AlignmentFlag.AlignVCenter)
 
         lay.addStretch(1)
 
         self._center_dot = QLabel("●")
         self._center_dot.setObjectName("TitleDotWarn")
+        self._center_dot.setFixedSize(8, 8)
         self._center_lbl = QLabel("环境检测中…")
         self._center_lbl.setObjectName("TitleCenter")
+        self._center_sep = QLabel("|")
+        self._center_sep.setObjectName("TitleCenterSep")
+        self._center_tool = QLabel("")
+        self._center_tool.setObjectName("TitleCenter")
         center = QHBoxLayout()
         center.setSpacing(6)
-        center.addWidget(self._center_dot)
+        center.addWidget(self._center_dot, 0, Qt.AlignmentFlag.AlignVCenter)
         center.addWidget(self._center_lbl)
+        center.addWidget(self._center_sep)
+        center.addWidget(self._center_tool)
         lay.addLayout(center)
         lay.addStretch(1)
 
@@ -182,11 +187,15 @@ class TitleChrome(QFrame):
         if ready:
             set_ready_pill(self._env_badge, "环境就绪", ok=True)
             self._center_dot.setObjectName("TitleDotOk")
-            self._center_lbl.setText(f"WSL2 {distro} 就绪  |  工具链: GCC 9.4.0 (aarch64)")
+            self._center_lbl.setText(f"WSL2 {distro} 就绪")
+            self._center_sep.setVisible(True)
+            self._center_tool.setText("工具链: GCC 9.4.0 (aarch64)")
         else:
             set_ready_pill(self._env_badge, "环境未就绪", ok=False)
             self._center_dot.setObjectName("TitleDotWarn")
             self._center_lbl.setText("环境未就绪 — 请先导入环境包")
+            self._center_sep.setVisible(False)
+            self._center_tool.setText("")
         self._center_dot.style().unpolish(self._center_dot)
         self._center_dot.style().polish(self._center_dot)
 

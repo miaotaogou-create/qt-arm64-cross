@@ -240,9 +240,10 @@ class MainWindow(QMainWindow):
         self._on_build()
 
     def _build_step_nav(self) -> QWidget:
-        wrap = QWidget()
+        wrap = QFrame()
+        wrap.setObjectName("StepNavBar")
         lay = QHBoxLayout(wrap)
-        lay.setContentsMargins(16, 10, 16, 8)
+        lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(6)
         self._step_cards: list[QFrame] = []
         self._step_num_lbls: list[QLabel] = []
@@ -261,10 +262,10 @@ class MainWindow(QMainWindow):
             cl.setContentsMargins(12, 8, 10, 8)
             cl.setSpacing(10)
             badge = QLabel(num)
-            badge.setFixedSize(26, 26)
+            badge.setFixedSize(28, 28)
             badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
             badge.setStyleSheet(
-                f"background:{C['surface2']}; color:{C['muted']}; border:none; border-radius:8px; font-weight:700; font-size:11px;"
+                f"background:#1e293b; color:#64748b; border:none; border-radius:8px; font-weight:700; font-size:11px;"
             )
             self._step_num_lbls.append(badge)
             texts = QVBoxLayout()
@@ -330,24 +331,24 @@ class MainWindow(QMainWindow):
             if active:
                 badge.setText(str(i + 1))
                 badge.setStyleSheet(
-                    f"background:{C['accent']}; color:white; border:none; border-radius:8px; font-weight:700; font-size:11px;"
+                    "background:#14b8a6; color:white; border:none; border-radius:8px; font-weight:700; font-size:11px;"
                 )
             elif self._env_ready and i == 0:
                 badge.setText("✓")
                 badge.setStyleSheet(
-                    f"background:rgba(16,185,129,0.2); color:{C['ok']}; border:none; border-radius:8px; font-weight:700;"
+                    "background:rgba(16,185,129,0.2); color:#34d399; border:none; border-radius:8px; font-weight:700; font-size:12px;"
                 )
             else:
                 badge.setText(str(i + 1))
                 badge.setStyleSheet(
-                    f"background:{C['surface2']}; color:{C['muted']}; border:none; border-radius:8px; font-weight:700; font-size:11px;"
+                    "background:#1e293b; color:#64748b; border:none; border-radius:8px; font-weight:700; font-size:11px;"
                 )
         self._refresh_flow_hint()
 
     def _build_footer(self, parent_lay: QVBoxLayout) -> None:
         foot = QFrame()
         foot.setObjectName("AppFooter")
-        foot.setFixedHeight(34)
+        foot.setFixedHeight(38)
         lay = QHBoxLayout(foot)
         lay.setContentsMargins(16, 0, 16, 0)
         lay.setSpacing(10)
@@ -403,8 +404,8 @@ class MainWindow(QMainWindow):
         hero.setObjectName("HeroBannerBad")
         self._env_hero = hero
         hl = QHBoxLayout(hero)
-        hl.setContentsMargins(16, 14, 16, 14)
-        hl.setSpacing(14)
+        hl.setContentsMargins(20, 16, 20, 16)
+        hl.setSpacing(16)
 
         icon = QFrame()
         icon.setFixedSize(44, 44)
@@ -631,8 +632,8 @@ class MainWindow(QMainWindow):
         hero = QFrame()
         hero.setObjectName("SectionHero")
         hero_lay = QHBoxLayout(hero)
-        hero_lay.setContentsMargins(16, 12, 16, 12)
-        hero_lay.setSpacing(12)
+        hero_lay.setContentsMargins(20, 16, 20, 16)
+        hero_lay.setSpacing(16)
         hero_texts = QVBoxLayout()
         hero_texts.setSpacing(3)
         hero_title = QLabel("Qt 工程路径与构建参数配置")
@@ -837,8 +838,8 @@ class MainWindow(QMainWindow):
         hero = QFrame()
         hero.setObjectName("SectionHero")
         hero_lay = QHBoxLayout(hero)
-        hero_lay.setContentsMargins(16, 12, 16, 12)
-        hero_lay.setSpacing(12)
+        hero_lay.setContentsMargins(20, 16, 20, 16)
+        hero_lay.setSpacing(16)
         texts = QVBoxLayout()
         texts.setSpacing(3)
         t1 = QLabel("嵌入式板端 HTTP 极速部署共享")

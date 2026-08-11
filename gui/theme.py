@@ -51,8 +51,8 @@ QLabel#CardTitle {{
 }}
 QFrame#Card {{
     background-color: {C["surface"]};
-    border: 1px solid {C["border"]};
-    border-radius: 14px;
+    border: 1px solid #1e293b;
+    border-radius: 16px;
 }}
 QLabel#CardHeadTitle {{
     font-size: 13px;
@@ -194,8 +194,8 @@ QFrame#MainHeader {{
     background-color: {C["surface"]};
 }}
 QLabel#TitleLogo {{
-    background-color: {C["accent"]};
-    color: white;
+    background-color: rgba(20, 184, 166, 0.2);
+    color: {C["accent"]};
     border-radius: 5px;
     font-size: 10px;
     font-weight: 700;
@@ -207,26 +207,33 @@ QLabel#TitleAppName {{
 }}
 QLabel#TitleVerBadge {{
     color: {C["accent"]};
-    background-color: transparent;
-    border: 1px solid rgba(20, 184, 166, 0.55);
+    background-color: rgba(20, 184, 166, 0.1);
+    border: 1px solid rgba(20, 184, 166, 0.2);
     border-radius: 3px;
-    padding: 0px 5px;
+    padding: 1px 6px;
     margin: 0px;
     font-size: 10px;
     font-family: Consolas, monospace;
-    max-height: 13px;
 }}
 QLabel#TitleCenter {{
     color: #94a3b8;
     font-size: 11px;
 }}
 QLabel#TitleDotOk {{
-    color: {C["ok"]};
-    font-size: 10px;
+    background-color: {C["ok"]};
+    border-radius: 4px;
+    min-width: 8px; max-width: 8px;
+    min-height: 8px; max-height: 8px;
 }}
 QLabel#TitleDotWarn {{
-    color: {C["warn"]};
-    font-size: 10px;
+    background-color: {C["warn"]};
+    border-radius: 4px;
+    min-width: 8px; max-width: 8px;
+    min-height: 8px; max-height: 8px;
+}}
+QLabel#TitleCenterSep {{
+    color: #334155;
+    font-size: 11px;
 }}
 QLabel#AppIcon {{
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
@@ -354,15 +361,22 @@ QPushButton#WinDotClose:hover {{
 QMainWindow {{
     border: 1px solid {C["border"]};
 }}
+QFrame#StepNavBar {{
+    background-color: rgba(15, 23, 42, 0.6);
+    border-bottom: 1px solid #1e293b;
+}}
 QFrame#StepActive {{
     background-color: {C["surface2"]};
-    border: 1px solid {C["border_active"]};
+    border: 1px solid rgba(20, 184, 166, 0.5);
     border-radius: 12px;
 }}
 QFrame#StepIdle {{
-    background-color: rgba(15, 23, 42, 0.55);
-    border: 1px solid {C["border"]};
+    background-color: rgba(15, 23, 42, 0.4);
+    border: 1px solid #1e293b;
     border-radius: 12px;
+}}
+QFrame#StepIdle:hover {{
+    background-color: rgba(30, 41, 59, 0.5);
 }}
 QFrame#StepActive QLabel, QFrame#StepIdle QLabel {{
     background: transparent;
@@ -389,9 +403,9 @@ QLabel#StepChevron {{
     font-weight: 300;
 }}
 QFrame#FlowHintBox {{
-    background-color: rgba(20, 184, 166, 0.06);
-    border: 1px solid rgba(20, 184, 166, 0.22);
-    border-radius: 10px;
+    background-color: rgba(20, 184, 166, 0.05);
+    border: 1px solid rgba(20, 184, 166, 0.1);
+    border-radius: 8px;
 }}
 QFrame#FlowHintBox QLabel {{
     background: transparent;
@@ -405,11 +419,12 @@ QLabel#FlowHintKey {{
 QLabel#FlowHintVal {{
     color: #94a3b8;
     font-size: 11px;
+    font-family: Consolas, "Cascadia Mono", monospace;
 }}
 QFrame#SectionHero {{
     background-color: rgba(15, 23, 42, 0.65);
     border: 1px solid rgba(51, 65, 85, 0.85);
-    border-radius: 14px;
+    border-radius: 16px;
 }}
 QLabel#SectionHeroTitle {{
     color: #e2e8f0;
@@ -427,20 +442,22 @@ QLabel#SectionHeroDesc {{
 QFrame#ActionBar {{
     background-color: rgba(15, 23, 42, 0.72);
     border: 1px solid {C["border"]};
-    border-radius: 14px;
+    border-radius: 16px;
 }}
 QFrame#TerminalCard {{
     background-color: #020617;
     border: 1px solid #1e293b;
-    border-radius: 14px;
+    border-radius: 16px;
 }}
 QLineEdit, QComboBox, QSpinBox {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border"]};
-    border-radius: 8px;
-    padding: 7px 10px;
+    border-radius: 12px;
+    padding: 7px 12px;
     selection-background-color: {C["accent"]};
     min-height: 18px;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 12px;
 }}
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{
     border: 1px solid {C["accent"]};
@@ -478,8 +495,8 @@ QCheckBox:disabled {{
 QPushButton {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border"]};
-    border-radius: 9px;
-    padding: 8px 14px;
+    border-radius: 12px;
+    padding: 8px 16px;
     min-height: 20px;
 }}
 QPushButton:hover {{
@@ -518,8 +535,8 @@ QTextEdit#Log, QTextEdit#TerminalLog {{
     background-color: {C["log_bg"]};
     color: {C["log_fg"]};
     border: 1px solid {C["border"]};
-    border-radius: 10px;
-    padding: 8px;
+    border-radius: 12px;
+    padding: 10px;
     font-family: Consolas, "Cascadia Mono", monospace;
     font-size: 12px;
 }}
@@ -578,14 +595,14 @@ QLabel#FooterWsl {{
 QFrame#HeroBanner {{
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
         stop:0 #0b1220, stop:1 #042f2e);
-    border: 1px solid rgba(20, 184, 166, 0.4);
-    border-radius: 14px;
+    border: 1px solid rgba(20, 184, 166, 0.3);
+    border-radius: 16px;
 }}
 QFrame#HeroBannerBad {{
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
         stop:0 #0b1220, stop:1 #3b1d1d);
     border: 1px solid rgba(248, 113, 113, 0.35);
-    border-radius: 14px;
+    border-radius: 16px;
 }}
 QLabel#HeroTitle {{
     color: {C["text"]};
