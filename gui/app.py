@@ -437,16 +437,16 @@ class MainWindow(QMainWindow):
 
         actions = QHBoxLayout()
         actions.setSpacing(10)
-        self._btn_redetect = QPushButton("↻  重新检测环境")
+        self._btn_redetect = QPushButton("🔄  重新检测环境")
         self._btn_redetect.setObjectName("HeroGhost")
         self._btn_redetect.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_redetect.clicked.connect(lambda: self._on_detect(False))
         self._track_action(self._btn_redetect)
         actions.addWidget(self._btn_redetect)
-        self._spin_frames = ["◐", "◓", "◑", "◒"]
+        self._spin_frames = ["🔄", "🔃"]
         self._spin_idx = 0
         self._spin_timer = QTimer(self)
-        self._spin_timer.setInterval(150)
+        self._spin_timer.setInterval(300)
         self._spin_timer.timeout.connect(self._spin_detect_icon)
         self._btn_go_compile = QPushButton("前往「2 交叉编译」 ↗")
         self._btn_go_compile.setObjectName("HeroPrimary")
@@ -1212,40 +1212,47 @@ class MainWindow(QMainWindow):
 
     def _stop_detect_spin(self) -> None:
         self._spin_timer.stop()
-        self._btn_redetect.setText("↻  重新检测环境")
+        self._btn_redetect.setText("🔄  重新检测环境")
 
-    def _show_toast(self, msg: str, duration: int = 3000) -> None:
-        """底部右侧弹出 toast 提示（带跳动动画）。"""
+    def _show_toast(self, msg: str, duration: int = 4000) -> None:
+        """底部右侧弹出 toast 提示（持续上下弹动动画）。"""
+        from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QPoint, QSequentialAnimationGroup
+
         toast = QFrame(self)
         toast.setStyleSheet(
-            "background-color: #059669; color: white; border-radius: 12px;"
-            "padding: 10px 16px; font-size: 12px; font-weight: 600;"
+            "background-color: #059669; color: white; border-radius: 14px;"
         )
         tl = QHBoxLayout(toast)
-        tl.setContentsMargins(12, 8, 16, 8)
-        tl.setSpacing(8)
+        tl.setContentsMargins(16, 12, 20, 12)
+        tl.setSpacing(10)
         icon = QLabel("✓")
-        icon.setStyleSheet("background:transparent; color:white; font-size:14px; font-weight:700; border:none;")
+        icon.setStyleSheet("background:transparent; color:white; font-size:16px; font-weight:700; border:none;")
         tl.addWidget(icon)
         txt = QLabel(msg)
-        txt.setStyleSheet("background:transparent; color:white; font-size:12px; border:none;")
+        txt.setStyleSheet("background:transparent; color:white; font-size:14px; font-weight:600; border:none;")
         tl.addWidget(txt)
         toast.adjustSize()
-        # 定位到右下角
         x = self.width() - toast.width() - 24
         y = self.height() - toast.height() - 24
         toast.move(x, y)
         toast.show()
         toast.raise_()
-        # 跳动动画
-        from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QPoint
-        anim = QPropertyAnimation(toast, b"pos", self)
-        anim.setDuration(600)
-        anim.setStartValue(QPoint(x, y + 30))
-        anim.setEndValue(QPoint(x, y))
-        anim.setEasingCurve(QEasingCurve.Type.OutBounce)
-        anim.start()
-        toast._anim = anim  # prevent GC
+        # 持续上下弹动
+        grp = QSequentialAnimationGroup(toast)
+        up = QPropertyAnimation(toast, b"pos", toast)
+        up.setDuration(400)
+        up.setStartValue(QPoint(x, y))
+        up.setEndValue(QPoint(x, y - 12))
+        up.setEasingCurve(QEasingCurve.Type.OutQuad)
+        down = QPropertyAnimation(toast, b"pos", toast)
+        down.setDuration(400)
+        down.setStartValue(QPoint(x, y - 12))
+        down.setEndValue(QPoint(x, y))
+        down.setEasingCurve(QEasingCurve.Type.OutBounce)
+        grp.addAnimation(up)
+        grp.addAnimation(down)
+        grp.setLoopCount(-1)
+        grp.start()
         QTimer.singleShot(duration, toast.deleteLater)
 
     def _apply_env_ready(self, ready: bool) -> None:
