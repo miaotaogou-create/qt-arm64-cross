@@ -3,12 +3,54 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMainWindow, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 from crosskit.app_version import VERSION
 from gui.theme import C
 
 _EDGE = 6
+
+
+def make_ready_pill(text: str = "环境就绪", *, ok: bool = True) -> QFrame:
+    """圆圈对号 + 文案的胶囊徽章（对齐设计稿）。"""
+    pill = QFrame()
+    pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
+    lay = QHBoxLayout(pill)
+    lay.setContentsMargins(7, 3, 10, 3)
+    lay.setSpacing(6)
+    circle = QLabel("✓" if ok else "!")
+    circle.setObjectName("CheckCircleOk" if ok else "CheckCircleBad")
+    circle.setFixedSize(15, 15)
+    circle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    lab = QLabel(text)
+    lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
+    lay.addWidget(circle)
+    lay.addWidget(lab)
+    pill._circle = circle  # type: ignore[attr-defined]
+    pill._label = lab  # type: ignore[attr-defined]
+    return pill
+
+
+def set_ready_pill(pill: QFrame, text: str, *, ok: bool) -> None:
+    pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
+    circle: QLabel = pill._circle  # type: ignore[attr-defined]
+    lab: QLabel = pill._label  # type: ignore[attr-defined]
+    circle.setText("✓" if ok else "!")
+    circle.setObjectName("CheckCircleOk" if ok else "CheckCircleBad")
+    lab.setText(text)
+    lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
+    for w in (pill, circle, lab):
+        w.style().unpolish(w)
+        w.style().polish(w)
 
 
 class TitleChrome(QFrame):
@@ -41,7 +83,7 @@ class TitleChrome(QFrame):
 
         logo = QLabel("Qt")
         logo.setObjectName("TitleLogo")
-        logo.setFixedSize(20, 20)
+        logo.setFixedSize(22, 22)
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(logo)
 
@@ -109,12 +151,12 @@ class TitleChrome(QFrame):
         titles.setSpacing(2)
         row = QHBoxLayout()
         row.setSpacing(10)
+        row.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         title = QLabel("Qt ARM64 交叉编译 Workstation")
         title.setObjectName("Title")
-        row.addWidget(title)
-        self._env_badge = QLabel("检测中…")
-        self._env_badge.setObjectName("EnvBadgeIdle")
-        row.addWidget(self._env_badge)
+        row.addWidget(title, 0, Qt.AlignmentFlag.AlignVCenter)
+        self._env_badge = make_ready_pill("检测中…", ok=False)
+        row.addWidget(self._env_badge, 0, Qt.AlignmentFlag.AlignVCenter)
         row.addStretch(1)
         titles.addLayout(row)
         self._subtitle = QLabel("重构简化的 Windows 客户端 · 一键 WSL 交叉编译与板端 HTTP 快速分发")
@@ -136,18 +178,15 @@ class TitleChrome(QFrame):
 
     def set_env_ready(self, ready: bool, distro: str) -> None:
         if ready:
-            self._env_badge.setText("✓ 环境就绪")
-            self._env_badge.setObjectName("EnvBadgeOk")
+            set_ready_pill(self._env_badge, "环境就绪", ok=True)
             self._center_dot.setObjectName("TitleDotOk")
             self._center_lbl.setText(f"WSL2 {distro} 就绪  |  工具链: GCC 9.4.0 (aarch64)")
         else:
-            self._env_badge.setText("环境未就绪")
-            self._env_badge.setObjectName("EnvBadgeBad")
+            set_ready_pill(self._env_badge, "环境未就绪", ok=False)
             self._center_dot.setObjectName("TitleDotWarn")
             self._center_lbl.setText("环境未就绪 — 请先导入环境包")
-        for w in (self._env_badge, self._center_dot):
-            w.style().unpolish(w)
-            w.style().polish(w)
+        self._center_dot.style().unpolish(self._center_dot)
+        self._center_dot.style().polish(self._center_dot)
 
     def set_busy_text(self, text: str, color: str | None = None) -> None:
         if not text or text in ("空闲", "就绪"):

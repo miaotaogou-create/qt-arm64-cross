@@ -192,23 +192,23 @@ QFrame#MainHeader {{
     background-color: {C["surface"]};
 }}
 QLabel#TitleLogo {{
-    background-color: rgba(20, 184, 166, 0.2);
-    color: {C["accent"]};
+    background-color: {C["accent"]};
+    color: white;
     border-radius: 5px;
     font-size: 10px;
     font-weight: 700;
 }}
 QLabel#TitleAppName {{
-    color: #e2e8f0;
+    color: #f8fafc;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
 }}
 QLabel#TitleVerBadge {{
     color: {C["accent"]};
-    background-color: rgba(20, 184, 166, 0.1);
-    border: 1px solid rgba(20, 184, 166, 0.35);
+    background-color: transparent;
+    border: 1px solid rgba(20, 184, 166, 0.55);
     border-radius: 4px;
-    padding: 1px 6px;
+    padding: 1px 7px;
     font-size: 10px;
     font-family: Consolas, monospace;
 }}
@@ -234,22 +234,84 @@ QLabel#AppIcon {{
 }}
 QLabel#EnvBadgeOk {{
     color: {C["ok"]};
-    background-color: rgba(16, 185, 129, 0.12);
-    border: 1px solid rgba(16, 185, 129, 0.35);
+    background-color: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.45);
     border-radius: 999px;
-    padding: 2px 10px;
+    padding: 3px 10px;
     font-size: 12px;
     font-weight: 600;
 }}
 QLabel#EnvBadgeBad, QLabel#EnvBadgeIdle {{
     color: {C["warn"]};
-    background-color: rgba(251, 191, 36, 0.1);
-    border: 1px solid rgba(251, 191, 36, 0.3);
+    background-color: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.35);
     border-radius: 999px;
-    padding: 2px 10px;
+    padding: 3px 10px;
     font-size: 12px;
     font-weight: 600;
 }}
+QFrame#ReadyPillOk {{
+    background-color: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    border-radius: 999px;
+}}
+QFrame#ReadyPillBad {{
+    background-color: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    border-radius: 999px;
+}}
+QLabel#CheckCircleOk {{
+    background-color: transparent;
+    color: {C["ok"]};
+    border: 1.5px solid {C["ok"]};
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 700;
+}}
+QLabel#CheckCircleBad {{
+    background-color: transparent;
+    color: {C["warn"]};
+    border: 1.5px solid {C["warn"]};
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 700;
+}}
+QLabel#ReadyPillTextOk {{
+    background: transparent;
+    border: none;
+    color: {C["ok"]};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel#ReadyPillTextBad {{
+    background: transparent;
+    border: none;
+    color: {C["warn"]};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel#HeroCheckCircle {{
+    background-color: white;
+    color: {C["accent"]};
+    border-radius: 11px;
+    font-size: 14px;
+    font-weight: 700;
+}}
+QLabel#HeroWarnMark {{
+    background-color: transparent;
+    color: {C["warn"]};
+    font-size: 20px;
+    font-weight: 700;
+}}
+QFrame#HeroIconOk {{
+    background-color: {C["accent"]};
+    border-radius: 12px;
+}}
+QFrame#HeroIconBad {{
+    background-color: {C["surface2"]};
+    border-radius: 12px;
+}}
+
 QPushButton#QuickPrimary {{
     background-color: #0d9488;
     color: white;
@@ -440,24 +502,67 @@ QLabel#FooterWsl {{
     font-size: 11px;
 }}
 QLabel#FlowHint {{
-    color: #5eead4;
-    background-color: rgba(20, 184, 166, 0.08);
-    border: 1px solid rgba(20, 184, 166, 0.18);
-    border-radius: 8px;
-    padding: 6px 10px;
+    color: #94a3b8;
+    background-color: rgba(20, 184, 166, 0.06);
+    border: 1px solid rgba(20, 184, 166, 0.22);
+    border-radius: 999px;
+    padding: 8px 14px;
     font-size: 11px;
+}}
+QLabel#StepChevron {{
+    color: #64748b;
+    font-size: 18px;
+    font-weight: 300;
 }}
 QFrame#HeroBanner {{
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #0f172a, stop:1 #042f2e);
-    border: 1px solid rgba(20, 184, 166, 0.35);
+        stop:0 #0b1220, stop:1 #042f2e);
+    border: 1px solid rgba(20, 184, 166, 0.4);
     border-radius: 14px;
 }}
 QFrame#HeroBannerBad {{
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #0f172a, stop:1 #3b1d1d);
+        stop:0 #0b1220, stop:1 #3b1d1d);
     border: 1px solid rgba(248, 113, 113, 0.35);
     border-radius: 14px;
+}}
+QPushButton#HeroGhost {{
+    background-color: {C["surface2"]};
+    border: 1px solid {C["border"]};
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #e2e8f0;
+    min-height: 18px;
+}}
+QPushButton#HeroGhost:hover {{
+    border-color: {C["accent"]};
+}}
+QPushButton#HeroPrimary {{
+    background-color: #0d9488;
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    min-height: 18px;
+}}
+QPushButton#HeroPrimary:hover {{
+    background-color: #14b8a6;
+}}
+QPushButton#HeroPrimary:disabled {{
+    background-color: #1f3a3a;
+    color: #64748b;
+}}
+QLabel#HeroTitle {{
+    font-size: 14px;
+    font-weight: 700;
+    color: {C["text"]};
+}}
+QLabel#HeroDesc {{
+    color: #94a3b8;
+    font-size: 12px;
 }}
 QPushButton#FooterCancel {{
     background-color: transparent;

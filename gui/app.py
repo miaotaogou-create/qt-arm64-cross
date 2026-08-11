@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
 from crosskit import build as buildmod
 from crosskit import detect, envpack, jobs, netip, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
-from gui.chrome import EdgeResizer, TitleChrome
+from gui.chrome import EdgeResizer, TitleChrome, make_ready_pill, set_ready_pill
 from gui.env_panel import (
     build_preset_row,
     build_toolchain_specs,
@@ -236,13 +236,13 @@ class MainWindow(QMainWindow):
         wrap = QWidget()
         lay = QHBoxLayout(wrap)
         lay.setContentsMargins(16, 10, 16, 8)
-        lay.setSpacing(8)
+        lay.setSpacing(6)
         self._step_cards: list[QFrame] = []
         self._step_num_lbls: list[QLabel] = []
         specs = [
-            ("1", "环境管理", "导入 / 检测交叉环境"),
-            ("2", "交叉编译", "选工程 · 产物 · 日志"),
-            ("3", "部署与共享", "HTTP 共享给麒麟机"),
+            ("1", "环境管理", "WSL2 交叉编译链检测与配置"),
+            ("2", "交叉编译", "Qt工程加载、参数设定与构建日志"),
+            ("3", "部署与共享", "HTTP 文件极速分发与多网卡 IP"),
         ]
         for i, (num, name, desc) in enumerate(specs):
             card = QFrame()
@@ -250,7 +250,7 @@ class MainWindow(QMainWindow):
             card.setCursor(Qt.CursorShape.PointingHandCursor)
             card.setMinimumHeight(56)
             cl = QHBoxLayout(card)
-            cl.setContentsMargins(12, 8, 12, 8)
+            cl.setContentsMargins(12, 8, 10, 8)
             cl.setSpacing(10)
             badge = QLabel(num)
             badge.setFixedSize(26, 26)
@@ -269,17 +269,34 @@ class MainWindow(QMainWindow):
             texts.addWidget(d)
             cl.addWidget(badge)
             cl.addLayout(texts, 1)
+            if i < len(specs) - 1:
+                chev = QLabel("›")
+                chev.setObjectName("StepChevron")
+                chev.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+                cl.addWidget(chev)
             card.mousePressEvent = lambda _e, idx=i: self._select_step(idx)  # type: ignore[method-assign]
             lay.addWidget(card, 1)
             self._step_cards.append(card)
 
-        self._flow_hint = QLabel("当前流程：检测环境…")
+        lay.addStretch(1)
+        self._flow_hint = QLabel("当前流程状态：检测环境…")
         self._flow_hint.setObjectName("FlowHint")
         self._flow_hint.setWordWrap(True)
-        self._flow_hint.setMinimumWidth(200)
-        self._flow_hint.setMaximumWidth(280)
+        self._flow_hint.setMinimumWidth(220)
+        self._flow_hint.setMaximumWidth(320)
         lay.addWidget(self._flow_hint, 0, Qt.AlignmentFlag.AlignVCenter)
         return wrap
+
+    def _refresh_flow_hint(self) -> None:
+        if not hasattr(self, "_flow_hint"):
+            return
+        if self._current_step == 0:
+            tip = "已完成 WSL 工具链预检 → 随时可编译" if self._env_ready else "请先导入 / 检测环境包"
+        elif self._current_step == 1:
+            tip = "工程已装载 → 点击开始交叉编译"
+        else:
+            tip = "HTTP 共享运行中" if self._share.running else "服务器就绪，一键启动板端共享"
+        self._flow_hint.setText(f"当前流程状态：{tip}")
 
     def _select_step(self, idx: int) -> None:
         self._current_step = idx
@@ -380,45 +397,53 @@ class MainWindow(QMainWindow):
         hl.setContentsMargins(16, 14, 16, 14)
         hl.setSpacing(14)
 
-        icon = QLabel("!")
-        icon.setFixedSize(40, 40)
-        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon.setStyleSheet(
-            f"background:{C['surface2']}; color:{C['warn']}; border-radius:12px; font-size:18px; font-weight:700;"
-        )
+        icon = QFrame()
+        icon.setFixedSize(44, 44)
+        icon.setObjectName("HeroIconBad")
         self._env_hero_icon = icon
+        il = QHBoxLayout(icon)
+        il.setContentsMargins(0, 0, 0, 0)
+        mark = QLabel("!")
+        mark.setObjectName("HeroWarnMark")
+        mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._env_hero_mark = mark
+        il.addWidget(mark)
         hl.addWidget(icon)
 
         mid = QVBoxLayout()
         mid.setSpacing(4)
         title_row = QHBoxLayout()
         title_row.setSpacing(8)
+        title_row.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         title = QLabel("本机 WSL2 交叉编译环境状态")
-        title.setObjectName("CardTitle")
-        title_row.addWidget(title)
-        self._env_hero_badge = QLabel("检测中…")
-        self._env_hero_badge.setObjectName("EnvBadgeIdle")
-        title_row.addWidget(self._env_hero_badge)
+        title.setObjectName("HeroTitle")
+        title_row.addWidget(title, 0, Qt.AlignmentFlag.AlignVCenter)
+        self._env_hero_badge = make_ready_pill("检测中…", ok=False)
+        title_row.addWidget(self._env_hero_badge, 0, Qt.AlignmentFlag.AlignVCenter)
         title_row.addStretch(1)
         mid.addLayout(title_row)
         ban = QLabel("正在检测交叉环境…")
         ban.setWordWrap(True)
-        ban.setObjectName("Muted")
+        ban.setObjectName("HeroDesc")
         mid.addWidget(ban)
         self._env_banner_labels.append(ban)
         self._env_hint_lbl = QLabel("")
-        self._env_hint_lbl.setObjectName("Muted")
+        self._env_hint_lbl.setObjectName("HeroDesc")
         self._env_hint_lbl.setWordWrap(True)
         mid.addWidget(self._env_hint_lbl)
         hl.addLayout(mid, 1)
 
-        actions = QVBoxLayout()
-        actions.setSpacing(8)
-        b_redetect = _btn("重新检测环境")
+        actions = QHBoxLayout()
+        actions.setSpacing(10)
+        b_redetect = QPushButton("↻  重新检测环境")
+        b_redetect.setObjectName("HeroGhost")
+        b_redetect.setCursor(Qt.CursorShape.PointingHandCursor)
         b_redetect.clicked.connect(lambda: self._on_detect(False))
         self._track_action(b_redetect)
         actions.addWidget(b_redetect)
-        self._btn_go_compile = _btn("前往「2 交叉编译」 →", "Primary")
+        self._btn_go_compile = QPushButton("前往「2 交叉编译」 ↗")
+        self._btn_go_compile.setObjectName("HeroPrimary")
+        self._btn_go_compile.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_go_compile.clicked.connect(lambda: self._select_step(1))
         self._btn_go_compile.setEnabled(False)
         actions.addWidget(self._btn_go_compile)
@@ -1149,21 +1174,20 @@ class MainWindow(QMainWindow):
     def _apply_env_ready(self, ready: bool) -> None:
         self._env_ready = ready
         if ready:
-            text = "检测到完整的 WSL2 交叉编译镜像。已预装 aarch64 工具链与 Qt 5.14.2，可直接编译。"
-            fg = C["ok"]
+            text = (
+                "检测到完整的 WSL2 Linux 交叉编译镜像。已预装 ARM64 交叉编译器 "
+                "(aarch64-linux-gnu-g++) 和 Qt 5.14.2 独立依赖，无需重复初始化。"
+            )
+            fg = "#94a3b8"
             badge = "环境就绪 — 可直接编译"
-            badge_obj = "EnvBadgeOk"
             hero_obj = "HeroBanner"
-            icon_txt, icon_fg = "✓", C["ok"]
             if hasattr(self, "_footer_wsl"):
                 self._footer_wsl.setText(f"WSL2 {self._distro_text()} (aarch64)")
         else:
             text = "环境未就绪 — 请先下载并导入环境包"
             fg = C["err"]
             badge = "环境未就绪"
-            badge_obj = "EnvBadgeBad"
             hero_obj = "HeroBannerBad"
-            icon_txt, icon_fg = "!", C["warn"]
             if hasattr(self, "_footer_wsl"):
                 self._footer_wsl.setText("WSL2 环境未就绪")
         if self._chrome is not None:
@@ -1172,16 +1196,22 @@ class MainWindow(QMainWindow):
             self._env_hero.setObjectName(hero_obj)
             self._env_hero.style().unpolish(self._env_hero)
             self._env_hero.style().polish(self._env_hero)
-        if hasattr(self, "_env_hero_icon"):
-            self._env_hero_icon.setText(icon_txt)
-            self._env_hero_icon.setStyleSheet(
-                f"background:{C['surface2']}; color:{icon_fg}; border-radius:12px; font-size:18px; font-weight:700;"
-            )
+        if hasattr(self, "_env_hero_icon") and hasattr(self, "_env_hero_mark"):
+            self._env_hero_icon.setObjectName("HeroIconOk" if ready else "HeroIconBad")
+            self._env_hero_icon.style().unpolish(self._env_hero_icon)
+            self._env_hero_icon.style().polish(self._env_hero_icon)
+            if ready:
+                self._env_hero_mark.setText("✓")
+                self._env_hero_mark.setObjectName("HeroCheckCircle")
+                self._env_hero_mark.setFixedSize(22, 22)
+            else:
+                self._env_hero_mark.setText("!")
+                self._env_hero_mark.setObjectName("HeroWarnMark")
+                self._env_hero_mark.setFixedSize(44, 44)
+            self._env_hero_mark.style().unpolish(self._env_hero_mark)
+            self._env_hero_mark.style().polish(self._env_hero_mark)
         if hasattr(self, "_env_hero_badge"):
-            self._env_hero_badge.setText(badge)
-            self._env_hero_badge.setObjectName(badge_obj)
-            self._env_hero_badge.style().unpolish(self._env_hero_badge)
-            self._env_hero_badge.style().polish(self._env_hero_badge)
+            set_ready_pill(self._env_hero_badge, badge, ok=ready)
         if hasattr(self, "_btn_go_compile"):
             self._btn_go_compile.setEnabled(ready and not self._busy)
         for lbl in self._env_banner_labels:
@@ -1191,21 +1221,21 @@ class MainWindow(QMainWindow):
         self._refresh_flow_hint()
         # 只刷新步骤角标，避免重复切页
         if hasattr(self, "_step_cards") and hasattr(self, "_step_num_lbls"):
-            for i, badge in enumerate(self._step_num_lbls):
+            for i, badge_lbl in enumerate(self._step_num_lbls):
                 active = i == self._current_step
                 if active:
-                    badge.setText(str(i + 1))
-                    badge.setStyleSheet(
+                    badge_lbl.setText(str(i + 1))
+                    badge_lbl.setStyleSheet(
                         f"background:{C['accent']}; color:white; border-radius:8px; font-weight:700; font-size:11px;"
                     )
                 elif ready and i == 0:
-                    badge.setText("✓")
-                    badge.setStyleSheet(
+                    badge_lbl.setText("✓")
+                    badge_lbl.setStyleSheet(
                         f"background:rgba(16,185,129,0.2); color:{C['ok']}; border-radius:8px; font-weight:700;"
                     )
                 else:
-                    badge.setText(str(i + 1))
-                    badge.setStyleSheet(
+                    badge_lbl.setText(str(i + 1))
+                    badge_lbl.setStyleSheet(
                         f"background:{C['surface2']}; color:{C['muted']}; border-radius:8px; font-weight:700; font-size:11px;"
                     )
         if not self._busy:
