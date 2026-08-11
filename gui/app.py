@@ -1274,11 +1274,12 @@ class MainWindow(QMainWindow):
         self._detect_label.setText("重新检测环境")
 
     def _show_toast(self, msg: str, duration: int = 2500) -> None:
-        """底部右侧弹出 toast（淡入上浮 → 停留 → 淡出下沉）。"""
+        """底部右侧弹出 toast（淡入弹入 → 停留 → 淡出下沉）。"""
         from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QPoint, QParallelAnimationGroup
         from PySide6.QtWidgets import QGraphicsOpacityEffect
 
         toast = QFrame(self)
+        toast.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         toast.setStyleSheet("background-color: #00A86B; border-radius: 12px;")
         tl = QHBoxLayout(toast)
         tl.setContentsMargins(16, 10, 20, 10)
@@ -1297,56 +1298,64 @@ class MainWindow(QMainWindow):
             "color:white; font-size:13px; font-weight:600; border:none; background:transparent;"
             'font-family:"Microsoft YaHei","Segoe UI",sans-serif;'
         )
-        # 防止在某些缩放/布局裁剪下仅剩首字：给文字控件明确尺寸策略与伸缩
         txt.setWordWrap(True)
         txt.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        tl.setStretchFactor(txt, 1)
         tl.addWidget(txt)
+        tl.setStretchFactor(tl.indexOf(txt), 1)
         toast.adjustSize()
 
         x = self.width() - toast.width() - 24
         y = self.height() - toast.height() - 24
-        start = QPoint(x, y + 20)
+        start = QPoint(x, y + 24)
         end = QPoint(x, y)
         toast.move(start)
 
         opacity = QGraphicsOpacityEffect(toast)
+        opacity.setOpacity(0.0)
         toast.setGraphicsEffect(opacity)
 
-        # 进入动画
-        grp_in = QParallelAnimationGroup(toast)
-        pos_in = QPropertyAnimation(toast, b"pos", toast)
-        pos_in.setDuration(350)
+        grp_in = QParallelAnimationGroup(self)
+        pos_in = QPropertyAnimation(toast, b"pos", self)
+        pos_in.setDuration(480)
         pos_in.setStartValue(start)
         pos_in.setEndValue(end)
-        pos_in.setEasingCurve(QEasingCurve.Type.OutCubic)
-        fade_in = QPropertyAnimation(opacity, b"opacity", toast)
-        fade_in.setDuration(300)
+        pos_in.setEasingCurve(QEasingCurve.Type.OutBack)
+        fade_in = QPropertyAnimation(opacity, b"opacity", self)
+        fade_in.setDuration(320)
         fade_in.setStartValue(0.0)
         fade_in.setEndValue(1.0)
         grp_in.addAnimation(pos_in)
         grp_in.addAnimation(fade_in)
 
-        # 退出动画
-        grp_out = QParallelAnimationGroup(toast)
-        pos_out = QPropertyAnimation(toast, b"pos", toast)
-        pos_out.setDuration(300)
+        grp_out = QParallelAnimationGroup(self)
+        pos_out = QPropertyAnimation(toast, b"pos", self)
+        pos_out.setDuration(320)
         pos_out.setStartValue(end)
-        pos_out.setEndValue(QPoint(x, y + 15))
+        pos_out.setEndValue(QPoint(x, y + 16))
         pos_out.setEasingCurve(QEasingCurve.Type.InCubic)
-        fade_out = QPropertyAnimation(opacity, b"opacity", toast)
-        fade_out.setDuration(250)
+        fade_out = QPropertyAnimation(opacity, b"opacity", self)
+        fade_out.setDuration(280)
         fade_out.setStartValue(1.0)
         fade_out.setEndValue(0.0)
         grp_out.addAnimation(pos_out)
         grp_out.addAnimation(fade_out)
         grp_out.finished.connect(toast.deleteLater)
 
-        toast.show()
-        toast.raise_()
-        grp_in.start()
-        toast._anims = (grp_in, grp_out)  # prevent GC
-        QTimer.singleShot(duration, grp_out.start)
+        if not hasattr(self, "_toast_anims"):
+            self._toast_anims: list = []
+        self._toast_anims.extend((grp_in, grp_out, pos_in, fade_in, pos_out, fade_out))
+
+        def _start_in() -> None:
+            toast.show()
+            toast.raise_()
+            grp_in.start()
+
+        def _start_out() -> None:
+            if toast.isVisible():
+                grp_out.start()
+
+        QTimer.singleShot(0, _start_in)
+        QTimer.singleShot(duration, _start_out)
 
     def _apply_env_ready(self, ready: bool) -> None:
         self._env_ready = ready
