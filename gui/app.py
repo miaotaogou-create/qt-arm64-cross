@@ -1026,8 +1026,7 @@ class MainWindow(QMainWindow):
         self._busy = busy
         self._set_actions_enabled(not busy)
         self._set_form_enabled(not busy)
-        if not busy:
-            self._sync_build_enabled()
+        self._sync_build_enabled()
         text = msg or ("忙碌…" if busy else "就绪")
         self._status_lbl.setText(text)
         if busy:
