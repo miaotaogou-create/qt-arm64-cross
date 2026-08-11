@@ -6,8 +6,8 @@ import threading
 import webbrowser
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QTextCharFormat, QTextCursor
+from PySide6.QtCore import Qt, QTimer, Signal, QRectF, QVariantAnimation
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPainterPath, QPen, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -32,6 +32,63 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QButtonGroup,
 )
+
+class _RotatingArrowIcon(QWidget):
+    """双向环形箭头旋转图标（QPainter 绘制）。"""
+
+    def __init__(self, size: int = 20, color: str = "#14b8a6", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self._color = QColor(color)
+        self._angle = 0.0
+        self._anim = QVariantAnimation(self)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(360.0)
+        self._anim.setDuration(1000)
+        self._anim.setLoopCount(-1)
+        self._anim.valueChanged.connect(self._on_angle)
+
+    def _on_angle(self, v: float) -> None:
+        self._angle = v
+        self.update()
+
+    def start(self) -> None:
+        if self._anim.state() != QVariantAnimation.State.Running:
+            self._anim.start()
+
+    def stop(self) -> None:
+        self._anim.stop()
+        self._angle = 0.0
+        self.update()
+
+    def paintEvent(self, _e) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w = self.width()
+        p.translate(w / 2, w / 2)
+        p.rotate(self._angle)
+        pw = max(2, int(w / 10))
+        pen = QPen(self._color, pw, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        p.setPen(pen)
+        r = (w - pw * 2) / 2
+        rect = QRectF(-r, -r, r * 2, r * 2)
+        p.drawArc(rect, int(30 * 16), int(120 * 16))
+        p.drawArc(rect, int(210 * 16), int(120 * 16))
+        p.setBrush(self._color)
+        a1 = QPainterPath()
+        a1.moveTo(r * 0.7, -r * 0.6)
+        a1.lineTo(r * 1.1, -r * 0.1)
+        a1.lineTo(r * 0.4, -r * 0.1)
+        a1.closeSubpath()
+        p.drawPath(a1)
+        a2 = QPainterPath()
+        a2.moveTo(-r * 0.7, r * 0.6)
+        a2.lineTo(-r * 1.1, r * 0.1)
+        a2.lineTo(-r * 0.4, r * 0.1)
+        a2.closeSubpath()
+        p.drawPath(a2)
+        p.end()
+
 
 from crosskit import build as buildmod
 from crosskit import detect, envpack, jobs, netip, settings, wsl, wsl_setup
@@ -437,17 +494,21 @@ class MainWindow(QMainWindow):
 
         actions = QHBoxLayout()
         actions.setSpacing(10)
-        self._btn_redetect = QPushButton("🔄  重新检测环境")
-        self._btn_redetect.setObjectName("HeroGhost")
-        self._btn_redetect.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_redetect.clicked.connect(lambda: self._on_detect(False))
-        self._track_action(self._btn_redetect)
-        actions.addWidget(self._btn_redetect)
-        self._spin_frames = ["🔄", "🔃"]
-        self._spin_idx = 0
-        self._spin_timer = QTimer(self)
-        self._spin_timer.setInterval(300)
-        self._spin_timer.timeout.connect(self._spin_detect_icon)
+        det_wrap = QPushButton()
+        det_wrap.setObjectName("HeroGhost")
+        det_wrap.setCursor(Qt.CursorShape.PointingHandCursor)
+        det_wrap.clicked.connect(lambda: self._on_detect(False))
+        self._track_action(det_wrap)
+        det_inner = QHBoxLayout(det_wrap)
+        det_inner.setContentsMargins(10, 4, 14, 4)
+        det_inner.setSpacing(6)
+        self._detect_icon = _RotatingArrowIcon(18, "#14b8a6")
+        det_inner.addWidget(self._detect_icon)
+        self._detect_label = QLabel("重新检测环境")
+        self._detect_label.setStyleSheet("background:transparent; border:none; color:#94a3b8; font-size:12px;")
+        det_inner.addWidget(self._detect_label)
+        actions.addWidget(det_wrap)
+        self._btn_redetect = det_wrap
         self._btn_go_compile = QPushButton("前往「2 交叉编译」 ↗")
         self._btn_go_compile.setObjectName("HeroPrimary")
         self._btn_go_compile.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1201,18 +1262,13 @@ class MainWindow(QMainWindow):
     def _set_env_box(self, text: str) -> None:
         self.env_box.setPlainText(text)
 
-    def _spin_detect_icon(self) -> None:
-        f = self._spin_frames[self._spin_idx % len(self._spin_frames)]
-        self._btn_redetect.setText(f"{f}  检测中…")
-        self._spin_idx += 1
-
     def _start_detect_spin(self) -> None:
-        self._spin_idx = 0
-        self._spin_timer.start()
+        self._detect_icon.start()
+        self._detect_label.setText("检测中…")
 
     def _stop_detect_spin(self) -> None:
-        self._spin_timer.stop()
-        self._btn_redetect.setText("🔄  重新检测环境")
+        self._detect_icon.stop()
+        self._detect_label.setText("重新检测环境")
 
     def _show_toast(self, msg: str, duration: int = 4000) -> None:
         """底部右侧弹出 toast 提示（持续上下弹动动画）。"""
