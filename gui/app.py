@@ -7,7 +7,7 @@ import webbrowser
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
+from PySide6.QtGui import QColor, QMouseEvent, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -36,8 +36,8 @@ from PySide6.QtWidgets import (
 
 from crosskit import build as buildmod
 from crosskit import detect, envpack, jobs, netip, settings, wsl, wsl_setup
-from crosskit.app_version import BUILD, VERSION
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
+from gui.chrome import EdgeResizer, TitleChrome
 from gui.theme import C, apply_theme
 
 ENV_RELEASE_URL = "https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/env-ubuntu-20.04"
@@ -87,8 +87,17 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Qt ARM64 交叉编译工具")
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.Window
+            | Qt.WindowType.WindowSystemMenuHint
+            | Qt.WindowType.WindowMinimizeButtonHint
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.resize(1080, 760)
         self.setMinimumSize(900, 600)
+        self._chrome: TitleChrome | None = None
+        self._resizer = EdgeResizer(self)
 
         self._busy = False
         self._env_ready = False
@@ -164,7 +173,9 @@ class MainWindow(QMainWindow):
         root_lay.setContentsMargins(0, 0, 0, 0)
         root_lay.setSpacing(0)
 
-        root_lay.addWidget(self._build_header())
+        self._chrome = TitleChrome(self)
+        self._chrome.quick_compile.connect(self._on_quick_compile)
+        root_lay.addWidget(self._chrome)
         root_lay.addWidget(self._build_step_nav())
         self._stack = QStackedWidget()
         root_lay.addWidget(self._stack, 1)
@@ -186,37 +197,27 @@ class MainWindow(QMainWindow):
         self._build_statusbar()
         self._select_step(0)
 
-    def _build_header(self) -> QFrame:
-        hdr = QFrame()
-        hdr.setObjectName("Header")
-        lay = QHBoxLayout(hdr)
-        lay.setContentsMargins(18, 14, 18, 14)
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if self._resizer.press(event):
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
-        left = QVBoxLayout()
-        left.setSpacing(2)
-        title = QLabel("Qt ARM64 交叉编译 Workstation")
-        title.setObjectName("Title")
-        left.addWidget(title)
-        self._subtitle = QLabel(f"v{VERSION} · {BUILD}  ·  环境 → 编译 → 部署共享")
-        self._subtitle.setObjectName("Subtitle")
-        left.addWidget(self._subtitle)
-        lay.addLayout(left, 1)
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._resizer.move(event):
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
 
-        right = QVBoxLayout()
-        right.setSpacing(4)
-        right.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self._status_pill = QLabel("  空闲  ")
-        self._status_pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._status_pill.setStyleSheet(
-            f"background:{C['surface2']}; color:{C['ok']}; border-radius:10px; padding:4px 12px; font-weight:600;"
-        )
-        right.addWidget(self._status_pill, 0, Qt.AlignmentFlag.AlignRight)
-        self._wsl_status_lbl = QLabel("WSL: 检测中…")
-        self._wsl_status_lbl.setObjectName("Muted")
-        self._wsl_status_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
-        right.addWidget(self._wsl_status_lbl)
-        lay.addLayout(right)
-        return hdr
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        self._resizer.release()
+        super().mouseReleaseEvent(event)
+
+    def _on_quick_compile(self) -> None:
+        self._select_step(1)
+        if self._busy:
+            return
+        self._on_build()
 
     def _build_step_nav(self) -> QWidget:
         wrap = QWidget()
@@ -906,10 +907,11 @@ class MainWindow(QMainWindow):
         return r == QMessageBox.StandardButton.Yes
 
     def _sync_build_enabled(self) -> None:
-        if not hasattr(self, "_btn_build"):
-            return
         on = (not self._busy) and self._env_ready
-        self._btn_build.setEnabled(on)
+        if hasattr(self, "_btn_build"):
+            self._btn_build.setEnabled(on)
+        if self._chrome is not None:
+            self._chrome.set_quick_enabled(on)
 
     def _clear_log(self) -> None:
         self.log.clear()
@@ -924,11 +926,11 @@ class MainWindow(QMainWindow):
         if ready:
             text = "环境就绪 — 可去「2 编译」"
             fg = C["ok"]
-            self._wsl_status_lbl.setText(f"WSL: {self._distro_text()} · 就绪")
         else:
             text = "环境未就绪 — 请先下载并导入环境包"
             fg = C["err"]
-            self._wsl_status_lbl.setText("WSL: 环境未就绪")
+        if self._chrome is not None:
+            self._chrome.set_env_ready(ready, self._distro_text())
         for lbl in self._env_banner_labels:
             lbl.setText(text)
             lbl.setStyleSheet(f"font-weight:700; color:{fg};")
@@ -940,11 +942,8 @@ class MainWindow(QMainWindow):
         self._select_step(1)
 
     def _pill(self, text: str, fg: str | None = None) -> None:
-        color = fg or C["ok"]
-        self._status_pill.setText(f"  {text}  ")
-        self._status_pill.setStyleSheet(
-            f"background:{C['surface2']}; color:{color}; border-radius:10px; padding:4px 12px; font-weight:600;"
-        )
+        if self._chrome is not None:
+            self._chrome.set_busy_text(text, fg)
 
     def _set_http_dot(self, on: bool) -> None:
         color = C["ok"] if on else C["idle"]

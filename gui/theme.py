@@ -52,9 +52,113 @@ QFrame#Card {{
     border: 1px solid {C["border"]};
     border-radius: 12px;
 }}
-QFrame#Header {{
+QFrame#Chrome {{
     background-color: {C["surface"]};
     border-bottom: 1px solid {C["border"]};
+}}
+QFrame#TitleBar {{
+    background-color: #020617;
+    border-bottom: 1px solid {C["border"]};
+}}
+QFrame#MainHeader {{
+    background-color: {C["surface"]};
+}}
+QLabel#TitleLogo {{
+    background-color: rgba(20, 184, 166, 0.2);
+    color: {C["accent"]};
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+}}
+QLabel#TitleAppName {{
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel#TitleVerBadge {{
+    color: {C["accent"]};
+    background-color: rgba(20, 184, 166, 0.1);
+    border: 1px solid rgba(20, 184, 166, 0.35);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-family: Consolas, monospace;
+}}
+QLabel#TitleCenter {{
+    color: #94a3b8;
+    font-size: 11px;
+}}
+QLabel#TitleDotOk {{
+    color: {C["ok"]};
+    font-size: 10px;
+}}
+QLabel#TitleDotWarn {{
+    color: {C["warn"]};
+    font-size: 10px;
+}}
+QLabel#AppIcon {{
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 #14b8a6, stop:1 #059669);
+    color: white;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+}}
+QLabel#EnvBadgeOk {{
+    color: {C["ok"]};
+    background-color: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLabel#EnvBadgeBad, QLabel#EnvBadgeIdle {{
+    color: {C["warn"]};
+    background-color: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}}
+QPushButton#QuickPrimary {{
+    background-color: #0d9488;
+    color: white;
+    border: none;
+    border-radius: 9px;
+    padding: 9px 16px;
+    font-weight: 600;
+    font-size: 12px;
+}}
+QPushButton#QuickPrimary:hover {{
+    background-color: #14b8a6;
+}}
+QPushButton#QuickPrimary:disabled {{
+    background-color: #1f3a3a;
+    color: #64748b;
+}}
+QPushButton#WinDot, QPushButton#WinDotClose {{
+    border: none;
+    border-radius: 6px;
+    padding: 0;
+    min-width: 12px;
+    max-width: 12px;
+    min-height: 12px;
+    max-height: 12px;
+    background-color: #475569;
+}}
+QPushButton#WinDot:hover {{
+    background-color: #94a3b8;
+}}
+QPushButton#WinDotClose {{
+    background-color: #f87171;
+}}
+QPushButton#WinDotClose:hover {{
+    background-color: #ef4444;
+}}
+QMainWindow {{
+    border: 1px solid {C["border"]};
 }}
 QFrame#StepActive {{
     background-color: {C["surface2"]};
