@@ -274,17 +274,17 @@ QFrame#ReadyPillBad {{
     border-radius: 14px;
 }}
 QLabel#ReadyPillCircleOk {{
-    background-color: {C["ok"]};
-    color: white;
-    border: none;
+    background-color: transparent;
+    color: {C["ok"]};
+    border: 1.5px solid {C["ok"]};
     border-radius: 9px;
     font-size: 11px;
     font-weight: 700;
 }}
 QLabel#ReadyPillCircleBad {{
-    background-color: {C["warn"]};
-    color: white;
-    border: none;
+    background-color: transparent;
+    color: {C["warn"]};
+    border: 1.5px solid {C["warn"]};
     border-radius: 9px;
     font-size: 11px;
     font-weight: 700;
