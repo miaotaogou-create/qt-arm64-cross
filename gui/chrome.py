@@ -124,7 +124,7 @@ class TitleChrome(QFrame):
         bar.setObjectName("TitleBar")
         bar.setFixedHeight(40)
         lay = QHBoxLayout(bar)
-        lay.setContentsMargins(12, 0, 10, 0)
+        lay.setContentsMargins(12, 0, 10, 2)
         lay.setSpacing(8)
 
         logo = QLabel("Qt")
