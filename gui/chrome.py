@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -18,6 +18,52 @@ from crosskit.app_version import VERSION
 from gui.theme import C
 
 _EDGE = 6
+
+
+class _CpuIcon(QWidget):
+    """芯片/CPU 图标（纯 QPainter 绘制，无需外部资源）。"""
+
+    def __init__(self, size: int = 48, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+
+    def paintEvent(self, _event) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        s = self.width()
+        # 圆角背景
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor("#14b8a6"))
+        p.drawRoundedRect(0, 0, s, s, s * 0.28, s * 0.28)
+        # 芯片主体（中心方块）
+        pen = QPen(QColor("white"), max(1.5, s * 0.045))
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        m = s * 0.28
+        p.drawRoundedRect(int(m), int(m), int(s - 2 * m), int(s - 2 * m), 3, 3)
+        # 引脚（每边 3 根短线）
+        pin_len = s * 0.10
+        inner_start = m
+        inner_end = s - m
+        span = inner_end - inner_start
+        for i in range(3):
+            t = inner_start + span * (0.22 + 0.28 * i)
+            # 上
+            p.drawLine(int(t), int(inner_start), int(t), int(inner_start - pin_len))
+            # 下
+            p.drawLine(int(t), int(inner_end), int(t), int(inner_end + pin_len))
+            # 左
+            p.drawLine(int(inner_start), int(t), int(inner_start - pin_len), int(t))
+            # 右
+            p.drawLine(int(inner_end), int(t), int(inner_end + pin_len), int(t))
+        # 芯片中心小方块
+        c = s * 0.38
+        cs = s * 0.24
+        p.setBrush(QColor(255, 255, 255, 60))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(int(c), int(c), int(cs), int(cs), 2, 2)
+        p.end()
 
 
 def make_ready_pill(text: str = "环境就绪", *, ok: bool = True) -> QFrame:
@@ -148,10 +194,7 @@ class TitleChrome(QFrame):
         lay.setContentsMargins(18, 12, 18, 12)
         lay.setSpacing(12)
 
-        icon = QLabel("▣")
-        icon.setObjectName("AppIcon")
-        icon.setFixedSize(48, 48)
-        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon = _CpuIcon(48)
         lay.addWidget(icon)
 
         titles = QVBoxLayout()
