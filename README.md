@@ -1,8 +1,8 @@
 # Qt ARM64 交叉编译工具
 
-Windows 绿色 GUI + WSL `Ubuntu-20.04`，把 Qt 工程（`.pro` / `CMakeLists.txt`）交叉编译到 aarch64（glibc ≤ 2.31，适配麒麟等 focal 系客户机）。
+Windows 绿色 GUI（**PySide6 / Qt**）+ WSL `Ubuntu-20.04`，把 Qt 工程（`.pro` / `CMakeLists.txt`）交叉编译到 aarch64（glibc ≤ 2.31，适配麒麟等 focal 系客户机）。
 
-界面三步：**1 环境 → 2 编译 → 3 共享**。
+界面三步：**1 环境 → 2 编译 → 3 共享**（深色 Workstation 布局）。
 
 | 组件 | WSL 路径 |
 |------|----------|
@@ -13,12 +13,12 @@ Windows 绿色 GUI + WSL `Ubuntu-20.04`，把 Qt 工程（`.pro` / `CMakeLists.t
 
 ## 交付物（换机 / 发给同事）
 
-环境太大，**不打进 exe、不进 git**。两样东西即可：
+两样东西即可（都从 GitHub Release 下，不进 git）：
 
-1. `QtArm64Cross.exe`（仓库根目录；可单独拷贝）
-2. 环境包 [`Ubuntu-20.04-cross-env.tar.gz`](https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/env-ubuntu-20.04)（约 1.8 GB，GitHub Release）
+1. [`QtArm64Cross.exe`](https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/app-v1.2.0)（PySide6 绿色版，约 245 MB）
+2. 环境包 [`Ubuntu-20.04-cross-env.tar.gz`](https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/env-ubuntu-20.04)（约 1.8 GB）
 
-也可在本机 GUI「导出环境包」再打一份。
+本机开发也可 `.\build_exe.ps1` 自己打 exe。也可在 GUI「导出环境包」再打一份环境。
 
 ## 用法
 
@@ -31,7 +31,7 @@ Windows 绿色 GUI + WSL `Ubuntu-20.04`，把 Qt 工程（`.pro` / `CMakeLists.t
 
 发行版名一般保持 `Ubuntu-20.04`（在环境页填写；改非默认名会二次确认）。
 
-首次运行会把 Tcl/Tk 与 `tools/` 缓存到 `%LOCALAPPDATA%\QtArm64Cross\`。  
+首次运行会把 `tools/` 镜像到 `%LOCALAPPDATA%\QtArm64Cross\toolkit\`（LF、路径稳定）。  
 设置保存在 `%USERPROFILE%\.qt-arm64-cross\settings.json`。  
 长任务（检测 / 导入 / 编译等）可点底栏 **取消任务** 中止。
 
@@ -45,8 +45,6 @@ Windows 绿色 GUI + WSL `Ubuntu-20.04`，把 Qt 工程（`.pro` / `CMakeLists.t
 高级项（其他 pkg-config、EXTRA_COPY、插件列表等）收在「高级」里。默认插件含 `platforms/libqxcb.so`；缺 qxcb 时打包会失败，避免客户机下了却开不了窗。
 
 CMake / 常规重编默认**增量**。需要清中间产物时勾选 **全量清理**（等同命令行 `CLEAN=1`）。
-
-首次运行还会把 `tools/` 镜像到 `%LOCALAPPDATA%\QtArm64Cross\toolkit\`（LF、路径稳定），不必再旁放源码目录。
 
 ### 3 共享
 
@@ -72,11 +70,12 @@ wsl -d Ubuntu-20.04 -u root bash /mnt/c/path/to/qt-arm64-cross/tools/build_qt514
 日常交付用 exe，不必装 Python。改界面/脚本后：
 
 ```powershell
-pip install pyinstaller
+pip install -r requirements.txt pyinstaller
 .\build_exe.ps1
 ```
 
 开发调试：`python run.py`  
+冒烟：`python run.py --smoke`  
 最小自检：`python selfcheck.py`
 
 ### 命令行编译（无 GUI）
@@ -106,7 +105,7 @@ qt-arm64-cross/
   build_exe.ps1          # 重新打包 exe
   run.py                 # 开发用入口
   crosskit/              # WSL 编排、检测、设置、HTTP 共享
-  gui/                   # tkinter 界面
+  gui/                   # PySide6 界面（theme + app）
   tools/                 # 工具链脚本（打进 exe）
   examples/hello_qmake/
   examples/hello_cmake/

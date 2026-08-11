@@ -20,10 +20,12 @@ dist/
 *.tar.gz
 *.tgz
 
-# PyInstaller 中间产物（保留根目录 QtArm64Cross.exe 供双击）
+# PyInstaller（PySide6 单文件约 240MB，超过 GitHub 100MB 上限，走 Release）
 build/
 *.spec
 *.smoke_ok
+QtArm64Cross.exe
+QtArm64Cross.smoke_ok
 _tcltest/
 _tcltest2/
 diag_tk.exe

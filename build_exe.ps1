@@ -1,23 +1,17 @@
-# Build portable QtArm64Cross.exe (single-file)
-# Tcl cannot use init.tcl under C:\WINDOWS\TEMP; run.py copies tcl/tk to %LOCALAPPDATA%.
-# Requires: pip install pyinstaller
+# Build portable QtArm64Cross.exe (single-file, PySide6)
+# Requires: pip install pyinstaller PySide6
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 $root = $PSScriptRoot
 
-Get-Process QtArm64Cross,diag_tk -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process QtArm64Cross -ErrorAction SilentlyContinue | Stop-Process -Force
 
-$pyRoot = (python -c "import sys; print(sys.base_prefix)").Trim()
-$tcl = Join-Path $pyRoot "tcl\tcl8.6"
-$tk = Join-Path $pyRoot "tcl\tk8.6"
-if (-not (Test-Path (Join-Path $tcl "init.tcl"))) { throw "missing init.tcl" }
-if (-not (Test-Path (Join-Path $tk "tk.tcl"))) { throw "missing tk.tcl" }
+python -c "import PySide6" 2>$null
+if ($LASTEXITCODE -ne 0) { throw "需要先 pip install PySide6" }
 
 if (Test-Path ".\build") { Remove-Item -Recurse -Force ".\build" }
 if (Test-Path ".\QtArm64Cross.exe") { Remove-Item -Force ".\QtArm64Cross.exe" }
 Get-ChildItem -Filter "QtArm64Cross.smoke_ok" -ErrorAction SilentlyContinue | Remove-Item -Force
-# 清掉错误字面量目录
-if (Test-Path ".\`$LOCALAPPDATA") { Remove-Item -Recurse -Force ".\`$LOCALAPPDATA" }
 
 # 写入版本 BUILD（日期 + git 短 hash），便于排障认 exe
 $verDate = Get-Date -Format "yyyy.M.d"
@@ -28,7 +22,7 @@ $verFile = Join-Path $root "crosskit\app_version.py"
 $verBody = @"
 """App version (BUILD rewritten by build_exe.ps1)."""
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 BUILD = "$verDate+$gitHash"
 "@
 [System.IO.File]::WriteAllText($verFile, $verBody + "`n", [System.Text.UTF8Encoding]::new($false))
@@ -36,8 +30,16 @@ BUILD = "$verDate+$gitHash"
 $runPy = Join-Path $root "run.py"
 $toolsDir = Join-Path $root "tools"
 
-# Default onefile temp is fine; run.py relocates Tcl/Tk out of WINDOWS\TEMP
-python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name QtArm64Cross --distpath $root --workpath (Join-Path $root "build\pyi") --specpath (Join-Path $root "build") --add-data ($tcl + ";_tcl_data") --add-data ($tk + ";_tk_data") --add-data ($toolsDir + ";tools") $runPy
+python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx `
+  --name QtArm64Cross `
+  --distpath $root `
+  --workpath (Join-Path $root "build\pyi") `
+  --specpath (Join-Path $root "build") `
+  --collect-all PySide6 `
+  --hidden-import gui.app `
+  --hidden-import gui.theme `
+  --add-data ($toolsDir + ";tools") `
+  $runPy
 
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller exit $LASTEXITCODE" }
 $exe = Join-Path $root "QtArm64Cross.exe"
@@ -50,9 +52,7 @@ function Invoke-Smoke([string]$ExePath, [string]$WorkDir) {
   if ($p.ExitCode -ne 0) { throw "smoke exit $($p.ExitCode) for $ExePath" }
   if (-not (Test-Path $mark)) { throw "smoke mark missing for $ExePath" }
   $txt = (Get-Content $mark -Raw).Trim()
-  if ($txt -notmatch 'TK_OK') { throw "smoke content bad: $txt" }
-  # Must not keep using WINDOWS\TEMP as TCL_LIBRARY
-  if ($txt -match 'TCL_LIBRARY=.*\\WINDOWS\\TEMP\\') { throw "TCL still in WINDOWS\TEMP: $txt" }
+  if ($txt -notmatch 'QT_OK') { throw "smoke content bad: $txt" }
   Write-Host $txt
   Remove-Item -Force $mark -ErrorAction SilentlyContinue
 }
@@ -67,7 +67,6 @@ Copy-Item $exe (Join-Path $tmp "QtArm64Cross.exe")
 Invoke-Smoke (Join-Path $tmp "QtArm64Cross.exe") $tmp
 try { Remove-Item -Recurse -Force $tmp -ErrorAction Stop } catch { Write-Host "cleanup tmp skipped" }
 
-# GUI process should stay up without error dialog (best-effort: alive > 3s)
 Write-Host "=== gui launch ==="
 $g = Start-Process -FilePath $exe -PassThru -WorkingDirectory $root
 Start-Sleep -Seconds 4

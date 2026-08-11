@@ -1,517 +1,202 @@
-"""界面视觉：浅色工装风 + 青绿强调（参考现代桌面工具的 airy + teal）。"""
+"""深色 Fluent 风格 QSS（对齐 AI Studio 设计稿）。"""
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
-
-
-# 色板：冷灰底 + 青绿主色，避免紫/奶油/厚重阴影
 C = {
-    "bg": "#EEF2F6",
-    "surface": "#FFFFFF",
-    "surface2": "#F7FAFC",
-    "border": "#D8E0EA",
-    "border_strong": "#C5D0DE",
-    "text": "#0F1C2E",
-    "muted": "#5B6B7C",
-    "primary": "#0F766E",
-    "primary_hover": "#0D9488",
-    "primary_fg": "#FFFFFF",
-    "accent_soft": "#CCFBF1",
-    "ok": "#15803D",
-    "warn": "#B45309",
-    "err": "#B91C1C",
-    "idle": "#94A3B8",
-    "log_bg": "#0F172A",
-    "log_fg": "#E2E8F0",
-    "log_border": "#1E293B",
-    "header_top": "#0F766E",
-    "header_bot": "#134E4A",
+    "bg": "#0b0f19",
+    "surface": "#111827",
+    "surface2": "#1e293b",
+    "border": "#334155",
+    "border_active": "#14b8a6",
+    "text": "#f1f5f9",
+    "muted": "#94a3b8",
+    "primary": "#10b981",
+    "primary_hover": "#34d399",
+    "accent": "#14b8a6",
+    "ok": "#34d399",
+    "warn": "#fbbf24",
+    "err": "#f87171",
+    "idle": "#64748b",
+    "log_bg": "#020617",
+    "log_fg": "#e2e8f0",
 }
 
 
-def pick_font(prefer: list[str], size: int, weight: str = "normal") -> tuple:
-    """选本机已有字体；中文界面优先黑体族。"""
-    try:
-        from tkinter import font as tkfont
-
-        families = {n.lower() for n in tkfont.families()}
-        for name in prefer:
-            if name.lower() in families:
-                return (name, size, weight)
-    except Exception:
-        pass
-    return (prefer[-1] if prefer else "Segoe UI", size, weight)
-
-
-def ui_font(size: int = 10, weight: str = "normal") -> tuple:
-    return pick_font(["Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI"], size, weight)
-
-
-def mono_font(size: int = 9) -> tuple:
-    return pick_font(["Cascadia Mono", "Consolas", "Courier New"], size, "normal")
-
-
-def apply_theme(root: tk.Tk) -> ttk.Style:
-    root.configure(bg=C["bg"])
-    style = ttk.Style(root)
-    try:
-        style.theme_use("clam")
-    except tk.TclError:
-        pass
-
-    style.configure(".", background=C["bg"], foreground=C["text"], font=ui_font(10))
-    style.configure("TFrame", background=C["bg"])
-    style.configure("Card.TFrame", background=C["surface"])
-    style.configure("Header.TFrame", background=C["header_top"])
-    style.configure("TLabel", background=C["bg"], foreground=C["text"], font=ui_font(10))
-    style.configure("Card.TLabel", background=C["surface"], foreground=C["text"], font=ui_font(10))
-    style.configure("Muted.TLabel", background=C["surface"], foreground=C["muted"], font=ui_font(9))
-    style.configure("Title.TLabel", background=C["header_top"], foreground="#FFFFFF", font=ui_font(16, "bold"))
-    style.configure("Sub.TLabel", background=C["header_top"], foreground="#CCFBF1", font=ui_font(9))
-    style.configure("Section.TLabel", background=C["surface"], foreground=C["primary"], font=ui_font(10, "bold"))
-    style.configure("Status.TLabel", background=C["bg"], foreground=C["muted"], font=ui_font(9))
-
-    style.configure(
-        "Card.TLabelframe",
-        background=C["surface"],
-        foreground=C["primary"],
-        bordercolor=C["border"],
-        relief="solid",
-        borderwidth=1,
-    )
-    style.configure(
-        "Card.TLabelframe.Label",
-        background=C["surface"],
-        foreground=C["primary"],
-        font=ui_font(10, "bold"),
-    )
-
-    style.configure(
-        "TEntry",
-        fieldbackground=C["surface2"],
-        foreground=C["text"],
-        bordercolor=C["border"],
-        lightcolor=C["border"],
-        darkcolor=C["border"],
-        insertcolor=C["text"],
-        padding=6,
-    )
-    style.map("TEntry", bordercolor=[("focus", C["primary"])])
-
-    style.configure(
-        "TCombobox",
-        fieldbackground=C["surface2"],
-        background=C["surface2"],
-        foreground=C["text"],
-        arrowcolor=C["primary"],
-        padding=5,
-    )
-    style.map(
-        "TCombobox",
-        fieldbackground=[("readonly", C["surface2"])],
-        selectbackground=[("readonly", C["accent_soft"])],
-    )
-
-    style.configure(
-        "TSpinbox",
-        fieldbackground=C["surface2"],
-        foreground=C["text"],
-        padding=4,
-        arrowcolor=C["primary"],
-    )
-
-    style.configure(
-        "TButton",
-        background=C["surface"],
-        foreground=C["text"],
-        bordercolor=C["border_strong"],
-        lightcolor=C["surface"],
-        darkcolor=C["border_strong"],
-        focusthickness=1,
-        focuscolor=C["accent_soft"],
-        padding=(12, 7),
-        font=ui_font(9),
-        relief="raised",
-    )
-    style.map(
-        "TButton",
-        background=[
-            ("pressed", "#99F6E4"),
-            ("active", C["accent_soft"]),
-            ("disabled", C["surface2"]),
-        ],
-        foreground=[("pressed", C["header_bot"]), ("active", C["primary"])],
-        bordercolor=[("pressed", C["primary"]), ("active", C["primary"])],
-        lightcolor=[("pressed", C["primary"]), ("active", C["accent_soft"])],
-        darkcolor=[("pressed", C["header_bot"]), ("active", C["primary"])],
-        relief=[("pressed", "sunken"), ("!pressed", "raised")],
-    )
-
-    style.configure(
-        "Primary.TButton",
-        background=C["primary"],
-        foreground=C["primary_fg"],
-        bordercolor=C["header_bot"],
-        lightcolor=C["primary_hover"],
-        darkcolor=C["header_bot"],
-        padding=(18, 9),
-        font=ui_font(10, "bold"),
-        relief="raised",
-    )
-    style.map(
-        "Primary.TButton",
-        background=[
-            ("pressed", C["header_bot"]),
-            ("active", C["primary_hover"]),
-            ("disabled", "#94A3B8"),
-        ],
-        foreground=[("disabled", "#E2E8F0")],
-        bordercolor=[("pressed", "#042F2E"), ("active", C["header_bot"])],
-        relief=[("pressed", "sunken"), ("!pressed", "raised")],
-    )
-
-    style.configure(
-        "Accent.TButton",
-        background=C["accent_soft"],
-        foreground=C["primary"],
-        bordercolor=C["primary"],
-        lightcolor="#E6FFFB",
-        darkcolor=C["primary"],
-        padding=(12, 7),
-        font=ui_font(9, "bold"),
-        relief="raised",
-    )
-    style.map(
-        "Accent.TButton",
-        background=[
-            ("pressed", C["primary"]),
-            ("active", "#99F6E4"),
-            ("disabled", C["surface2"]),
-        ],
-        foreground=[
-            ("pressed", "#FFFFFF"),
-            ("active", C["header_bot"]),
-            ("disabled", C["muted"]),
-        ],
-        bordercolor=[("pressed", C["header_bot"]), ("active", C["primary"])],
-        relief=[("pressed", "sunken"), ("!pressed", "raised")],
-    )
-
-    style.configure("TCheckbutton", background=C["surface"], foreground=C["text"], font=ui_font(9))
-    style.configure("TRadiobutton", background=C["surface"], foreground=C["text"], font=ui_font(9))
-    style.configure("TMenubutton", background=C["surface"], foreground=C["text"], padding=(10, 6))
-    style.configure(
-        "Horizontal.TScrollbar",
-        background=C["border"],
-        troughcolor=C["surface2"],
-        bordercolor=C["border"],
-        arrowcolor=C["muted"],
-    )
-    style.configure(
-        "Vertical.TScrollbar",
-        background=C["border"],
-        troughcolor=C["surface2"],
-        bordercolor=C["border"],
-        arrowcolor=C["muted"],
-    )
-    style.configure(
-        "Busy.Horizontal.TProgressbar",
-        troughcolor=C["surface2"],
-        background=C["primary"],
-        bordercolor=C["border"],
-        lightcolor=C["primary_hover"],
-        darkcolor=C["header_bot"],
-    )
-    return style
+APP_QSS = f"""
+QWidget {{
+    background-color: {C["bg"]};
+    color: {C["text"]};
+    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    font-size: 13px;
+}}
+QMainWindow, QDialog {{
+    background-color: {C["bg"]};
+}}
+QLabel#Title {{
+    font-size: 17px;
+    font-weight: 700;
+}}
+QLabel#Subtitle {{
+    color: {C["muted"]};
+    font-size: 12px;
+}}
+QLabel#Muted {{
+    color: {C["muted"]};
+    font-size: 12px;
+}}
+QLabel#CardTitle {{
+    font-weight: 600;
+    font-size: 13px;
+}}
+QFrame#Card {{
+    background-color: {C["surface"]};
+    border: 1px solid {C["border"]};
+    border-radius: 12px;
+}}
+QFrame#Header {{
+    background-color: {C["surface"]};
+    border-bottom: 1px solid {C["border"]};
+}}
+QFrame#StepActive {{
+    background-color: {C["surface2"]};
+    border: 1px solid {C["border_active"]};
+    border-radius: 12px;
+}}
+QFrame#StepIdle {{
+    background-color: rgba(15, 23, 42, 0.6);
+    border: 1px solid {C["border"]};
+    border-radius: 12px;
+}}
+QLineEdit, QComboBox, QSpinBox {{
+    background-color: {C["surface2"]};
+    border: 1px solid {C["border"]};
+    border-radius: 8px;
+    padding: 7px 10px;
+    selection-background-color: {C["accent"]};
+    min-height: 18px;
+}}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{
+    border: 1px solid {C["accent"]};
+}}
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {{
+    color: {C["idle"]};
+    background-color: #0f172a;
+}}
+QComboBox::drop-down {{
+    border: none;
+    width: 28px;
+}}
+QComboBox QAbstractItemView {{
+    background-color: {C["surface2"]};
+    border: 1px solid {C["border"]};
+    selection-background-color: {C["accent"]};
+}}
+QCheckBox {{
+    spacing: 8px;
+}}
+QCheckBox::indicator {{
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid {C["border"]};
+    background: {C["surface2"]};
+}}
+QCheckBox::indicator:checked {{
+    background: {C["primary"]};
+    border-color: {C["primary"]};
+}}
+QCheckBox:disabled {{
+    color: {C["idle"]};
+}}
+QPushButton {{
+    background-color: {C["surface2"]};
+    border: 1px solid {C["border"]};
+    border-radius: 9px;
+    padding: 8px 14px;
+    min-height: 20px;
+}}
+QPushButton:hover {{
+    border-color: {C["accent"]};
+    background-color: #243044;
+}}
+QPushButton:disabled {{
+    color: {C["idle"]};
+    background-color: #1a2332;
+    border-color: #2a3548;
+}}
+QPushButton#Primary {{
+    background-color: {C["primary"]};
+    color: #04140f;
+    border: none;
+    font-weight: 700;
+    padding: 10px 22px;
+}}
+QPushButton#Primary:hover {{
+    background-color: {C["primary_hover"]};
+}}
+QPushButton#Primary:disabled {{
+    background-color: #1f3a32;
+    color: #64748b;
+}}
+QPushButton#Accent {{
+    background-color: rgba(20, 184, 166, 0.15);
+    color: {C["accent"]};
+    border: 1px solid rgba(20, 184, 166, 0.45);
+}}
+QPushButton#Ghost {{
+    background-color: transparent;
+    border: 1px solid {C["border"]};
+}}
+QTextEdit#Log {{
+    background-color: {C["log_bg"]};
+    color: {C["log_fg"]};
+    border: 1px solid {C["border"]};
+    border-radius: 10px;
+    padding: 8px;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 12px;
+}}
+QProgressBar {{
+    border: none;
+    background: {C["surface2"]};
+    border-radius: 4px;
+    height: 6px;
+    text-align: center;
+}}
+QProgressBar::chunk {{
+    background-color: {C["accent"]};
+    border-radius: 4px;
+}}
+QScrollArea {{
+    border: none;
+    background: transparent;
+}}
+QScrollBar:vertical {{
+    background: transparent;
+    width: 10px;
+    margin: 2px;
+}}
+QScrollBar::handle:vertical {{
+    background: #475569;
+    border-radius: 4px;
+    min-height: 30px;
+}}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+    height: 0;
+}}
+QStatusBar {{
+    background: {C["surface"]};
+    border-top: 1px solid {C["border"]};
+    color: {C["muted"]};
+}}
+QToolTip {{
+    background-color: {C["surface2"]};
+    color: {C["text"]};
+    border: 1px solid {C["border"]};
+    padding: 4px;
+}}
+"""
 
 
-def card(parent: tk.Misc, title: str) -> ttk.LabelFrame:
-    box = ttk.LabelFrame(parent, text=f"  {title}  ", style="Card.TLabelframe", padding=(14, 10))
-    return box
-
-
-def check_button(parent: tk.Misc, text: str, variable: tk.BooleanVar, *, bg: str | None = None) -> tk.Frame:
-    """勾选显示对号（clam 主题默认是 Motif 风格的「×」，容易误解）。"""
-    bg = bg or C["surface"]
-    row = tk.Frame(parent, bg=bg, cursor="hand2")
-    box = tk.Label(
-        row,
-        text="",
-        width=2,
-        bg=C["surface2"],
-        fg="#FFFFFF",
-        font=ui_font(9, "bold"),
-        relief="flat",
-        bd=0,
-        highlightthickness=1,
-        highlightbackground=C["border_strong"],
-        highlightcolor=C["primary"],
-        padx=1,
-        pady=0,
-    )
-    box.pack(side=tk.LEFT)
-    lab = tk.Label(row, text=text, bg=bg, fg=C["text"], font=ui_font(9))
-    lab.pack(side=tk.LEFT, padx=(6, 0))
-
-    def paint(*_a) -> None:
-        on = bool(variable.get())
-        box.configure(
-            text="✓" if on else "",
-            bg=C["primary"] if on else C["surface2"],
-            highlightbackground=C["primary"] if on else C["border_strong"],
-        )
-
-    def toggle(_e=None) -> None:
-        variable.set(not bool(variable.get()))
-
-    for w in (row, box, lab):
-        w.bind("<Button-1>", toggle)
-    variable.trace_add("write", paint)
-    paint()
-    return row
-
-
-def action_button(parent: tk.Misc, text: str, command, *, variant: str = "normal") -> tk.Button:
-    """带 hover / 按下 / 松开视觉反馈的按钮（比 ttk 在 Windows 上更可靠）。"""
-    palettes = {
-        "normal": {
-            "bg": C["surface"],
-            "fg": C["text"],
-            "hover": C["accent_soft"],
-            "press": "#99F6E4",
-            "press_fg": C["header_bot"],
-            "bd": C["border_strong"],
-        },
-        "primary": {
-            "bg": C["primary"],
-            "fg": C["primary_fg"],
-            "hover": C["primary_hover"],
-            "press": C["header_bot"],
-            "press_fg": "#FFFFFF",
-            "bd": C["header_bot"],
-        },
-        "accent": {
-            "bg": C["accent_soft"],
-            "fg": C["primary"],
-            "hover": "#99F6E4",
-            "press": C["primary"],
-            "press_fg": "#FFFFFF",
-            "bd": C["primary"],
-        },
-    }
-    p = palettes.get(variant, palettes["normal"])
-    # 禁用：浅底 + 灰字，避免主色按钮灰字叠青绿（对比差、也和次要按钮不一致）
-    dis_bg, dis_fg, dis_bd = C["surface2"], C["muted"], C["border"]
-    btn = tk.Button(
-        parent,
-        text=text,
-        command=command,
-        bg=p["bg"],
-        fg=p["fg"],
-        activebackground=p["press"],
-        activeforeground=p["press_fg"],
-        disabledforeground=dis_fg,
-        relief="flat",
-        bd=1,
-        highlightthickness=1,
-        highlightbackground=p["bd"],
-        highlightcolor=p["bd"],
-        padx=14,
-        pady=6,
-        font=ui_font(9, "bold" if variant != "normal" else "normal"),
-        cursor="hand2",
-    )
-
-    def paint_enabled(enabled: bool) -> None:
-        if enabled:
-            btn.configure(
-                state=tk.NORMAL,
-                bg=p["bg"],
-                fg=p["fg"],
-                highlightbackground=p["bd"],
-                cursor="hand2",
-            )
-        else:
-            btn.configure(
-                state=tk.DISABLED,
-                bg=dis_bg,
-                fg=dis_fg,
-                highlightbackground=dis_bd,
-                cursor="arrow",
-            )
-
-    btn._paint_enabled = paint_enabled  # type: ignore[attr-defined]
-
-    def enter(_e=None):
-        if str(btn["state"]) == "disabled":
-            return
-        btn.configure(bg=p["hover"], fg=p["fg"] if variant != "accent" else C["header_bot"])
-
-    def leave(_e=None):
-        if str(btn["state"]) == "disabled":
-            paint_enabled(False)
-            return
-        btn.configure(bg=p["bg"], fg=p["fg"])
-
-    def press(_e=None):
-        if str(btn["state"]) == "disabled":
-            return
-        btn.configure(bg=p["press"], fg=p["press_fg"], relief="sunken")
-
-    def release(_e=None):
-        if str(btn["state"]) == "disabled":
-            return
-        btn.configure(relief="flat")
-        # 仍在按钮上则回到 hover，否则还原
-        try:
-            x, y = btn.winfo_pointerxy()
-            wx, wy = btn.winfo_rootx(), btn.winfo_rooty()
-            inside = wx <= x <= wx + btn.winfo_width() and wy <= y <= wy + btn.winfo_height()
-        except tk.TclError:
-            inside = False
-        if inside:
-            enter()
-        else:
-            leave()
-
-    btn.bind("<Enter>", enter)
-    btn.bind("<Leave>", leave)
-    btn.bind("<ButtonPress-1>", press)
-    btn.bind("<ButtonRelease-1>", release)
-    return btn
-
-
-def primary_button(parent: tk.Misc, text: str, command) -> tk.Button:
-    return action_button(parent, text, command, variant="primary")
-
-
-class EqualTabs:
-    """等宽分段页签（避开 ttk.Notebook 选中态高低不一）。"""
-
-    def __init__(self, parent: tk.Misc, labels: list[str]) -> None:
-        self._idx = 0
-        self._btns: list[tk.Label] = []
-        self._pages: list[ttk.Frame] = []
-
-        self.bar = tk.Frame(parent, bg=C["bg"])
-        self.bar.pack(fill=tk.X, padx=2, pady=(0, 8))
-        rail = tk.Frame(self.bar, bg=C["border"], padx=1, pady=1)
-        rail.pack(anchor=tk.W)
-
-        self.host = ttk.Frame(parent, style="TFrame")
-        self.host.pack(fill=tk.BOTH, expand=True)
-
-        cell_w = max(8, max(len(t) for t in labels) + 2)
-        for i, text in enumerate(labels):
-            btn = tk.Label(
-                rail,
-                text=text,
-                width=cell_w,
-                anchor=tk.CENTER,
-                bg=C["surface2"],
-                fg=C["muted"],
-                font=ui_font(10),
-                padx=4,
-                pady=8,
-                cursor="hand2",
-            )
-            btn.pack(side=tk.LEFT)
-            btn.bind("<Button-1>", lambda _e, n=i: self.select(n))
-            self._btns.append(btn)
-
-            page = ttk.Frame(self.host, style="TFrame")
-            page.place(relx=0, rely=0, relwidth=1, relheight=1)
-            self._pages.append(page)
-
-        self.select(0)
-
-    def page(self, index: int) -> ttk.Frame:
-        return self._pages[index]
-
-    def select(self, index: int) -> None:
-        self._idx = index
-        for i, (btn, page) in enumerate(zip(self._btns, self._pages)):
-            on = i == index
-            btn.configure(
-                bg=C["surface"] if on else C["surface2"],
-                fg=C["primary"] if on else C["muted"],
-                font=ui_font(10, "bold" if on else "normal"),
-            )
-            if on:
-                page.lift()
-
-    def select_by_widget(self, widget: tk.Misc) -> None:
-        """兼容旧 Notebook.select(0) 写法：传页 frame 或下标。"""
-        if isinstance(widget, int):
-            self.select(widget)
-            return
-        for i, p in enumerate(self._pages):
-            if p is widget:
-                self.select(i)
-                return
-
-
-def make_scrollable(parent: tk.Misc):
-    """可垂直滚动的内容区。内容装得下时自动隐藏滚动条。返回 (inner_frame, sync_scroll)。"""
-    wrap = ttk.Frame(parent, style="TFrame")
-    wrap.pack(fill=tk.BOTH, expand=True)
-    canvas = tk.Canvas(wrap, bg=C["bg"], highlightthickness=0, bd=0)
-    vsb = ttk.Scrollbar(wrap, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=vsb.set)
-    # 默认不显示滚动条，避免内容很少时右侧仍占一条灰槽
-    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    vsb._shown = False  # type: ignore[attr-defined]
-
-    inner = ttk.Frame(canvas, style="TFrame")
-    win = canvas.create_window((0, 0), window=inner, anchor="nw")
-
-    def _sync_scroll(_event=None) -> None:
-        canvas.update_idletasks()
-        bbox = canvas.bbox("all")
-        if not bbox:
-            canvas.configure(scrollregion=(0, 0, 0, 0))
-            if getattr(vsb, "_shown", False):
-                vsb.pack_forget()
-                vsb._shown = False  # type: ignore[attr-defined]
-            return
-        content_h = bbox[3] - bbox[1]
-        view_h = max(int(canvas.winfo_height()), 1)
-        need = content_h > view_h + 2
-        if need:
-            canvas.configure(scrollregion=bbox)
-            if not getattr(vsb, "_shown", False):
-                # 先收起 canvas，再右条左内容，避免条叠在内容上
-                canvas.pack_forget()
-                vsb.pack(side=tk.RIGHT, fill=tk.Y)
-                canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-                vsb._shown = True  # type: ignore[attr-defined]
-        else:
-            canvas.configure(scrollregion=(0, 0, bbox[2], view_h))
-            canvas.yview_moveto(0)
-            if getattr(vsb, "_shown", False):
-                vsb.pack_forget()
-                vsb._shown = False  # type: ignore[attr-defined]
-
-    def _sync_width(event) -> None:
-        canvas.itemconfigure(win, width=event.width)
-        _sync_scroll()
-
-    inner.bind("<Configure>", _sync_scroll)
-    canvas.bind("<Configure>", _sync_width)
-
-    def _wheel(event) -> None:
-        if not getattr(vsb, "_shown", False):
-            return
-        if event.delta:
-            canvas.yview_scroll(int(-event.delta / 120), "units")
-
-    def _bind_wheel(_e=None) -> None:
-        canvas.bind_all("<MouseWheel>", _wheel)
-
-    def _unbind_wheel(_e=None) -> None:
-        canvas.unbind_all("<MouseWheel>")
-
-    canvas.bind("<Enter>", _bind_wheel)
-    canvas.bind("<Leave>", _unbind_wheel)
-    return inner, _sync_scroll
+def apply_theme(app) -> None:
+    app.setStyle("Fusion")
+    app.setStyleSheet(APP_QSS)
