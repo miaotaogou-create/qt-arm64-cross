@@ -50,8 +50,136 @@ QLabel#CardTitle {{
 QFrame#Card {{
     background-color: {C["surface"]};
     border: 1px solid {C["border"]};
+    border-radius: 14px;
+}}
+QLabel#CardHeadTitle {{
+    font-size: 13px;
+    font-weight: 700;
+    color: {C["text"]};
+}}
+QLabel#CardHeadRight {{
+    font-size: 11px;
+    color: {C["muted"]};
+}}
+QFrame#CardDivider, QFrame#SpecDivider {{
+    background-color: {C["border"]};
+    border: none;
+    max-height: 1px;
+}}
+QLabel#FormSectionLabel {{
+    color: {C["muted"]};
+    font-size: 12px;
+    font-weight: 500;
+    padding-bottom: 2px;
+}}
+QFrame#PresetCard {{
+    background-color: rgba(30, 41, 59, 0.55);
+    border: 1px solid {C["border"]};
     border-radius: 12px;
 }}
+QFrame#PresetCard:hover {{
+    background-color: #1e293b;
+}}
+QFrame#PresetCardActive {{
+    background-color: rgba(19, 78, 74, 0.35);
+    border: 1px solid rgba(20, 184, 166, 0.65);
+    border-radius: 12px;
+}}
+QLabel#PresetTitle {{
+    font-size: 12px;
+    font-weight: 700;
+    color: {C["text"]};
+}}
+QLabel#PresetMeta {{
+    font-size: 11px;
+    color: {C["muted"]};
+}}
+QLabel#PresetTag {{
+    font-size: 10px;
+    color: #cbd5e1;
+    background-color: #334155;
+    border-radius: 4px;
+    padding: 2px 6px;
+}}
+QLabel#PresetTagActive {{
+    font-size: 10px;
+    color: #042f2e;
+    background-color: {C["accent"]};
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-weight: 600;
+}}
+QLabel#SpecKey {{
+    color: {C["muted"]};
+    font-size: 12px;
+}}
+QLabel#SpecVal {{
+    color: {C["text"]};
+    font-size: 12px;
+    font-family: Consolas, "Cascadia Mono", monospace;
+}}
+QLabel#SpecValAccent {{
+    color: {C["accent"]};
+    font-size: 12px;
+    font-weight: 600;
+    font-family: Consolas, "Cascadia Mono", monospace;
+}}
+QLabel#SpecValOk {{
+    color: {C["ok"]};
+    font-size: 12px;
+    font-weight: 600;
+}}
+QLineEdit#PathEdit {{
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 12px;
+    padding-left: 10px;
+}}
+QPushButton#EnvPrimary {{
+    background-color: #0d9488;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 12px;
+}}
+QPushButton#EnvPrimary:hover {{
+    background-color: #14b8a6;
+}}
+QPushButton#EnvPrimary:disabled {{
+    background-color: #1f3a3a;
+    color: #64748b;
+}}
+QPushButton#EnvGhost {{
+    background-color: {C["surface2"]};
+    border: 1px solid {C["border"]};
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 12px;
+}}
+QPushButton#EnvAccent {{
+    background-color: rgba(20, 184, 166, 0.12);
+    color: {C["accent"]};
+    border: 1px solid rgba(20, 184, 166, 0.4);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 12px;
+}}
+QFrame#ScratchCard {{
+    background-color: {C["surface"]};
+    border: 1px solid {C["border"]};
+    border-radius: 14px;
+}}
+QToolButton#ScratchToggle {{
+    background: transparent;
+    border: none;
+    color: {C["text"]};
+    font-weight: 700;
+    font-size: 12px;
+    padding: 0;
+    text-align: left;
+}}
+
 QFrame#Chrome {{
     background-color: {C["surface"]};
     border-bottom: 1px solid {C["border"]};

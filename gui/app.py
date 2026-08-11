@@ -37,6 +37,12 @@ from crosskit import build as buildmod
 from crosskit import detect, envpack, jobs, netip, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
 from gui.chrome import EdgeResizer, TitleChrome
+from gui.env_panel import (
+    build_preset_row,
+    build_toolchain_specs,
+    card_header,
+    form_label,
+)
 from gui.theme import C, apply_theme
 
 ENV_RELEASE_URL = "https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/env-ubuntu-20.04"
@@ -421,38 +427,57 @@ class MainWindow(QMainWindow):
         lay.addWidget(hero)
 
         body = QHBoxLayout()
-        body.setSpacing(12)
+        body.setSpacing(14)
         left = QVBoxLayout()
-        left.setSpacing(10)
+        left.setSpacing(12)
         right = QVBoxLayout()
-        right.setSpacing(10)
+        right.setSpacing(12)
 
-        envp, env_lay = _card("交叉编译环境包")
+        # —— 左：交叉编译环境包（对齐设计稿）——
+        envp = QFrame()
+        envp.setObjectName("Card")
+        env_lay = QVBoxLayout(envp)
+        env_lay.setContentsMargins(16, 14, 16, 16)
+        env_lay.setSpacing(14)
+        env_lay.addWidget(card_header("▣", "交叉编译环境包 (WSL Distro)", "Windows Subsystem for Linux"))
+
+        env_lay.addWidget(form_label("快捷选择预设发行版 (Distro Presets)"))
+        preset_row, self._preset_cards = build_preset_row(self._on_preset_picked)
+        env_lay.addWidget(preset_row)
+        self._sync_preset_selection(self._distro_text())
+
+        env_lay.addWidget(form_label("WSL 安装目录 (Install Path)"))
         row0 = QHBoxLayout()
-        row0.addWidget(_field_label("安装目录"))
+        row0.setSpacing(8)
         self.ed_env_install = QLineEdit(self._env_install_dir)
+        self.ed_env_install.setObjectName("PathEdit")
+        self.ed_env_install.setPlaceholderText(r"C:\Users\...\AppData\Local\WSL\Ubuntu-20.04")
         self.ed_env_install.textChanged.connect(lambda t: self._on_field("env_install", t))
         self._track_form(self.ed_env_install)
         row0.addWidget(self.ed_env_install, 1)
-        b_br = _btn("浏览…")
+        b_br = QPushButton("浏览...")
+        b_br.setObjectName("EnvGhost")
+        b_br.setCursor(Qt.CursorShape.PointingHandCursor)
         b_br.clicked.connect(self._browse_env_install)
         row0.addWidget(b_br)
         env_lay.addLayout(row0)
 
+        env_lay.addWidget(form_label("发行版注册标识 (Distro Name)"))
         row1 = QHBoxLayout()
-        row1.addWidget(_field_label("发行版名"))
+        row1.setSpacing(10)
         self.ed_distro = QLineEdit(self._distro)
-        self.ed_distro.textChanged.connect(lambda t: self._on_field("distro", t))
+        self.ed_distro.setObjectName("PathEdit")
+        self.ed_distro.textChanged.connect(self._on_distro_edited)
         self._track_form(self.ed_distro)
         row1.addWidget(self.ed_distro, 1)
-        hint = QLabel("一般保持 Ubuntu-20.04")
+        hint = QLabel("提示：默认保持为 Ubuntu-20.04")
         hint.setObjectName("Muted")
         row1.addWidget(hint)
         env_lay.addLayout(row1)
 
         opts = QHBoxLayout()
-        opts.addSpacing(76)
-        self.chk_env_slim = QCheckBox("导出时去掉 Qt 源码缓存")
+        opts.setSpacing(18)
+        self.chk_env_slim = QCheckBox("导出环境包时自动清除 Qt 源码构建缓存")
         self.chk_env_slim.setChecked(self._env_slim)
         self.chk_env_slim.toggled.connect(lambda v: self._on_field("env_slim", v))
         self._track_form(self.chk_env_slim)
@@ -466,19 +491,27 @@ class MainWindow(QMainWindow):
         env_lay.addLayout(opts)
 
         brow = QHBoxLayout()
-        brow.addSpacing(76)
-        b_imp = _btn("一键导入环境包…", "Primary")
+        brow.setSpacing(8)
+        b_imp = QPushButton("↑  一键导入环境包 (.tar.gz)")
+        b_imp.setObjectName("EnvPrimary")
+        b_imp.setCursor(Qt.CursorShape.PointingHandCursor)
         b_imp.clicked.connect(self._on_import_env)
         self._track_action(b_imp)
         brow.addWidget(b_imp)
-        self._btn_download = _btn("下载环境包", "Accent")
+        self._btn_download = QPushButton("↓  下载预制环境包")
+        self._btn_download.setObjectName("EnvAccent")
+        self._btn_download.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_download.clicked.connect(self._open_env_release)
         brow.addWidget(self._btn_download)
-        b_det = _btn("检测环境")
+        b_det = QPushButton("↻  检测环境")
+        b_det.setObjectName("EnvGhost")
+        b_det.setCursor(Qt.CursorShape.PointingHandCursor)
         b_det.clicked.connect(lambda: self._on_detect(False))
         self._track_action(b_det)
         brow.addWidget(b_det)
-        b_exp = _btn("导出…")
+        b_exp = QPushButton("⇪  导出环境...")
+        b_exp.setObjectName("EnvGhost")
+        b_exp.setCursor(Qt.CursorShape.PointingHandCursor)
         b_exp.clicked.connect(self._on_export_env)
         self._track_action(b_exp)
         brow.addWidget(b_exp)
@@ -486,59 +519,66 @@ class MainWindow(QMainWindow):
         env_lay.addLayout(brow)
         left.addWidget(envp)
 
+        # —— 右：工具链明细 + 从零搭建 + 检测结果 ——
+        right.addWidget(build_toolchain_specs())
+
+        scratch = QFrame()
+        scratch.setObjectName("ScratchCard")
+        sc_outer = QVBoxLayout(scratch)
+        sc_outer.setContentsMargins(16, 14, 16, 14)
+        sc_outer.setSpacing(8)
+        head = QHBoxLayout()
         self._scratch_btn = QToolButton()
-        self._scratch_btn.setText("从零搭建 ▸")
-        self._scratch_btn.setObjectName("Accent")
+        self._scratch_btn.setText("✦  无现有环境包？从零搭建向导  ▸")
+        self._scratch_btn.setObjectName("ScratchToggle")
         self._scratch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._scratch_btn.clicked.connect(self._toggle_scratch)
-        left.addWidget(self._scratch_btn, 0, Qt.AlignmentFlag.AlignLeft)
-
+        head.addWidget(self._scratch_btn, 1)
+        sc_outer.addLayout(head)
+        tip2 = QLabel("无需现成环境包时，可配置全新 WSL 实例并编译 Qt 5.14.2 ARM64 工具链。")
+        tip2.setObjectName("Muted")
+        tip2.setWordWrap(True)
+        sc_outer.addWidget(tip2)
         self._scratch = QWidget()
         self._scratch.setVisible(False)
         sc_lay = QVBoxLayout(self._scratch)
-        sc_lay.setContentsMargins(0, 0, 0, 0)
-        rare, rare_lay = _card("从零搭建")
-        tip2 = QLabel("无现成环境包、或要本机重编工具链/Qt 时再用。有包请直接导入。")
-        tip2.setObjectName("Muted")
-        tip2.setWordWrap(True)
-        rare_lay.addWidget(tip2)
-        r2 = QHBoxLayout()
-        b_tc = _btn("安装工具链")
-        b_tc.clicked.connect(lambda: self._on_install("setup_cross_focal.sh"))
-        self._track_action(b_tc)
-        r2.addWidget(b_tc)
-        b_qt = _btn("编译 Qt 5.14.2")
-        b_qt.clicked.connect(lambda: self._on_install("build_qt5142_arm64_cross.sh"))
-        self._track_action(b_qt)
-        r2.addWidget(b_qt)
-        r2.addStretch(1)
-        rare_lay.addLayout(r2)
-        sc_lay.addWidget(rare)
-        left.addWidget(self._scratch)
-        left.addStretch(1)
-
-        tool, tool_lay = _card("工具链及 SYSROOT 明细")
-        for k, v in (
-            ("目标架构", "Linux ARM64 (aarch64)"),
-            ("交叉编译器", "aarch64-linux-gnu-gcc 9.4"),
-            ("Qt 目标库", "Qt 5.14.2"),
-            ("配套工具", "readelf / pkg-config / ccache"),
+        sc_lay.setContentsMargins(0, 6, 0, 0)
+        sc_lay.setSpacing(8)
+        for title, sub, script, btn_text in (
+            ("步骤 1: 安装 aarch64 基础工具链", "gcc-aarch64-linux-gnu, g++-aarch64", "setup_cross_focal.sh", "安装工具链"),
+            ("步骤 2: 自动编译 Qt 5.14.2 ARM64", "交叉编译 Qt5 源码并配置 mkspecs", "build_qt5142_arm64_cross.sh", "编译 Qt 5.14.2"),
         ):
-            row = QHBoxLayout()
-            kk = QLabel(k)
-            kk.setObjectName("FieldLabel")
-            kk.setFixedWidth(72)
-            vv = QLabel(v)
-            row.addWidget(kk)
-            row.addWidget(vv, 1)
-            tool_lay.addLayout(row)
-        right.addWidget(tool)
+            step = QFrame()
+            step.setObjectName("PresetCard")
+            sl = QHBoxLayout(step)
+            sl.setContentsMargins(12, 10, 12, 10)
+            texts = QVBoxLayout()
+            t1 = QLabel(title)
+            t1.setObjectName("PresetTitle")
+            t2 = QLabel(sub)
+            t2.setObjectName("PresetMeta")
+            texts.addWidget(t1)
+            texts.addWidget(t2)
+            sl.addLayout(texts, 1)
+            b = QPushButton(btn_text)
+            b.setObjectName("EnvGhost")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.clicked.connect(lambda _=False, s=script: self._on_install(s))
+            self._track_action(b)
+            sl.addWidget(b)
+            sc_lay.addWidget(step)
+        sc_outer.addWidget(self._scratch)
+        right.addWidget(scratch)
 
-        res, res_lay = _card("环境检测结果")
+        res = QFrame()
+        res.setObjectName("Card")
+        res_lay = QVBoxLayout(res)
+        res_lay.setContentsMargins(16, 14, 16, 14)
+        res_lay.addWidget(card_header("☰", "环境检测结果", icon_color=C["muted"]))
         self.env_box = QTextEdit()
         self.env_box.setReadOnly(True)
         self.env_box.setObjectName("Log")
-        self.env_box.setMinimumHeight(160)
+        self.env_box.setMinimumHeight(140)
         self.env_box.setPlaceholderText("检测结果将显示在这里…")
         res_lay.addWidget(self.env_box)
         right.addWidget(res)
@@ -890,7 +930,31 @@ class MainWindow(QMainWindow):
     def _toggle_scratch(self) -> None:
         self._scratch_open = not self._scratch_open
         self._scratch.setVisible(self._scratch_open)
-        self._scratch_btn.setText("从零搭建 ▾" if self._scratch_open else "从零搭建 ▸")
+        arrow = "▾" if self._scratch_open else "▸"
+        self._scratch_btn.setText(f"✦  无现有环境包？从零搭建向导  {arrow}")
+
+    def _on_preset_picked(self, name: str) -> None:
+        """界面：点预设卡填入发行版名（非 20.04 仅预留，稍后接逻辑）。"""
+        if hasattr(self, "ed_distro"):
+            self.ed_distro.setText(name)
+        self._sync_preset_selection(name)
+        # 同步建议安装目录末段
+        if hasattr(self, "ed_env_install"):
+            cur = self.ed_env_install.text().strip()
+            base = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WSL" / name
+            if (not cur) or cur.rstrip("\\/").endswith(("Ubuntu-20.04", "Ubuntu-22.04", "Kirin-ARM64-SDK")):
+                self.ed_env_install.setText(str(base))
+
+    def _on_distro_edited(self, text: str) -> None:
+        self._on_field("distro", text)
+        self._sync_preset_selection(text.strip())
+
+    def _sync_preset_selection(self, name: str) -> None:
+        cards = getattr(self, "_preset_cards", None)
+        if not cards:
+            return
+        for n, card in cards.items():
+            card.set_selected(n == name)
 
     def _toggle_eth(self) -> None:
         self._eth_open = not self._eth_open
