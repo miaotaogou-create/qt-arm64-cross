@@ -53,7 +53,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
 )
 
-from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, SparklesIcon
+from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLinkIcon, SparklesIcon
 
 
 class _RotatingArrowIcon(QWidget):
@@ -622,12 +622,21 @@ class MainWindow(QMainWindow):
         det_inner.addWidget(self._detect_label)
         actions.addWidget(det_wrap)
         self._btn_redetect = det_wrap
-        self._btn_go_compile = QPushButton("前往「2 交叉编译」 ↗")
+        self._btn_go_compile = QPushButton()
         self._btn_go_compile.setObjectName("HeroPrimary")
         self._btn_go_compile.setFlat(True)
         self._btn_go_compile.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._btn_go_compile.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_go_compile.setMinimumHeight(34)
+        go_inner = QHBoxLayout(self._btn_go_compile)
+        go_inner.setContentsMargins(12, 6, 12, 6)
+        go_inner.setSpacing(6)
+        go_text = QLabel("前往「2 交叉编译」")
+        go_text.setStyleSheet("background:transparent; border:none; color:#FFFFFF; font-size:12px; font-weight:600;")
+        go_inner.addWidget(go_text)
+        go_icon = ExternalLinkIcon(size=14, color="#FFFFFF")
+        go_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        go_inner.addWidget(go_icon)
         self._btn_go_compile.clicked.connect(lambda: self._select_step(1))
         self._btn_go_compile.setEnabled(False)
         actions.addWidget(self._btn_go_compile)

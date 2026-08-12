@@ -25,6 +25,7 @@ def make_ready_pill(text: str = "环境就绪", *, ok: bool = True, show_check: 
     """状态胶囊徽章；show_check=False 时仅文字（Hero 横幅用）。"""
     pill = QFrame()
     pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
+    pill.setFixedHeight(28)
     lay = QHBoxLayout(pill)
     lay.setSpacing(6)
     pill._show_check = show_check  # type: ignore[attr-defined]

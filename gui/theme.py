@@ -485,12 +485,14 @@ QLabel#AppIcon {{
 QFrame#ReadyPillOk {{
     background-color: rgba(16, 185, 129, 0.15);
     border: 1px solid rgba(16, 185, 129, 0.35);
-    border-radius: 14px;
+    border-radius: 999px;
+    min-height: 28px;
 }}
 QFrame#ReadyPillBad {{
     background-color: rgba(251, 191, 36, 0.12);
     border: 1px solid rgba(251, 191, 36, 0.3);
-    border-radius: 14px;
+    border-radius: 999px;
+    min-height: 28px;
 }}
 QLabel#ReadyPillCircleOk {{
     background-color: transparent;
