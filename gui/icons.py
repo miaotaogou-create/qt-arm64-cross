@@ -1,7 +1,7 @@
 """统一图标绘制：直线圆角对号等。"""
 from __future__ import annotations
 
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QLabel, QWidget
 
@@ -128,4 +128,35 @@ class CircleCheckIcon(QWidget):
             color=self._color,
             pen_width=max(1.6, w * 0.11),
         )
+        p.end()
+
+
+class HardDriveIcon(QWidget):
+    """硬盘/机箱线框图标（对齐设计稿 HardDrive）。"""
+
+    def __init__(self, size: int = 24, color: str = "#14b8a6", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self._color = QColor(color)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+
+    def paintEvent(self, _e) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        s = self.width()
+        pen = QPen(self._color, max(1.8, s * 0.09))
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        m = s * 0.16
+        p.drawRoundedRect(QRectF(m, s * 0.28, s - 2 * m, s * 0.48), 2.5, 2.5)
+        p.drawLine(QPointF(s * 0.28, s * 0.28), QPointF(s * 0.22, s * 0.16))
+        p.drawLine(QPointF(s * 0.22, s * 0.16), QPointF(s * 0.78, s * 0.16))
+        p.drawLine(QPointF(s * 0.78, s * 0.16), QPointF(s * 0.72, s * 0.28))
+        p.setBrush(self._color)
+        p.setPen(Qt.PenStyle.NoPen)
+        r = max(1.2, s * 0.05)
+        p.drawEllipse(QPointF(s * 0.38, s * 0.52), r, r)
+        p.drawEllipse(QPointF(s * 0.52, s * 0.52), r, r)
         p.end()

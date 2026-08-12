@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.icons import HardDriveIcon
 from gui.theme import C
 
 # 界面预设；当前仅 Ubuntu-20.04 有现成环境包
@@ -90,16 +91,22 @@ class PresetCard(QFrame):
 
 def card_header(icon_text: str, title: str, right: str = "", icon_color: str | None = None) -> QWidget:
     wrap = QWidget()
+    wrap.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
     lay = QHBoxLayout(wrap)
-    lay.setContentsMargins(0, 0, 0, 10)
-    lay.setSpacing(8)
-    icon = QLabel(icon_text)
-    icon.setFixedSize(22, 22)
-    icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    lay.setContentsMargins(0, 0, 0, 12)
+    lay.setSpacing(10)
     color = icon_color or C["accent"]
-    icon.setStyleSheet(
-        f"color:{color}; background:rgba(20,184,166,0.12); border-radius:6px; font-size:12px; font-weight:700;"
-    )
+    # 设计稿用 HardDrive 线框图标，比字符大且清晰
+    if icon_text in ("▣", "hdd", "drive", ""):
+        icon = HardDriveIcon(26, color)
+    else:
+        icon = QLabel(icon_text)
+        icon.setObjectName("CardHeadIcon")
+        icon.setFixedSize(26, 26)
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon.setStyleSheet(
+            f"color:{color}; background:transparent; border:none; font-size:18px; font-weight:700;"
+        )
     lay.addWidget(icon)
     t = QLabel(title)
     t.setObjectName("CardHeadTitle")
@@ -112,8 +119,8 @@ def card_header(icon_text: str, title: str, right: str = "", icon_color: str | N
     line = QFrame()
     line.setObjectName("CardDivider")
     line.setFixedHeight(1)
-    # 外层再包一层：标题行 + 分割线
     box = QWidget()
+    box.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
     vl = QVBoxLayout(box)
     vl.setContentsMargins(0, 0, 0, 0)
     vl.setSpacing(0)

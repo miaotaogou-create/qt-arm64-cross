@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 C = {
-    "bg": "#0b0f19",
-    "surface": "#111827",
+    "bg": "#0f172a",
+    "surface": "#0f172a",
     "surface2": "#1e293b",
-    "border": "#334155",
+    "border": "#1e293b",
     "border_active": "#14b8a6",
     "text": "#f1f5f9",
     "muted": "#94a3b8",
@@ -23,13 +23,19 @@ C = {
 
 APP_QSS = f"""
 QWidget {{
-    background-color: {C["bg"]};
+    background-color: transparent;
     color: {C["text"]};
     font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
     font-size: 13px;
 }}
 QMainWindow, QDialog {{
     background-color: {C["bg"]};
+}}
+QScrollArea, QScrollArea > QWidget > QWidget {{
+    background-color: transparent;
+}}
+QStackedWidget {{
+    background-color: transparent;
 }}
 QLabel#Title {{
     font-size: 17px;
@@ -44,8 +50,8 @@ QLabel#Muted {{
     font-size: 12px;
 }}
 QLabel#CardTitle {{
-    font-weight: 600;
-    font-size: 13px;
+    font-weight: 700;
+    font-size: 15px;
     background: transparent;
     border: none;
 }}
@@ -55,16 +61,24 @@ QFrame#Card {{
     border-radius: 16px;
 }}
 QLabel#CardHeadTitle {{
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 700;
     color: {C["text"]};
+    background: transparent;
+    border: none;
 }}
 QLabel#CardHeadRight {{
-    font-size: 11px;
+    font-size: 12px;
     color: {C["muted"]};
+    background: transparent;
+    border: none;
+}}
+QLabel#CardHeadIcon {{
+    background: transparent;
+    border: none;
 }}
 QFrame#CardDivider, QFrame#SpecDivider {{
-    background-color: {C["border"]};
+    background-color: #1e293b;
     border: none;
     max-height: 1px;
 }}
@@ -73,28 +87,34 @@ QLabel#FormSectionLabel {{
     font-size: 12px;
     font-weight: 500;
     padding-bottom: 2px;
+    background: transparent;
+    border: none;
 }}
 QFrame#PresetCard {{
     background-color: rgba(30, 41, 59, 0.55);
-    border: 1px solid {C["border"]};
+    border: 1px solid rgba(51, 65, 85, 0.7);
     border-radius: 12px;
 }}
 QFrame#PresetCard:hover {{
     background-color: #1e293b;
 }}
 QFrame#PresetCardActive {{
-    background-color: rgba(19, 78, 74, 0.35);
+    background-color: rgba(19, 78, 74, 0.40);
     border: 1px solid rgba(20, 184, 166, 0.65);
     border-radius: 12px;
 }}
 QLabel#PresetTitle {{
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     color: {C["text"]};
+    background: transparent;
+    border: none;
 }}
 QLabel#PresetMeta {{
     font-size: 11px;
     color: {C["muted"]};
+    background: transparent;
+    border: none;
 }}
 QLabel#PresetTag {{
     font-size: 10px;
@@ -105,7 +125,7 @@ QLabel#PresetTag {{
 }}
 QLabel#PresetTagActive {{
     font-size: 10px;
-    color: #042f2e;
+    color: #ffffff;
     background-color: {C["accent"]};
     border-radius: 4px;
     padding: 2px 6px;
@@ -177,7 +197,7 @@ QToolButton#ScratchToggle {{
     border: none;
     color: {C["text"]};
     font-weight: 700;
-    font-size: 12px;
+    font-size: 14px;
     padding: 0;
     text-align: left;
 }}

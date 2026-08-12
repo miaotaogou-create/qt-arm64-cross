@@ -643,8 +643,8 @@ class MainWindow(QMainWindow):
         envp = QFrame()
         envp.setObjectName("Card")
         env_lay = QVBoxLayout(envp)
-        env_lay.setContentsMargins(14, 12, 14, 12)
-        env_lay.setSpacing(10)
+        env_lay.setContentsMargins(20, 16, 20, 16)
+        env_lay.setSpacing(12)
         env_lay.addWidget(card_header("▣", "交叉编译环境包 (WSL Distro)", "Windows Subsystem for Linux"))
 
         env_lay.addWidget(form_label("快捷选择预设发行版 (Distro Presets)"))
