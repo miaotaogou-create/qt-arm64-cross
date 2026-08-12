@@ -190,3 +190,38 @@ class CpuIcon(QSvgWidget):
 
     def _reload(self) -> None:
         self.load(self._SVG.format(color=self._color).encode("utf-8"))
+
+
+class HeaderCpuLogo(QSvgWidget):
+    """顶部 Header：绿底圆角 + 白色 CPU（Lucide）。"""
+
+    _SVG = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36" fill="none">'
+        '<rect width="36" height="36" rx="10" ry="10" fill="{bg_color}" />'
+        '<g transform="translate(6, 6)">'
+        '<rect x="4" y="4" width="16" height="16" rx="2" ry="2" stroke="#FFFFFF" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round" fill="none" />'
+        '<rect x="9" y="9" width="6" height="6" stroke="#FFFFFF" stroke-width="2" fill="none" />'
+        '<line x1="9" y1="1" x2="9" y2="4" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />'
+        '<line x1="15" y1="1" x2="15" y2="4" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />'
+        '<line x1="9" y1="20" x2="9" y2="23" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />'
+        '<line x1="15" y1="20" x2="15" y2="23" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />'
+        '<line x1="1" y1="9" x2="4" y2="9" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />'
+        '<line x1="1" y1="15" x2="4" y2="15" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />'
+        '<line x1="20" y1="9" x2="23" y2="9" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />'
+        '<line x1="20" y1="15" x2="23" y2="15" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />'
+        "</g></svg>"
+    )
+
+    def __init__(self, size: int = 36, bg_color: str = "#0D9488", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self._bg = bg_color
+        self._reload()
+
+    def set_bg_color(self, bg_color_hex: str) -> None:
+        self._bg = bg_color_hex
+        self._reload()
+
+    def _reload(self) -> None:
+        self.load(self._SVG.format(bg_color=self._bg).encode("utf-8"))
