@@ -632,11 +632,16 @@ class MainWindow(QMainWindow):
         self._refresh_env_hint()
         lay.addWidget(hero)
 
-        body = QHBoxLayout()
-        body.setSpacing(10)
-        left = QVBoxLayout()
+        body_host = QWidget()
+        self._env_cols_host = body_host
+        self._env_cols_mode: str | None = None
+        self._env_left_col = QWidget()
+        self._env_right_col = QWidget()
+        left = QVBoxLayout(self._env_left_col)
+        left.setContentsMargins(0, 0, 0, 0)
         left.setSpacing(8)
-        right = QVBoxLayout()
+        right = QVBoxLayout(self._env_right_col)
+        right.setContentsMargins(0, 0, 0, 0)
         right.setSpacing(8)
 
         # —— 左：交叉编译环境包（对齐参考卡片）——
@@ -651,6 +656,7 @@ class MainWindow(QMainWindow):
         sec1.setSpacing(10)
         sec1.addWidget(form_label("快捷选择预设发行版 (Distro Presets)"))
         preset_row, self._preset_cards = build_preset_row(self._on_preset_picked)
+        self._preset_host = preset_row
         sec1.addWidget(preset_row)
         env_lay.addLayout(sec1)
         self._sync_preset_selection(self._distro_text())
@@ -802,9 +808,8 @@ class MainWindow(QMainWindow):
         self.env_box.hide()
         right.addStretch(1)
 
-        body.addLayout(left, 3)
-        body.addLayout(right, 2)
-        lay.addLayout(body)
+        self._apply_env_cols_layout(max(self.width(), 1000))
+        lay.addWidget(self._env_cols_host)
 
     # ------------------------------------------------------------------ 编译页
     def _build_tab_compile(self, parent: QWidget) -> None:
@@ -1914,6 +1919,41 @@ class MainWindow(QMainWindow):
                 "自检失败",
                 f"{detail}\n\n可换端口（如 18080）后重试；浏览器打不开时请让代理绕过 localhost。",
             )
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._apply_env_responsive(event.size().width())
+
+    def _apply_env_responsive(self, width: int) -> None:
+        host = getattr(self, "_preset_host", None)
+        if host is not None and hasattr(host, "update_responsive_layout"):
+            host.update_responsive_layout(width)
+        self._apply_env_cols_layout(width)
+
+    def _apply_env_cols_layout(self, width: int) -> None:
+        if not hasattr(self, "_env_cols_host"):
+            return
+        mode = "desktop" if width >= 900 else "mobile"
+        if getattr(self, "_env_cols_mode", None) == mode:
+            return
+        self._env_cols_mode = mode
+        old = self._env_cols_host.layout()
+        if old is not None:
+            old.removeWidget(self._env_left_col)
+            old.removeWidget(self._env_right_col)
+            QWidget().setLayout(old)
+        if mode == "desktop":
+            lay = QHBoxLayout(self._env_cols_host)
+            lay.setContentsMargins(0, 0, 0, 0)
+            lay.setSpacing(10)
+            lay.addWidget(self._env_left_col, 3)
+            lay.addWidget(self._env_right_col, 2)
+        else:
+            lay = QVBoxLayout(self._env_cols_host)
+            lay.setContentsMargins(0, 0, 0, 0)
+            lay.setSpacing(10)
+            lay.addWidget(self._env_left_col)
+            lay.addWidget(self._env_right_col)
 
     def closeEvent(self, event) -> None:  # noqa: N802
         self._persist()

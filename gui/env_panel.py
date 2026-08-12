@@ -179,17 +179,57 @@ def form_label(text: str) -> QLabel:
 
 
 def build_preset_row(on_pick) -> tuple[QWidget, dict[str, PresetCard]]:
-    wrap = QWidget()
-    lay = QHBoxLayout(wrap)
-    lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(14)
-    cards: dict[str, PresetCard] = {}
-    for item in DISTRO_PRESETS:
-        card = PresetCard(item["name"], item["tag"], item["meta"])
-        card.clicked.connect(on_pick)
-        lay.addWidget(card, 1)
-        cards[item["name"]] = card
-    return wrap, cards
+    """预设发行版行：宽屏三列横排，窄屏单列堆叠（断点 900px）。"""
+    host = ResponsivePresetHost(on_pick)
+    return host, host.cards
+
+
+class ResponsivePresetHost(QWidget):
+    """监听宽度：≥900 横排三列，<900 纵排堆叠。"""
+
+    BREAKPOINT = 900
+
+    def __init__(self, on_pick, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.cards: dict[str, PresetCard] = {}
+        self._mode: str | None = None
+        self._card_list: list[PresetCard] = []
+        for item in DISTRO_PRESETS:
+            card = PresetCard(item["name"], item["tag"], item["meta"])
+            card.clicked.connect(on_pick)
+            self.cards[item["name"]] = card
+            self._card_list.append(card)
+        self.update_responsive_layout(self.width() or 1000)
+
+    def update_responsive_layout(self, current_width: int) -> None:
+        target = "desktop" if current_width >= self.BREAKPOINT else "mobile"
+        if self._mode == target:
+            return
+        self._mode = target
+        old = self.layout()
+        if old is not None:
+            for c in self._card_list:
+                old.removeWidget(c)
+            QWidget().setLayout(old)
+        if target == "desktop":
+            lay = QHBoxLayout(self)
+            lay.setContentsMargins(0, 0, 0, 0)
+            lay.setSpacing(14)
+            for c in self._card_list:
+                lay.addWidget(c, 1)
+        else:
+            lay = QVBoxLayout(self)
+            lay.setContentsMargins(0, 0, 0, 0)
+            lay.setSpacing(10)
+            for c in self._card_list:
+                lay.addWidget(c)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        # 用主窗口宽度断点更稳；若宿主尚无父窗，退回自身宽度
+        win = self.window()
+        w = win.width() if win is not None else event.size().width()
+        self.update_responsive_layout(w)
 
 
 def build_toolchain_specs() -> QFrame:
