@@ -26,37 +26,38 @@ def make_ready_pill(text: str = "环境就绪", *, ok: bool = True, show_check: 
     pill = QFrame()
     pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
     lay = QHBoxLayout(pill)
+    lay.setSpacing(6)
+    pill._show_check = show_check  # type: ignore[attr-defined]
     if show_check:
         lay.setContentsMargins(6, 4, 12, 4)
+        icon = CheckAwareLabel("✓" if ok else "!")
+        icon.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
+        icon.setFixedSize(18, 18)
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(icon)
+        pill._circle = icon  # type: ignore[attr-defined]
     else:
         lay.setContentsMargins(10, 4, 10, 4)
-    lay.setSpacing(6)
-    icon = CheckAwareLabel("✓" if ok else "!")
-    icon.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
-    icon.setFixedSize(18, 18)
-    icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    icon.setVisible(show_check)
+        pill._circle = None  # type: ignore[attr-defined]
     lab = QLabel(text)
     lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
-    lay.addWidget(icon)
     lay.addWidget(lab)
-    pill._circle = icon  # type: ignore[attr-defined]
     pill._label = lab  # type: ignore[attr-defined]
-    pill._show_check = show_check  # type: ignore[attr-defined]
     return pill
 
 
 def set_ready_pill(pill: QFrame, text: str, *, ok: bool) -> None:
     pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
-    circle: QLabel = pill._circle  # type: ignore[attr-defined]
     lab: QLabel = pill._label  # type: ignore[attr-defined]
-    show_check = bool(getattr(pill, "_show_check", True))
-    circle.setVisible(show_check)
-    circle.setText("✓" if ok else "!")
-    circle.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
     lab.setText(text)
     lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
-    for w in (pill, circle, lab):
+    polish = [pill, lab]
+    circle = getattr(pill, "_circle", None)
+    if circle is not None:
+        circle.setText("✓" if ok else "!")
+        circle.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
+        polish.append(circle)
+    for w in polish:
         w.style().unpolish(w)
         w.style().polish(w)
 

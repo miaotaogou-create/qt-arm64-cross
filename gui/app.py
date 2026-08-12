@@ -607,27 +607,34 @@ class MainWindow(QMainWindow):
         det_wrap = QPushButton()
         det_wrap.setObjectName("HeroGhost")
         det_wrap.setCursor(Qt.CursorShape.PointingHandCursor)
-        det_wrap.setMinimumWidth(156)
+        det_wrap.setFlat(True)
+        det_wrap.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         det_wrap.setMinimumHeight(34)
         det_wrap.clicked.connect(lambda: self._on_detect(False))
         self._track_action(det_wrap)
         det_inner = QHBoxLayout(det_wrap)
-        det_inner.setContentsMargins(10, 4, 14, 4)
+        det_inner.setContentsMargins(12, 6, 14, 6)
         det_inner.setSpacing(6)
         self._detect_icon = _RotatingArrowIcon(18, "#14b8a6")
         det_inner.addWidget(self._detect_icon)
         self._detect_label = QLabel("重新检测环境")
-        self._detect_label.setMinimumWidth(92)
         self._detect_label.setStyleSheet("background:transparent; border:none; color:#94a3b8; font-size:12px;")
         det_inner.addWidget(self._detect_label)
         actions.addWidget(det_wrap)
         self._btn_redetect = det_wrap
         self._btn_go_compile = QPushButton("前往「2 交叉编译」 ↗")
         self._btn_go_compile.setObjectName("HeroPrimary")
+        self._btn_go_compile.setFlat(True)
+        self._btn_go_compile.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._btn_go_compile.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_go_compile.setMinimumHeight(34)
         self._btn_go_compile.clicked.connect(lambda: self._select_step(1))
         self._btn_go_compile.setEnabled(False)
         actions.addWidget(self._btn_go_compile)
+        # Hero 两按钮等宽 + 圆角矩形边框由 QSS（border-radius:10px）绘制
+        hero_mw = max(det_wrap.sizeHint().width(), self._btn_go_compile.sizeHint().width(), 168)
+        det_wrap.setMinimumWidth(hero_mw)
+        self._btn_go_compile.setMinimumWidth(hero_mw)
         hl.addLayout(actions)
         self._refresh_env_hint()
         lay.addWidget(hero)
@@ -784,6 +791,7 @@ class MainWindow(QMainWindow):
         sc_lay = QVBoxLayout(self._scratch)
         sc_lay.setContentsMargins(0, 4, 0, 0)
         sc_lay.setSpacing(8)
+        scratch_btns: list[QPushButton] = []
         for title, sub, script, btn_text in (
             ("步骤 1: 安装 aarch64 基础工具链", "gcc-aarch64-linux-gnu, g++-aarch64", "setup_cross_focal.sh", "安装工具链"),
             ("步骤 2: 自动编译 Qt 5.14.2 ARM64", "交叉编译 Qt5 源码并配置 mkspecs", "build_qt5142_arm64_cross.sh", "编译 Qt 5.14.2"),
@@ -805,8 +813,14 @@ class MainWindow(QMainWindow):
             b.setCursor(Qt.CursorShape.PointingHandCursor)
             b.clicked.connect(lambda _=False, s=script: self._on_install(s))
             self._track_action(b)
+            scratch_btns.append(b)
             sl.addWidget(b)
             sc_lay.addWidget(step)
+        # 两按钮等宽：按较长文案统一最小宽度
+        if scratch_btns:
+            mw = max(b.sizeHint().width() for b in scratch_btns)
+            for b in scratch_btns:
+                b.setMinimumWidth(mw)
         sc_outer.addWidget(self._scratch)
         right.addWidget(scratch)
 

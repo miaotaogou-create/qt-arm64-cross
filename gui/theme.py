@@ -278,9 +278,22 @@ QPushButton#HeroGhost:hover {{
     border-color: #4B5563;
 }}
 QPushButton#HeroPrimary {{
+    background-color: {C["primary"]};
+    border: 1px solid {C["accent"]};
     border-radius: 10px;
     padding: 8px 16px;
     font-size: 12px;
+    color: #FFFFFF;
+    font-weight: 600;
+}}
+QPushButton#HeroPrimary:hover {{
+    background-color: {C["primary_hover"]};
+    border-color: #2DD4BF;
+}}
+QPushButton#HeroPrimary:disabled {{
+    background-color: #111827;
+    border-color: {C["border"]};
+    color: {C["idle"]};
 }}
 QPushButton#FooterCancel {{
     background-color: transparent;
