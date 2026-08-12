@@ -53,6 +53,9 @@ from PySide6.QtWidgets import (
     QButtonGroup,
 )
 
+from gui.icons import CheckAwareLabel, CircleCheckIcon
+
+
 class _RotatingArrowIcon(QWidget):
     """双向环形箭头旋转图标（QPainter 绘制）。"""
 
@@ -110,27 +113,6 @@ class _RotatingArrowIcon(QWidget):
         p.end()
 
 
-class _ToastCheckIcon(QLabel):
-    """白色空心圆 + 白色对勾。"""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setFixedSize(20, 20)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-
-    def paintEvent(self, _e) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor(255, 255, 255), 1.8)
-        p.setPen(pen)
-        p.drawEllipse(1, 1, 18, 18)
-        pen.setWidthF(2.0)
-        p.setPen(pen)
-        p.drawLine(6, 10, 9, 13)
-        p.drawLine(9, 13, 14, 7)
-        p.end()
-
-
 class ToastNotification(QWidget):
     """实心绿色 toast：持续上下弹跳，到时后淡出关闭。"""
 
@@ -158,7 +140,7 @@ class ToastNotification(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 10, 20, 10)
         layout.setSpacing(10)
-        layout.addWidget(_ToastCheckIcon(self))
+        layout.addWidget(CircleCheckIcon(20, "#FFFFFF", circle=True, parent=self))
         text_label = QLabel(text)
         font = QFont("Microsoft YaHei", 9)
         font.setBold(True)
@@ -423,7 +405,7 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(6)
         self._step_cards: list[QFrame] = []
-        self._step_num_lbls: list[QLabel] = []
+        self._step_num_lbls: list[CheckAwareLabel] = []
         specs = [
             ("1", "环境管理", "WSL2 交叉编译链检测与配置"),
             ("2", "交叉编译", "Qt工程加载、参数设定与构建日志"),
@@ -438,7 +420,7 @@ class MainWindow(QMainWindow):
             cl = QHBoxLayout(card)
             cl.setContentsMargins(12, 8, 10, 8)
             cl.setSpacing(10)
-            badge = QLabel(num)
+            badge = CheckAwareLabel(num)
             badge.setFixedSize(28, 28)
             badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
             badge.setStyleSheet(
@@ -590,7 +572,7 @@ class MainWindow(QMainWindow):
         self._env_hero_icon = icon
         il = QHBoxLayout(icon)
         il.setContentsMargins(0, 0, 0, 0)
-        mark = QLabel("!")
+        mark = CheckAwareLabel("!")
         mark.setObjectName("HeroWarnMark")
         mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._env_hero_mark = mark

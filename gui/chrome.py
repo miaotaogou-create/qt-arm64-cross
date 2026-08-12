@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from crosskit.app_version import VERSION
+from gui.icons import CheckAwareLabel
 from gui.theme import C
 
 _EDGE = 6
@@ -73,7 +74,7 @@ def make_ready_pill(text: str = "环境就绪", *, ok: bool = True) -> QFrame:
     lay = QHBoxLayout(pill)
     lay.setContentsMargins(6, 4, 12, 4)
     lay.setSpacing(6)
-    icon = QLabel("✓" if ok else "!")
+    icon = CheckAwareLabel("✓" if ok else "!")
     icon.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
     icon.setFixedSize(18, 18)
     icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
