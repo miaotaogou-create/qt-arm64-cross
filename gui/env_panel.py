@@ -1,4 +1,4 @@
-"""环境页：发行版配置卡 + 工具链明细（先对齐界面，再接逻辑）。"""
+"""环境页：发行版配置卡 + 工具链明细（对齐参考卡片）。"""
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
@@ -45,43 +45,84 @@ TOOLCHAIN_SPECS: list[tuple[str, str, str]] = [
 
 
 class PresetCard(QFrame):
-    """发行版快捷选择卡片。"""
+    """预设发行版单选卡片（对齐参考代码）。"""
 
     clicked = Signal(str)
 
     def __init__(self, name: str, tag: str, meta: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.name = name
-        self.setObjectName("PresetCard")
+        self.is_active = False
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setMinimumHeight(68)
 
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(12, 10, 12, 10)
-        lay.setSpacing(4)
+        lay.setContentsMargins(14, 12, 14, 12)
+        lay.setSpacing(6)
 
         top = QHBoxLayout()
-        top.setSpacing(6)
-        title = QLabel(name)
-        title.setObjectName("PresetTitle")
-        top.addWidget(title, 1)
-        self._tag = QLabel(tag)
-        self._tag.setObjectName("PresetTag")
-        top.addWidget(self._tag, 0, Qt.AlignmentFlag.AlignTop)
+        top.setContentsMargins(0, 0, 0, 0)
+        self.lbl_name = QLabel(name)
+        self.lbl_name.setStyleSheet(
+            "font-size: 14px; font-weight: bold; color: #FFFFFF; background: transparent; border: none;"
+        )
+        self.lbl_tag = QLabel(tag)
+        top.addWidget(self.lbl_name)
+        top.addStretch()
+        top.addWidget(self.lbl_tag)
         lay.addLayout(top)
 
-        meta_lbl = QLabel(meta)
-        meta_lbl.setObjectName("PresetMeta")
-        lay.addWidget(meta_lbl)
+        self.lbl_desc = QLabel(meta)
+        self.lbl_desc.setStyleSheet(
+            "font-size: 11px; color: #64748B; background: transparent; border: none;"
+        )
+        lay.addWidget(self.lbl_desc)
+        self.update_style()
 
     def set_selected(self, selected: bool) -> None:
-        self.setObjectName("PresetCardActive" if selected else "PresetCard")
-        self._tag.setObjectName("PresetTagActive" if selected else "PresetTag")
-        self.style().unpolish(self)
-        self.style().polish(self)
-        self._tag.style().unpolish(self._tag)
-        self._tag.style().polish(self._tag)
+        self.set_active(selected)
+
+    def set_active(self, active: bool) -> None:
+        self.is_active = active
+        self.update_style()
+
+    def update_style(self) -> None:
+        if self.is_active:
+            self.setStyleSheet(
+                "QFrame {"
+                "background-color: #030712;"
+                "border: 2px solid #0D9488;"
+                "border-radius: 10px;"
+                "}"
+            )
+            self.lbl_tag.setStyleSheet(
+                "background-color: #0D9488;"
+                "color: #FFFFFF;"
+                "font-size: 10px;"
+                "font-weight: bold;"
+                "padding: 2px 8px;"
+                "border-radius: 4px;"
+                "border: none;"
+            )
+        else:
+            self.setStyleSheet(
+                "QFrame {"
+                "background-color: #030712;"
+                "border: 1px solid #1E293B;"
+                "border-radius: 10px;"
+                "}"
+                "QFrame:hover {"
+                "border: 1px solid #334155;"
+                "}"
+            )
+            self.lbl_tag.setStyleSheet(
+                "background-color: #1E293B;"
+                "color: #94A3B8;"
+                "font-size: 10px;"
+                "padding: 2px 8px;"
+                "border-radius: 4px;"
+                "border: 1px solid #334155;"
+            )
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:
@@ -93,19 +134,18 @@ def card_header(icon_text: str, title: str, right: str = "", icon_color: str | N
     wrap = QWidget()
     wrap.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
     lay = QHBoxLayout(wrap)
-    lay.setContentsMargins(0, 0, 0, 12)
+    lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(10)
-    color = icon_color or C["accent"]
-    # 设计稿用 HardDrive 线框图标，比字符大且清晰
+    color = icon_color or "#06B6D4"
     if icon_text in ("▣", "hdd", "drive", ""):
-        icon = HardDriveIcon(26, color)
+        icon = HardDriveIcon(22, color)
     else:
         icon = QLabel(icon_text)
         icon.setObjectName("CardHeadIcon")
-        icon.setFixedSize(26, 26)
+        icon.setFixedSize(24, 24)
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon.setStyleSheet(
-            f"color:{color}; background:transparent; border:none; font-size:18px; font-weight:700;"
+            f"color:{color}; background:transparent; border:none; font-size:20px; font-weight:700;"
         )
     lay.addWidget(icon)
     t = QLabel(title)
@@ -116,15 +156,16 @@ def card_header(icon_text: str, title: str, right: str = "", icon_color: str | N
         r = QLabel(right)
         r.setObjectName("CardHeadRight")
         lay.addWidget(r)
-    line = QFrame()
-    line.setObjectName("CardDivider")
-    line.setFixedHeight(1)
+
     box = QWidget()
     box.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
     vl = QVBoxLayout(box)
     vl.setContentsMargins(0, 0, 0, 0)
-    vl.setSpacing(0)
+    vl.setSpacing(12)
     vl.addWidget(wrap)
+    line = QFrame()
+    line.setObjectName("CardDivider")
+    line.setFixedHeight(1)
     vl.addWidget(line)
     return box
 
@@ -139,7 +180,7 @@ def build_preset_row(on_pick) -> tuple[QWidget, dict[str, PresetCard]]:
     wrap = QWidget()
     lay = QHBoxLayout(wrap)
     lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(8)
+    lay.setSpacing(14)
     cards: dict[str, PresetCard] = {}
     for item in DISTRO_PRESETS:
         card = PresetCard(item["name"], item["tag"], item["meta"])
@@ -153,7 +194,7 @@ def build_toolchain_specs() -> QFrame:
     frame = QFrame()
     frame.setObjectName("Card")
     lay = QVBoxLayout(frame)
-    lay.setContentsMargins(14, 10, 14, 10)
+    lay.setContentsMargins(20, 16, 20, 16)
     lay.setSpacing(0)
     lay.addWidget(card_header("▣", "工具链及 SYSROOT 明细", icon_color=C["ok"]))
 

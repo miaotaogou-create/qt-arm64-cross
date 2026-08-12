@@ -2,16 +2,16 @@
 from __future__ import annotations
 
 C = {
-    "bg": "#0f172a",
-    "surface": "#0f172a",
-    "surface2": "#1e293b",
-    "border": "#1e293b",
-    "border_active": "#14b8a6",
-    "text": "#f1f5f9",
-    "muted": "#94a3b8",
-    "primary": "#10b981",
-    "primary_hover": "#34d399",
-    "accent": "#14b8a6",
+    "bg": "#030712",
+    "surface": "#0B0F19",
+    "surface2": "#1E293B",
+    "border": "#1E293B",
+    "border_active": "#0D9488",
+    "text": "#F8FAFC",
+    "muted": "#64748B",
+    "primary": "#0D9488",
+    "primary_hover": "#0F766E",
+    "accent": "#14B8A6",
     "ok": "#34d399",
     "warn": "#fbbf24",
     "err": "#f87171",
@@ -56,20 +56,20 @@ QLabel#CardTitle {{
     border: none;
 }}
 QFrame#Card {{
-    background-color: {C["surface"]};
-    border: 1px solid #1e293b;
-    border-radius: 16px;
+    background-color: #0B0F19;
+    border: 1px solid #1E293B;
+    border-radius: 14px;
 }}
 QLabel#CardHeadTitle {{
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
-    color: {C["text"]};
+    color: #F8FAFC;
     background: transparent;
     border: none;
 }}
 QLabel#CardHeadRight {{
     font-size: 12px;
-    color: {C["muted"]};
+    color: #64748B;
     background: transparent;
     border: none;
 }}
@@ -78,12 +78,12 @@ QLabel#CardHeadIcon {{
     border: none;
 }}
 QFrame#CardDivider, QFrame#SpecDivider {{
-    background-color: #1e293b;
+    background-color: #1E293B;
     border: none;
     max-height: 1px;
 }}
 QLabel#FormSectionLabel {{
-    color: {C["muted"]};
+    color: #64748B;
     font-size: 12px;
     font-weight: 500;
     padding-bottom: 2px;
@@ -91,45 +91,47 @@ QLabel#FormSectionLabel {{
     border: none;
 }}
 QFrame#PresetCard {{
-    background-color: rgba(30, 41, 59, 0.55);
-    border: 1px solid rgba(51, 65, 85, 0.7);
-    border-radius: 12px;
+    background-color: #030712;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
 }}
 QFrame#PresetCard:hover {{
-    background-color: #1e293b;
+    border: 1px solid #334155;
 }}
 QFrame#PresetCardActive {{
-    background-color: rgba(19, 78, 74, 0.40);
-    border: 1px solid rgba(20, 184, 166, 0.65);
-    border-radius: 12px;
+    background-color: #030712;
+    border: 2px solid #0D9488;
+    border-radius: 10px;
 }}
 QLabel#PresetTitle {{
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
-    color: {C["text"]};
+    color: #FFFFFF;
     background: transparent;
     border: none;
 }}
 QLabel#PresetMeta {{
     font-size: 11px;
-    color: {C["muted"]};
+    color: #64748B;
     background: transparent;
     border: none;
 }}
 QLabel#PresetTag {{
     font-size: 10px;
-    color: #cbd5e1;
-    background-color: #334155;
+    color: #94A3B8;
+    background-color: #1E293B;
+    border: 1px solid #334155;
     border-radius: 4px;
-    padding: 2px 6px;
+    padding: 2px 8px;
 }}
 QLabel#PresetTagActive {{
     font-size: 10px;
-    color: #ffffff;
-    background-color: {C["accent"]};
+    color: #FFFFFF;
+    background-color: #0D9488;
+    border: none;
     border-radius: 4px;
-    padding: 2px 6px;
-    font-weight: 600;
+    padding: 2px 8px;
+    font-weight: 700;
 }}
 QLabel#SpecKey {{
     color: {C["muted"]};
@@ -152,44 +154,64 @@ QLabel#SpecValOk {{
     font-weight: 600;
 }}
 QLineEdit#PathEdit {{
-    font-family: Consolas, "Cascadia Mono", monospace;
-    font-size: 12px;
-    padding-left: 10px;
+    background-color: #030712;
+    border: 1px solid #1E293B;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #F8FAFC;
+    font-family: Consolas, "Segoe UI", monospace;
+    font-size: 13px;
+    min-height: 18px;
+}}
+QLineEdit#PathEdit:focus {{
+    border: 1px solid #0D9488;
 }}
 QPushButton#EnvPrimary {{
-    background-color: #0d9488;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    padding: 10px 16px;
-    font-weight: 700;
-    font-size: 12px;
+    background-color: #0D9488;
+    color: #FFFFFF;
+    border: 1px solid #14B8A6;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 13px;
 }}
 QPushButton#EnvPrimary:hover {{
-    background-color: #14b8a6;
+    background-color: #0F766E;
+    border-color: #2DD4BF;
 }}
 QPushButton#EnvPrimary:disabled {{
     background-color: #1f3a3a;
     color: #64748b;
 }}
 QPushButton#EnvGhost {{
-    background-color: {C["surface2"]};
-    border: 1px solid {C["border"]};
-    border-radius: 10px;
-    padding: 9px 12px;
-    font-size: 12px;
+    background-color: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #E2E8F0;
+}}
+QPushButton#EnvGhost:hover {{
+    background-color: #334155;
+    color: #FFFFFF;
 }}
 QPushButton#EnvAccent {{
-    background-color: rgba(20, 184, 166, 0.12);
-    color: {C["accent"]};
-    border: 1px solid rgba(20, 184, 166, 0.4);
-    border-radius: 10px;
-    padding: 9px 12px;
-    font-size: 12px;
+    background-color: #1E293B;
+    color: #E2E8F0;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+}}
+QPushButton#EnvAccent:hover {{
+    background-color: #334155;
+    color: #FFFFFF;
 }}
 QFrame#ScratchCard {{
-    background-color: {C["surface"]};
-    border: 1px solid {C["border"]};
+    background-color: #0B0F19;
+    border: 1px solid #1E293B;
     border-radius: 14px;
 }}
 QToolButton#ScratchToggle {{
@@ -472,17 +494,18 @@ QFrame#TerminalCard {{
     border-radius: 16px;
 }}
 QLineEdit, QComboBox, QSpinBox {{
-    background-color: {C["surface2"]};
-    border: 1px solid {C["border"]};
-    border-radius: 12px;
-    padding: 7px 12px;
+    background-color: #030712;
+    border: 1px solid #1E293B;
+    border-radius: 8px;
+    padding: 8px 12px;
     selection-background-color: {C["accent"]};
     min-height: 18px;
+    color: #F8FAFC;
     font-family: Consolas, "Cascadia Mono", monospace;
-    font-size: 12px;
+    font-size: 13px;
 }}
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{
-    border: 1px solid {C["accent"]};
+    border: 1px solid #0D9488;
 }}
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {{
     color: {C["idle"]};
@@ -498,18 +521,20 @@ QComboBox QAbstractItemView {{
     selection-background-color: {C["accent"]};
 }}
 QCheckBox {{
+    color: #64748B;
+    font-size: 13px;
     spacing: 8px;
 }}
 QCheckBox::indicator {{
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 4px;
-    border: 1px solid {C["border"]};
-    background: {C["surface2"]};
+    border: 1px solid #334155;
+    background-color: #030712;
 }}
 QCheckBox::indicator:checked {{
-    background: {C["primary"]};
-    border-color: {C["primary"]};
+    background-color: #0D9488;
+    border-color: #14B8A6;
 }}
 QCheckBox:disabled {{
     color: {C["idle"]};
