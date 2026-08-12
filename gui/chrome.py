@@ -21,23 +21,28 @@ from gui.theme import C
 _EDGE = 6
 
 
-def make_ready_pill(text: str = "环境就绪", *, ok: bool = True) -> QFrame:
-    """圆圈对号 + 文案的胶囊徽章（对齐设计稿）。"""
+def make_ready_pill(text: str = "环境就绪", *, ok: bool = True, show_check: bool = True) -> QFrame:
+    """状态胶囊徽章；show_check=False 时仅文字（Hero 横幅用）。"""
     pill = QFrame()
     pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
     lay = QHBoxLayout(pill)
-    lay.setContentsMargins(6, 4, 12, 4)
+    if show_check:
+        lay.setContentsMargins(6, 4, 12, 4)
+    else:
+        lay.setContentsMargins(10, 4, 10, 4)
     lay.setSpacing(6)
     icon = CheckAwareLabel("✓" if ok else "!")
     icon.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
     icon.setFixedSize(18, 18)
     icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    icon.setVisible(show_check)
     lab = QLabel(text)
     lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
     lay.addWidget(icon)
     lay.addWidget(lab)
     pill._circle = icon  # type: ignore[attr-defined]
     pill._label = lab  # type: ignore[attr-defined]
+    pill._show_check = show_check  # type: ignore[attr-defined]
     return pill
 
 
@@ -45,6 +50,8 @@ def set_ready_pill(pill: QFrame, text: str, *, ok: bool) -> None:
     pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
     circle: QLabel = pill._circle  # type: ignore[attr-defined]
     lab: QLabel = pill._label  # type: ignore[attr-defined]
+    show_check = bool(getattr(pill, "_show_check", True))
+    circle.setVisible(show_check)
     circle.setText("✓" if ok else "!")
     circle.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
     lab.setText(text)

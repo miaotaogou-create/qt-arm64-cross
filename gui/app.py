@@ -587,7 +587,7 @@ class MainWindow(QMainWindow):
         title = QLabel("本机 WSL2 交叉编译环境状态")
         title.setObjectName("HeroTitle")
         title_row.addWidget(title, 0, Qt.AlignmentFlag.AlignVCenter)
-        self._env_hero_badge = make_ready_pill("检测中…", ok=False)
+        self._env_hero_badge = make_ready_pill("检测中…", ok=False, show_check=False)
         title_row.addWidget(self._env_hero_badge, 0, Qt.AlignmentFlag.AlignVCenter)
         title_row.addStretch(1)
         mid.addLayout(title_row)

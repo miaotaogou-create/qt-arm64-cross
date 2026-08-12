@@ -267,7 +267,7 @@ QPushButton#EnvGhost:hover, QPushButton#EnvAccent:hover, QPushButton#Ghost:hover
 QPushButton#HeroGhost {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border_input"]};
-    border-radius: 999px;
+    border-radius: 10px;
     padding: 8px 14px;
     font-size: 12px;
     color: #E5E7EB;
@@ -278,7 +278,7 @@ QPushButton#HeroGhost:hover {{
     border-color: #4B5563;
 }}
 QPushButton#HeroPrimary {{
-    border-radius: 999px;
+    border-radius: 10px;
     padding: 8px 16px;
     font-size: 12px;
 }}
