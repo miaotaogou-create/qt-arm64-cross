@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import QLabel, QWidget
 
 
@@ -131,58 +132,28 @@ class CircleCheckIcon(QWidget):
         p.end()
 
 
-class HardDriveIcon(QWidget):
-    """交叉编译 / WSL 服务器机箱矢量图标（上梯形 + 下圆角盒 + 双指示灯）。"""
+class HardDriveIcon(QSvgWidget):
+    """Lucide HardDrive SVG 图标。"""
+
+    _SVG = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<line x1="2" y1="12" x2="22" y2="12"></line>'
+        '<path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>'
+        '<line x1="6" y1="16" x2="6.01" y2="16"></line>'
+        '<line x1="10" y1="16" x2="10.01" y2="16"></line>'
+        "</svg>"
+    )
 
     def __init__(self, size: int = 24, color: str = "#06B6D4", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(size, size)
-        self._color = QColor(color)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self._color = color
+        self._reload()
 
     def set_color(self, color_hex: str) -> None:
-        self._color = QColor(color_hex)
-        self.update()
+        self._color = color_hex
+        self._reload()
 
-    def paintEvent(self, _e) -> None:  # noqa: N802
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        w, h = self.width(), self.height()
-        pen_width = max(2.0, w / 12.0)
-        pen = QPen(self._color, pen_width)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-
-        m = pen_width / 2.0
-        r = w * 0.18
-        box_top_y = h * 0.45
-
-        path = QPainterPath()
-        path.moveTo(m + r, h - m)
-        path.lineTo(w - m - r, h - m)
-        path.quadTo(w - m, h - m, w - m, h - m - r)
-        path.lineTo(w - m, box_top_y)
-        path.lineTo(m, box_top_y)
-        path.lineTo(m, h - m - r)
-        path.quadTo(m, h - m, m + r, h - m)
-
-        top_inset = w * 0.2
-        top_y = m + h * 0.05
-        path.moveTo(m, box_top_y)
-        path.lineTo(top_inset, top_y)
-        path.lineTo(w - top_inset, top_y)
-        path.lineTo(w - m, box_top_y)
-        painter.drawPath(path)
-
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(self._color))
-        dot_radius = pen_width * 0.75
-        dot_y = box_top_y + (h - box_top_y) / 2.0
-        for fx in (0.22, 0.42):
-            dx = m + w * fx
-            painter.drawEllipse(
-                QRectF(dx - dot_radius, dot_y - dot_radius, dot_radius * 2, dot_radius * 2)
-            )
-        painter.end()
+    def _reload(self) -> None:
+        self.load(self._SVG.format(color=self._color).encode("utf-8"))
