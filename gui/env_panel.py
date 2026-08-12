@@ -138,7 +138,7 @@ def card_header(icon_text: str, title: str, right: str = "", icon_color: str | N
     lay.setSpacing(10)
     color = icon_color or "#06B6D4"
     if icon_text in ("▣", "hdd", "drive", ""):
-        icon = HardDriveIcon(22, color)
+        icon = HardDriveIcon(24, color)
     else:
         icon = QLabel(icon_text)
         icon.setObjectName("CardHeadIcon")

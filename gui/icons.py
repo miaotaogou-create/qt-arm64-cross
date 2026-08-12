@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QLabel, QWidget
 
 
@@ -132,31 +132,57 @@ class CircleCheckIcon(QWidget):
 
 
 class HardDriveIcon(QWidget):
-    """硬盘/机箱线框图标（对齐设计稿 HardDrive）。"""
+    """交叉编译 / WSL 服务器机箱矢量图标（上梯形 + 下圆角盒 + 双指示灯）。"""
 
-    def __init__(self, size: int = 24, color: str = "#14b8a6", parent: QWidget | None = None) -> None:
+    def __init__(self, size: int = 24, color: str = "#06B6D4", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(size, size)
         self._color = QColor(color)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
+    def set_color(self, color_hex: str) -> None:
+        self._color = QColor(color_hex)
+        self.update()
+
     def paintEvent(self, _e) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        s = self.width()
-        pen = QPen(self._color, max(1.8, s * 0.09))
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        pen_width = max(2.0, w / 12.0)
+        pen = QPen(self._color, pen_width)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        p.setPen(pen)
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        m = s * 0.16
-        p.drawRoundedRect(QRectF(m, s * 0.28, s - 2 * m, s * 0.48), 2.5, 2.5)
-        p.drawLine(QPointF(s * 0.28, s * 0.28), QPointF(s * 0.22, s * 0.16))
-        p.drawLine(QPointF(s * 0.22, s * 0.16), QPointF(s * 0.78, s * 0.16))
-        p.drawLine(QPointF(s * 0.78, s * 0.16), QPointF(s * 0.72, s * 0.28))
-        p.setBrush(self._color)
-        p.setPen(Qt.PenStyle.NoPen)
-        r = max(1.2, s * 0.05)
-        p.drawEllipse(QPointF(s * 0.38, s * 0.52), r, r)
-        p.drawEllipse(QPointF(s * 0.52, s * 0.52), r, r)
-        p.end()
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        m = pen_width / 2.0
+        r = w * 0.18
+        box_top_y = h * 0.45
+
+        path = QPainterPath()
+        path.moveTo(m + r, h - m)
+        path.lineTo(w - m - r, h - m)
+        path.quadTo(w - m, h - m, w - m, h - m - r)
+        path.lineTo(w - m, box_top_y)
+        path.lineTo(m, box_top_y)
+        path.lineTo(m, h - m - r)
+        path.quadTo(m, h - m, m + r, h - m)
+
+        top_inset = w * 0.2
+        top_y = m + h * 0.05
+        path.moveTo(m, box_top_y)
+        path.lineTo(top_inset, top_y)
+        path.lineTo(w - top_inset, top_y)
+        path.lineTo(w - m, box_top_y)
+        painter.drawPath(path)
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(self._color))
+        dot_radius = pen_width * 0.75
+        dot_y = box_top_y + (h - box_top_y) / 2.0
+        for fx in (0.22, 0.42):
+            dx = m + w * fx
+            painter.drawEllipse(
+                QRectF(dx - dot_radius, dot_y - dot_radius, dot_radius * 2, dot_radius * 2)
+            )
+        painter.end()
