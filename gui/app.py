@@ -609,16 +609,19 @@ class MainWindow(QMainWindow):
         det_wrap.setCursor(Qt.CursorShape.PointingHandCursor)
         det_wrap.setFlat(True)
         det_wrap.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        det_wrap.setMinimumHeight(34)
+        det_wrap.setMinimumHeight(32)
         det_wrap.clicked.connect(lambda: self._on_detect(False))
         self._track_action(det_wrap)
         det_inner = QHBoxLayout(det_wrap)
-        det_inner.setContentsMargins(12, 6, 14, 6)
+        det_inner.setContentsMargins(14, 0, 16, 0)
         det_inner.setSpacing(6)
-        self._detect_icon = _RotatingArrowIcon(18, "#14b8a6")
+        self._detect_icon = _RotatingArrowIcon(14, "#14b8a6")
         det_inner.addWidget(self._detect_icon)
         self._detect_label = QLabel("重新检测环境")
-        self._detect_label.setStyleSheet("background:transparent; border:none; color:#94a3b8; font-size:12px;")
+        self._detect_label.setStyleSheet(
+            "background:transparent; border:none; color:#E2E8F0; font-size:12px; font-weight:500;"
+        )
+        self._detect_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         det_inner.addWidget(self._detect_label)
         actions.addWidget(det_wrap)
         self._btn_redetect = det_wrap
@@ -627,23 +630,23 @@ class MainWindow(QMainWindow):
         self._btn_go_compile.setFlat(True)
         self._btn_go_compile.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._btn_go_compile.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_go_compile.setMinimumHeight(34)
+        self._btn_go_compile.setMinimumHeight(32)
         go_inner = QHBoxLayout(self._btn_go_compile)
-        go_inner.setContentsMargins(12, 6, 12, 6)
+        go_inner.setContentsMargins(16, 0, 16, 0)
         go_inner.setSpacing(6)
-        go_text = QLabel("前往「2 交叉编译」")
-        go_text.setStyleSheet("background:transparent; border:none; color:#FFFFFF; font-size:12px; font-weight:600;")
-        go_inner.addWidget(go_text)
-        go_icon = ExternalLinkIcon(size=14, color="#FFFFFF")
-        go_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        go_inner.addWidget(go_icon)
+        self._go_text = QLabel("前往「2 交叉编译」")
+        self._go_text.setStyleSheet(
+            "background:transparent; border:none; color:#FFFFFF; font-size:12px; font-weight:600;"
+        )
+        self._go_text.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        go_inner.addWidget(self._go_text)
+        self._go_icon = ExternalLinkIcon(size=12, color="#FFFFFF")
+        self._go_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        go_inner.addWidget(self._go_icon)
         self._btn_go_compile.clicked.connect(lambda: self._select_step(1))
         self._btn_go_compile.setEnabled(False)
         actions.addWidget(self._btn_go_compile)
-        # Hero 两按钮等宽 + 圆角矩形边框由 QSS（border-radius:10px）绘制
-        hero_mw = max(det_wrap.sizeHint().width(), self._btn_go_compile.sizeHint().width(), 168)
-        det_wrap.setMinimumWidth(hero_mw)
-        self._btn_go_compile.setMinimumWidth(hero_mw)
+        self._sync_go_compile_btn_style()
         hl.addLayout(actions)
         self._refresh_env_hint()
         lay.addWidget(hero)
@@ -1435,13 +1438,26 @@ class MainWindow(QMainWindow):
     def _set_env_box(self, text: str) -> None:
         self.env_box.setPlainText(text)
 
+    def _sync_go_compile_btn_style(self) -> None:
+        if not hasattr(self, "_go_text"):
+            return
+        on = self._btn_go_compile.isEnabled()
+        fg = "#FFFFFF" if on else C["idle"]
+        self._go_text.setStyleSheet(
+            f"background:transparent; border:none; color:{fg}; font-size:12px; font-weight:600;"
+        )
+        self._go_icon.set_color(fg)
+
     def _start_detect_spin(self) -> None:
         self._detect_icon.start()
-        self._detect_label.setText("检测中…")
+        self._detect_label.setText("检测中...")
+        self._btn_redetect.setEnabled(False)
 
     def _stop_detect_spin(self) -> None:
         self._detect_icon.stop()
         self._detect_label.setText("重新检测环境")
+        if not self._busy:
+            self._btn_redetect.setEnabled(True)
 
     def _show_toast(self, msg: str, duration: int = 3500) -> None:
         """右下角绿色 toast：持续上下弹跳，到时淡出关闭。"""
@@ -1497,6 +1513,7 @@ class MainWindow(QMainWindow):
             set_ready_pill(self._env_hero_badge, badge, ok=ready)
         if hasattr(self, "_btn_go_compile"):
             self._btn_go_compile.setEnabled(ready and not self._busy)
+            self._sync_go_compile_btn_style()
         for lbl in self._env_banner_labels:
             lbl.setText(text)
             lbl.setStyleSheet(f"color:{fg};")
@@ -1642,6 +1659,7 @@ class MainWindow(QMainWindow):
             self._status_lbl.setText(text)
         if hasattr(self, "_btn_go_compile"):
             self._btn_go_compile.setEnabled((not busy) and self._env_ready)
+            self._sync_go_compile_btn_style()
 
     # ------------------------------------------------------------------ 工程 / 浏览
     def _on_recent_picked(self, idx: int) -> None:

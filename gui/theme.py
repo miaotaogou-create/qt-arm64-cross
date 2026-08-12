@@ -267,24 +267,30 @@ QPushButton#EnvGhost:hover, QPushButton#EnvAccent:hover, QPushButton#Ghost:hover
 QPushButton#HeroGhost {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border_input"]};
-    border-radius: 10px;
-    padding: 8px 14px;
+    border-radius: 999px;
+    padding: 0;
     font-size: 12px;
-    color: #E5E7EB;
-    min-height: 18px;
+    color: #E2E8F0;
+    min-height: 32px;
 }}
 QPushButton#HeroGhost:hover {{
     background-color: {C["border_input"]};
     border-color: #4B5563;
 }}
+QPushButton#HeroGhost:disabled {{
+    background-color: #111827;
+    border-color: {C["border"]};
+    color: {C["idle"]};
+}}
 QPushButton#HeroPrimary {{
     background-color: {C["primary"]};
     border: 1px solid {C["accent"]};
-    border-radius: 10px;
-    padding: 8px 16px;
+    border-radius: 999px;
+    padding: 0;
     font-size: 12px;
     color: #FFFFFF;
     font-weight: 600;
+    min-height: 32px;
 }}
 QPushButton#HeroPrimary:hover {{
     background-color: {C["primary_hover"]};
