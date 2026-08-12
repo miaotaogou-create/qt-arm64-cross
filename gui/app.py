@@ -49,11 +49,12 @@ from PySide6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QWidgetAction,
     QTextEdit,
     QButtonGroup,
 )
 
-from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLinkIcon, SparklesIcon
+from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLinkIcon, FolderIcon, SparklesIcon
 
 
 class _RotatingArrowIcon(QWidget):
@@ -688,6 +689,11 @@ class MainWindow(QMainWindow):
         self.ed_env_install = QLineEdit(self._env_install_dir)
         self.ed_env_install.setObjectName("PathEdit")
         self.ed_env_install.setPlaceholderText(r"C:\Users\...\AppData\Local\WSL\Ubuntu-20.04")
+        folder_action = QWidgetAction(self.ed_env_install)
+        folder_icon = FolderIcon(18, "#F59E0B")
+        folder_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        folder_action.setDefaultWidget(folder_icon)
+        self.ed_env_install.addAction(folder_action, QLineEdit.ActionPosition.LeadingPosition)
         self.ed_env_install.textChanged.connect(lambda t: self._on_field("env_install", t))
         self._track_form(self.ed_env_install)
         row0.addWidget(self.ed_env_install, 1)

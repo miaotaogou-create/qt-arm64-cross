@@ -321,3 +321,27 @@ class ExternalLinkIcon(QSvgWidget):
 
     def _reload(self) -> None:
         self.load(self._SVG.format(color=self._color).encode("utf-8"))
+
+
+class FolderIcon(QSvgWidget):
+    """Lucide Folder 图标（WSL 路径输入框）。"""
+
+    _SVG = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"></path>'
+        "</svg>"
+    )
+
+    def __init__(self, size: int = 18, color: str = "#F59E0B", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self._color = color
+        self._reload()
+
+    def set_color(self, color_hex: str) -> None:
+        self._color = color_hex
+        self._reload()
+
+    def _reload(self) -> None:
+        self.load(self._SVG.format(color=self._color).encode("utf-8"))
