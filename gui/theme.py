@@ -3,11 +3,11 @@ from __future__ import annotations
 
 C = {
     "bg": "#030712",
-    "surface": "#0B0F19",
+    "surface": "#111827",
     "surface2": "#1E293B",
-    "border": "#1E293B",
+    "border": "#1F2937",
     "border_active": "#0D9488",
-    "text": "#F8FAFC",
+    "text": "#F9FAFB",
     "muted": "#64748B",
     "primary": "#0D9488",
     "primary_hover": "#0F766E",
@@ -56,14 +56,14 @@ QLabel#CardTitle {{
     border: none;
 }}
 QFrame#Card {{
-    background-color: #0B0F19;
-    border: 1px solid #1E293B;
-    border-radius: 14px;
+    background-color: #111827;
+    border: 1px solid #1F2937;
+    border-radius: 12px;
 }}
 QLabel#CardHeadTitle {{
     font-size: 16px;
     font-weight: 700;
-    color: #F8FAFC;
+    color: #F9FAFB;
     background: transparent;
     border: none;
 }}
@@ -78,7 +78,7 @@ QLabel#CardHeadIcon {{
     border: none;
 }}
 QFrame#CardDivider, QFrame#SpecDivider {{
-    background-color: #1E293B;
+    background-color: #1F2937;
     border: none;
     max-height: 1px;
 }}
@@ -92,8 +92,8 @@ QLabel#FormSectionLabel {{
 }}
 QFrame#PresetCard {{
     background-color: #030712;
-    border: 1px solid #1E293B;
-    border-radius: 10px;
+    border: 1px solid #1F2937;
+    border-radius: 8px;
 }}
 QFrame#PresetCard:hover {{
     border: 1px solid #334155;
@@ -101,12 +101,12 @@ QFrame#PresetCard:hover {{
 QFrame#PresetCardActive {{
     background-color: #030712;
     border: 2px solid #0D9488;
-    border-radius: 10px;
+    border-radius: 8px;
 }}
 QLabel#PresetTitle {{
     font-size: 14px;
     font-weight: 700;
-    color: #FFFFFF;
+    color: #F9FAFB;
     background: transparent;
     border: none;
 }}
@@ -155,10 +155,10 @@ QLabel#SpecValOk {{
 }}
 QLineEdit#PathEdit {{
     background-color: #030712;
-    border: 1px solid #1E293B;
+    border: 1px solid #1F2937;
     border-radius: 8px;
     padding: 8px 12px;
-    color: #F8FAFC;
+    color: #F9FAFB;
     font-family: Consolas, "Segoe UI", monospace;
     font-size: 13px;
     min-height: 18px;
@@ -210,9 +210,9 @@ QPushButton#EnvAccent:hover {{
     color: #FFFFFF;
 }}
 QFrame#ScratchCard {{
-    background-color: #0B0F19;
-    border: 1px solid #1E293B;
-    border-radius: 14px;
+    background-color: #111827;
+    border: 1px solid #1F2937;
+    border-radius: 12px;
 }}
 QToolButton#ScratchToggle {{
     background: transparent;
@@ -495,12 +495,12 @@ QFrame#TerminalCard {{
 }}
 QLineEdit, QComboBox, QSpinBox {{
     background-color: #030712;
-    border: 1px solid #1E293B;
+    border: 1px solid #1F2937;
     border-radius: 8px;
     padding: 8px 12px;
     selection-background-color: {C["accent"]};
     min-height: 18px;
-    color: #F8FAFC;
+    color: #F9FAFB;
     font-family: Consolas, "Cascadia Mono", monospace;
     font-size: 13px;
 }}
@@ -529,7 +529,7 @@ QCheckBox::indicator {{
     width: 16px;
     height: 16px;
     border-radius: 4px;
-    border: 1px solid #334155;
+    border: 1px solid #1F2937;
     background-color: #030712;
 }}
 QCheckBox::indicator:checked {{

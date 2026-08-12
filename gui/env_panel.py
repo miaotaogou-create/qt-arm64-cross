@@ -64,7 +64,7 @@ class PresetCard(QFrame):
         top.setContentsMargins(0, 0, 0, 0)
         self.lbl_name = QLabel(name)
         self.lbl_name.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #FFFFFF; background: transparent; border: none;"
+            "font-size: 14px; font-weight: bold; color: #F9FAFB; background: transparent; border: none;"
         )
         self.lbl_tag = QLabel(tag)
         top.addWidget(self.lbl_name)
@@ -92,7 +92,7 @@ class PresetCard(QFrame):
                 "QFrame {"
                 "background-color: #030712;"
                 "border: 2px solid #0D9488;"
-                "border-radius: 10px;"
+                "border-radius: 8px;"
                 "}"
             )
             self.lbl_tag.setStyleSheet(
@@ -108,8 +108,8 @@ class PresetCard(QFrame):
             self.setStyleSheet(
                 "QFrame {"
                 "background-color: #030712;"
-                "border: 1px solid #1E293B;"
-                "border-radius: 10px;"
+                "border: 1px solid #1F2937;"
+                "border-radius: 8px;"
                 "}"
                 "QFrame:hover {"
                 "border: 1px solid #334155;"
