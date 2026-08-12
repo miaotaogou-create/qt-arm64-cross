@@ -53,7 +53,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
 )
 
-from gui.icons import CheckAwareLabel, CircleCheckIcon, SparklesIcon
+from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, SparklesIcon
 
 
 class _RotatingArrowIcon(QWidget):
@@ -763,9 +763,7 @@ class MainWindow(QMainWindow):
         self._scratch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._scratch_btn.clicked.connect(self._toggle_scratch)
         head.addWidget(self._scratch_btn, 1)
-        self._scratch_arrow = QLabel("▸")
-        self._scratch_arrow.setObjectName("Muted")
-        self._scratch_arrow.setStyleSheet("color:#9CA3AF; font-size:14px; background:transparent;")
+        self._scratch_arrow = ChevronArrow(direction="down", color="#94A3B8", size=16)
         head.addWidget(self._scratch_arrow, 0, Qt.AlignmentFlag.AlignVCenter)
         sc_outer.addLayout(head)
         tip2 = QLabel("无需现成环境包时，可配置全新 WSL 实例并编译 Qt 5.14.2 ARM64 工具链。")
@@ -1186,7 +1184,7 @@ class MainWindow(QMainWindow):
         self._scratch_open = not self._scratch_open
         self._scratch.setVisible(self._scratch_open)
         if hasattr(self, "_scratch_arrow"):
-            self._scratch_arrow.setText("▾" if self._scratch_open else "▸")
+            self._scratch_arrow.set_direction("up" if self._scratch_open else "down")
         self._scratch_btn.setText("无现有环境包？从零搭建向导")
 
     def _on_preset_picked(self, name: str) -> None:

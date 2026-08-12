@@ -255,3 +255,43 @@ class SparklesIcon(QSvgWidget):
 
     def _reload(self) -> None:
         self.load(self._SVG.format(color=self._color).encode("utf-8"))
+
+
+class ChevronArrow(QSvgWidget):
+    """Lucide ChevronDown / ChevronUp。"""
+
+    _DOWN = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+        'stroke="{color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+        '<polyline points="6 9 12 15 18 9"></polyline></svg>'
+    )
+    _UP = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+        'stroke="{color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+        '<polyline points="18 15 12 9 6 15"></polyline></svg>'
+    )
+
+    def __init__(
+        self,
+        direction: str = "down",
+        color: str = "#94A3B8",
+        size: int = 16,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self._direction = direction
+        self._color = color
+        self._reload()
+
+    def set_direction(self, direction: str) -> None:
+        self._direction = direction
+        self._reload()
+
+    def set_color(self, color_hex: str) -> None:
+        self._color = color_hex
+        self._reload()
+
+    def _reload(self) -> None:
+        tpl = self._DOWN if self._direction == "down" else self._UP
+        self.load(tpl.format(color=self._color).encode("utf-8"))
