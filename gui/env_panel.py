@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.icons import HardDriveIcon
+from gui.icons import CpuIcon, HardDriveIcon
 from gui.theme import C
 
 # 界面预设；当前仅 Ubuntu-20.04 有现成环境包
@@ -137,7 +137,9 @@ def card_header(icon_text: str, title: str, right: str = "", icon_color: str | N
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(10)
     color = icon_color or "#06B6D4"
-    if icon_text in ("▣", "hdd", "drive", ""):
+    if icon_text in ("cpu", "chip"):
+        icon = CpuIcon(22, color if icon_color else "#14B8A6")
+    elif icon_text in ("▣", "hdd", "drive", ""):
         icon = HardDriveIcon(24, color)
     else:
         icon = QLabel(icon_text)
@@ -196,7 +198,7 @@ def build_toolchain_specs() -> QFrame:
     lay = QVBoxLayout(frame)
     lay.setContentsMargins(20, 16, 20, 16)
     lay.setSpacing(0)
-    lay.addWidget(card_header("▣", "工具链及 SYSROOT 明细", icon_color=C["ok"]))
+    lay.addWidget(card_header("cpu", "工具链及 SYSROOT 明细", icon_color="#14B8A6"))
 
     body = QVBoxLayout()
     body.setContentsMargins(0, 8, 0, 0)

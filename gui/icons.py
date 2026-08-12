@@ -157,3 +157,36 @@ class HardDriveIcon(QSvgWidget):
 
     def _reload(self) -> None:
         self.load(self._SVG.format(color=self._color).encode("utf-8"))
+
+
+class CpuIcon(QSvgWidget):
+    """Lucide Cpu SVG 图标（工具链卡片）。"""
+
+    _SVG = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>'
+        '<rect x="9" y="9" width="6" height="6"></rect>'
+        '<line x1="9" y1="1" x2="9" y2="4"></line>'
+        '<line x1="15" y1="1" x2="15" y2="4"></line>'
+        '<line x1="9" y1="20" x2="9" y2="23"></line>'
+        '<line x1="15" y1="20" x2="15" y2="23"></line>'
+        '<line x1="1" y1="9" x2="4" y2="9"></line>'
+        '<line x1="1" y1="15" x2="4" y2="15"></line>'
+        '<line x1="20" y1="9" x2="23" y2="9"></line>'
+        '<line x1="20" y1="15" x2="23" y2="15"></line>'
+        "</svg>"
+    )
+
+    def __init__(self, size: int = 22, color: str = "#14B8A6", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self._color = color
+        self._reload()
+
+    def set_color(self, color_hex: str) -> None:
+        self._color = color_hex
+        self._reload()
+
+    def _reload(self) -> None:
+        self.load(self._SVG.format(color=self._color).encode("utf-8"))
