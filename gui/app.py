@@ -6,14 +6,34 @@ import threading
 import webbrowser
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Signal, QRectF, QVariantAnimation
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPainterPath, QPen, QTextCharFormat, QTextCursor
+from PySide6.QtCore import (
+    Qt,
+    QTimer,
+    Signal,
+    QRectF,
+    QVariantAnimation,
+    QPropertyAnimation,
+    QSequentialAnimationGroup,
+    QEasingCurve,
+    QPoint,
+)
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QMouseEvent,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QTextCharFormat,
+    QTextCursor,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
     QFileDialog,
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -88,6 +108,114 @@ class _RotatingArrowIcon(QWidget):
         a2.closeSubpath()
         p.drawPath(a2)
         p.end()
+
+
+class _ToastCheckIcon(QLabel):
+    """白色空心圆 + 白色对勾。"""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(20, 20)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+
+    def paintEvent(self, _e) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(QColor(255, 255, 255), 1.8)
+        p.setPen(pen)
+        p.drawEllipse(1, 1, 18, 18)
+        pen.setWidthF(2.0)
+        p.setPen(pen)
+        p.drawLine(6, 10, 9, 13)
+        p.drawLine(9, 13, 14, 7)
+        p.end()
+
+
+class ToastNotification(QWidget):
+    """实心绿色 toast：持续上下弹跳，到时后淡出关闭。"""
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        text: str = "环境全面检测完成：aarch64 交叉编译器与 Qt 库正常！",
+        duration: int = 3000,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.Tool
+            | Qt.WindowType.WindowStaysOnTopHint
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        self.duration = duration
+        self._base_y = 0
+        self._init_ui(text)
+        self._init_animations()
+
+    def _init_ui(self, text: str) -> None:
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 10, 20, 10)
+        layout.setSpacing(10)
+        layout.addWidget(_ToastCheckIcon(self))
+        text_label = QLabel(text)
+        font = QFont("Microsoft YaHei", 9)
+        font.setBold(True)
+        text_label.setFont(font)
+        text_label.setStyleSheet("color: #FFFFFF; background: transparent; border: none;")
+        layout.addWidget(text_label)
+        self.adjustSize()
+
+    def paintEvent(self, _e) -> None:  # noqa: N802
+        # WA_TranslucentBackground 下样式表背景常不生效，手动画圆角绿底
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor("#059669"))
+        p.drawRoundedRect(self.rect(), 12, 12)
+        p.end()
+
+    def _init_animations(self) -> None:
+        self._anim_up = QPropertyAnimation(self, b"pos", self)
+        self._anim_up.setDuration(350)
+        self._anim_up.setEasingCurve(QEasingCurve.Type.OutQuad)
+        self._anim_down = QPropertyAnimation(self, b"pos", self)
+        self._anim_down.setDuration(350)
+        self._anim_down.setEasingCurve(QEasingCurve.Type.InQuad)
+        self._bounce_group = QSequentialAnimationGroup(self)
+        self._bounce_group.addAnimation(self._anim_up)
+        self._bounce_group.addAnimation(self._anim_down)
+        self._bounce_group.setLoopCount(-1)
+
+        self._opacity = QGraphicsOpacityEffect(self)
+        self._opacity.setOpacity(1.0)
+        self.setGraphicsEffect(self._opacity)
+        self._fade_out = QPropertyAnimation(self._opacity, b"opacity", self)
+        self._fade_out.setDuration(400)
+        self._fade_out.setStartValue(1.0)
+        self._fade_out.setEndValue(0.0)
+        self._fade_out.finished.connect(self.close)
+
+    def show_toast(self, parent_widget: QWidget) -> None:
+        # Tool 窗口用全局坐标，贴主窗口右下角
+        br = parent_widget.mapToGlobal(parent_widget.rect().bottomRight())
+        x = br.x() - self.width() - 24
+        y = br.y() - self.height() - 24
+        self._base_y = y
+        self.move(x, y)
+        self._anim_up.setStartValue(QPoint(x, self._base_y))
+        self._anim_up.setEndValue(QPoint(x, self._base_y - 12))
+        self._anim_down.setStartValue(QPoint(x, self._base_y - 12))
+        self._anim_down.setEndValue(QPoint(x, self._base_y))
+        self.show()
+        self.raise_()
+        self._bounce_group.start()
+        QTimer.singleShot(self.duration, self.dismiss)
+
+    def dismiss(self) -> None:
+        self._bounce_group.stop()
+        self._fade_out.start()
 
 
 from crosskit import build as buildmod
@@ -1273,89 +1401,16 @@ class MainWindow(QMainWindow):
         self._detect_icon.stop()
         self._detect_label.setText("重新检测环境")
 
-    def _show_toast(self, msg: str, duration: int = 2500) -> None:
-        """底部右侧弹出 toast（淡入弹入 → 停留 → 淡出下沉）。"""
-        from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QPoint, QParallelAnimationGroup
-        from PySide6.QtWidgets import QGraphicsOpacityEffect
-
-        toast = QFrame(self)
-        toast.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        toast.setStyleSheet("background-color: #00A86B; border-radius: 12px;")
-        tl = QHBoxLayout(toast)
-        tl.setContentsMargins(16, 10, 20, 10)
-        tl.setSpacing(10)
-        icon = QLabel("✓")
-        icon.setStyleSheet(
-            "color:white; font-weight:bold; font-size:14px;"
-            "border:1.5px solid white; border-radius:10px;"
-            "min-width:20px; max-width:20px; min-height:20px; max-height:20px;"
-            "background:transparent;"
-        )
-        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        tl.addWidget(icon)
-        txt = QLabel(msg)
-        txt.setStyleSheet(
-            "color:white; font-size:13px; font-weight:600; border:none; background:transparent;"
-            'font-family:"Microsoft YaHei","Segoe UI",sans-serif;'
-        )
-        txt.setWordWrap(True)
-        txt.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        tl.addWidget(txt)
-        tl.setStretchFactor(tl.indexOf(txt), 1)
-        toast.adjustSize()
-
-        x = self.width() - toast.width() - 24
-        y = self.height() - toast.height() - 24
-        start = QPoint(x, y + 24)
-        end = QPoint(x, y)
-        toast.move(start)
-
-        opacity = QGraphicsOpacityEffect(toast)
-        opacity.setOpacity(0.0)
-        toast.setGraphicsEffect(opacity)
-
-        grp_in = QParallelAnimationGroup(self)
-        pos_in = QPropertyAnimation(toast, b"pos", self)
-        pos_in.setDuration(480)
-        pos_in.setStartValue(start)
-        pos_in.setEndValue(end)
-        pos_in.setEasingCurve(QEasingCurve.Type.OutBack)
-        fade_in = QPropertyAnimation(opacity, b"opacity", self)
-        fade_in.setDuration(320)
-        fade_in.setStartValue(0.0)
-        fade_in.setEndValue(1.0)
-        grp_in.addAnimation(pos_in)
-        grp_in.addAnimation(fade_in)
-
-        grp_out = QParallelAnimationGroup(self)
-        pos_out = QPropertyAnimation(toast, b"pos", self)
-        pos_out.setDuration(320)
-        pos_out.setStartValue(end)
-        pos_out.setEndValue(QPoint(x, y + 16))
-        pos_out.setEasingCurve(QEasingCurve.Type.InCubic)
-        fade_out = QPropertyAnimation(opacity, b"opacity", self)
-        fade_out.setDuration(280)
-        fade_out.setStartValue(1.0)
-        fade_out.setEndValue(0.0)
-        grp_out.addAnimation(pos_out)
-        grp_out.addAnimation(fade_out)
-        grp_out.finished.connect(toast.deleteLater)
-
-        if not hasattr(self, "_toast_anims"):
-            self._toast_anims: list = []
-        self._toast_anims.extend((grp_in, grp_out, pos_in, fade_in, pos_out, fade_out))
-
-        def _start_in() -> None:
-            toast.show()
-            toast.raise_()
-            grp_in.start()
-
-        def _start_out() -> None:
-            if toast.isVisible():
-                grp_out.start()
-
-        QTimer.singleShot(0, _start_in)
-        QTimer.singleShot(duration, _start_out)
+    def _show_toast(self, msg: str, duration: int = 3500) -> None:
+        """右下角绿色 toast：持续上下弹跳，到时淡出关闭。"""
+        toast = ToastNotification(parent=self, text=msg, duration=duration)
+        # 保留引用，避免被 GC 提前销毁
+        if not hasattr(self, "_active_toasts"):
+            self._active_toasts: list[ToastNotification] = []
+        self._active_toasts = [t for t in self._active_toasts if t.isVisible()]
+        self._active_toasts.append(toast)
+        toast.destroyed.connect(lambda *_: self._active_toasts.remove(toast) if toast in self._active_toasts else None)
+        toast.show_toast(self)
 
     def _apply_env_ready(self, ready: bool) -> None:
         self._env_ready = ready
