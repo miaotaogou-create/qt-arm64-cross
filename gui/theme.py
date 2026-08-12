@@ -654,6 +654,23 @@ QLabel#HeroDesc {{
     background: transparent;
     border: none;
 }}
+QFrame#ScratchHeader {{
+    background: transparent;
+    border: none;
+}}
+QLabel#ScratchTitle {{
+    background: transparent;
+    border: none;
+    color: #E2E8F0;
+    font-weight: 700;
+    font-size: 13px;
+}}
+QLabel#ScratchDesc {{
+    background: transparent;
+    border: none;
+    color: #64748B;
+    font-size: 11px;
+}}
 QToolButton#ScratchToggle {{
     background: transparent;
     border: none;

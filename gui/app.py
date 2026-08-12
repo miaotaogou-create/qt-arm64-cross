@@ -751,29 +751,38 @@ class MainWindow(QMainWindow):
         scratch = QFrame()
         scratch.setObjectName("ScratchCard")
         sc_outer = QVBoxLayout(scratch)
-        sc_outer.setContentsMargins(14, 10, 14, 10)
-        sc_outer.setSpacing(6)
-        head = QHBoxLayout()
-        head.setSpacing(8)
-        self._scratch_icon = SparklesIcon(20, "#F59E0B")
-        head.addWidget(self._scratch_icon, 0, Qt.AlignmentFlag.AlignVCenter)
-        self._scratch_btn = QToolButton()
-        self._scratch_btn.setText("无现有环境包？从零搭建向导")
-        self._scratch_btn.setObjectName("ScratchToggle")
-        self._scratch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._scratch_btn.clicked.connect(self._toggle_scratch)
-        head.addWidget(self._scratch_btn, 1)
+        sc_outer.setContentsMargins(16, 14, 16, 14)
+        sc_outer.setSpacing(10)
+
+        # 整行可点：星标 + 标题 + 箭头
+        head = QFrame()
+        head.setObjectName("ScratchHeader")
+        head.setCursor(Qt.CursorShape.PointingHandCursor)
+        hl = QHBoxLayout(head)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(8)
+        self._scratch_icon = SparklesIcon(16, "#F59E0B")
+        self._scratch_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        hl.addWidget(self._scratch_icon, 0, Qt.AlignmentFlag.AlignVCenter)
+        self._scratch_title = QLabel("无现有环境包？从零搭建向导")
+        self._scratch_title.setObjectName("ScratchTitle")
+        self._scratch_title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        hl.addWidget(self._scratch_title, 1, Qt.AlignmentFlag.AlignVCenter)
         self._scratch_arrow = ChevronArrow(direction="down", color="#94A3B8", size=16)
-        head.addWidget(self._scratch_arrow, 0, Qt.AlignmentFlag.AlignVCenter)
-        sc_outer.addLayout(head)
-        tip2 = QLabel("无需现成环境包时，可配置全新 WSL 实例并编译 Qt 5.14.2 ARM64 工具链。")
-        tip2.setObjectName("Muted")
+        self._scratch_arrow.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        hl.addWidget(self._scratch_arrow, 0, Qt.AlignmentFlag.AlignVCenter)
+        head.mousePressEvent = self._on_scratch_header_press  # type: ignore[method-assign]
+        sc_outer.addWidget(head)
+
+        tip2 = QLabel("无需现成环境包，系统将自动配置全新 WSL Ubuntu 实例并自动编译 Qt 5.14.2 ARM64 工具链。")
+        tip2.setObjectName("ScratchDesc")
         tip2.setWordWrap(True)
         sc_outer.addWidget(tip2)
+
         self._scratch = QWidget()
         self._scratch.setVisible(False)
         sc_lay = QVBoxLayout(self._scratch)
-        sc_lay.setContentsMargins(0, 6, 0, 0)
+        sc_lay.setContentsMargins(0, 4, 0, 0)
         sc_lay.setSpacing(8)
         for title, sub, script, btn_text in (
             ("步骤 1: 安装 aarch64 基础工具链", "gcc-aarch64-linux-gnu, g++-aarch64", "setup_cross_focal.sh", "安装工具链"),
@@ -1180,12 +1189,15 @@ class MainWindow(QMainWindow):
         self._adv.setVisible(self._advanced_open)
         self._adv_btn.setText("高级 ▾" if self._advanced_open else "高级 ▸")
 
+    def _on_scratch_header_press(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._toggle_scratch()
+
     def _toggle_scratch(self) -> None:
         self._scratch_open = not self._scratch_open
         self._scratch.setVisible(self._scratch_open)
         if hasattr(self, "_scratch_arrow"):
             self._scratch_arrow.set_direction("up" if self._scratch_open else "down")
-        self._scratch_btn.setText("无现有环境包？从零搭建向导")
 
     def _on_preset_picked(self, name: str) -> None:
         """界面：点预设卡填入发行版名（非 20.04 仅预留，稍后接逻辑）。"""
