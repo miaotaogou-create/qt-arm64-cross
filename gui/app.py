@@ -210,6 +210,7 @@ from gui.env_panel import (
     build_toolchain_specs,
     card_header,
     form_label,
+    hline,
 )
 from gui.theme import C, apply_theme
 
@@ -721,9 +722,7 @@ class MainWindow(QMainWindow):
         sec3.addLayout(row1)
         env_lay.addLayout(sec3)
 
-        div2 = QFrame()
-        div2.setObjectName("CardDivider")
-        div2.setFixedHeight(1)
+        div2 = hline()
         env_lay.addWidget(div2)
 
         opts = QHBoxLayout()

@@ -14,6 +14,16 @@ from PySide6.QtWidgets import (
 from gui.icons import CpuIcon, HardDriveIcon
 from gui.theme import C
 
+
+def hline(*, spec: bool = False) -> QFrame:
+    """卡片内水平分隔线（参考图浅灰横线）。"""
+    line = QFrame()
+    line.setObjectName("SpecDivider" if spec else "CardDivider")
+    line.setFixedHeight(1)
+    line.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    line.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+    return line
+
 # 界面预设；当前仅 Ubuntu-20.04 有现成环境包
 DISTRO_PRESETS: list[dict[str, str]] = [
     {
@@ -163,12 +173,10 @@ def card_header(icon_text: str, title: str, right: str = "", icon_color: str | N
     box.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
     vl = QVBoxLayout(box)
     vl.setContentsMargins(0, 0, 0, 0)
-    vl.setSpacing(12)
+    vl.setSpacing(0)
     vl.addWidget(wrap)
-    line = QFrame()
-    line.setObjectName("CardDivider")
-    line.setFixedHeight(1)
-    vl.addWidget(line)
+    vl.addSpacing(12)
+    vl.addWidget(hline())
     return box
 
 
@@ -243,7 +251,7 @@ def build_toolchain_specs() -> QFrame:
     body = QVBoxLayout()
     body.setContentsMargins(0, 8, 0, 0)
     body.setSpacing(0)
-    for i, (k, v, kind) in enumerate(TOOLCHAIN_SPECS):
+    for k, v, kind in TOOLCHAIN_SPECS:
         row = QFrame()
         row.setObjectName("SpecRow")
         rl = QHBoxLayout(row)
@@ -261,10 +269,6 @@ def build_toolchain_specs() -> QFrame:
         rl.addWidget(kk)
         rl.addWidget(vv, 1)
         body.addWidget(row)
-        if i < len(TOOLCHAIN_SPECS) - 1:
-            div = QFrame()
-            div.setObjectName("SpecDivider")
-            div.setFixedHeight(1)
-            body.addWidget(div)
+        body.addWidget(hline(spec=True))
     lay.addLayout(body)
     return frame

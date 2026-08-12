@@ -6,6 +6,8 @@ C = {
     "surface": "#111827",
     "surface2": "#1F2937",
     "border": "#1F2937",
+    "divider": "#374151",
+    "divider_soft": "rgba(148, 163, 184, 0.22)",
     "border_input": "#374151",
     "border_active": "#0D9488",
     "text": "#E2E8F0",
@@ -60,9 +62,15 @@ QFrame#Card, QFrame#CardFrame, QFrame#ScratchCard {{
     border-radius: 12px;
 }}
 QFrame#CardDivider, QFrame#SpecDivider {{
-    background-color: {C["border"]};
     border: none;
+    min-height: 1px;
     max-height: 1px;
+}}
+QFrame#CardDivider {{
+    background-color: {C["divider"]};
+}}
+QFrame#SpecDivider {{
+    background-color: {C["divider_soft"]};
 }}
 QLabel#Title {{
     font-size: 17px;
