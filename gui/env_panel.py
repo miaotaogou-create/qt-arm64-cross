@@ -1,17 +1,18 @@
 """环境页：发行版配置卡 + 工具链明细（对齐参考卡片）。"""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
-from gui.icons import CpuIcon, HardDriveIcon
+from gui.icons import CpuIcon, FolderIcon, HardDriveIcon
 from gui.theme import C
 
 
@@ -24,6 +25,42 @@ def hline(*, spec: bool = False) -> QFrame:
     line.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
     return line
 
+
+class PathInputField(QFrame):
+    """带左侧 Folder 图标的路径输入框（px-3 + icon + gap-2 对齐参考）。"""
+
+    textChanged = Signal(str)
+
+    def __init__(
+        self,
+        text: str = "",
+        *,
+        placeholder: str = "",
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName("PathField")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(12, 0, 12, 0)
+        lay.setSpacing(8)
+        icon = FolderIcon(16, "#F59E0B")
+        icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        lay.addWidget(icon)
+        self.ed = QLineEdit(text)
+        self.ed.setObjectName("PathEditInner")
+        if placeholder:
+            self.ed.setPlaceholderText(placeholder)
+        self.ed.textChanged.connect(self.textChanged.emit)
+        self.ed.installEventFilter(self)
+        lay.addWidget(self.ed, 1)
+
+    def eventFilter(self, obj, event) -> bool:  # noqa: N802
+        if obj is self.ed and event.type() in (QEvent.Type.FocusIn, QEvent.Type.FocusOut):
+            self.setProperty("focused", event.type() == QEvent.Type.FocusIn)
+            self.style().unpolish(self)
+            self.style().polish(self)
+        return super().eventFilter(obj, event)
 # 界面预设；当前仅 Ubuntu-20.04 有现成环境包
 DISTRO_PRESETS: list[dict[str, str]] = [
     {

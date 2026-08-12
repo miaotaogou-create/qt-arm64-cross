@@ -49,12 +49,11 @@ from PySide6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
-    QWidgetAction,
     QTextEdit,
     QButtonGroup,
 )
 
-from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLinkIcon, FolderIcon, SparklesIcon
+from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLinkIcon, SparklesIcon
 
 
 class _RotatingArrowIcon(QWidget):
@@ -211,6 +210,7 @@ from gui.env_panel import (
     card_header,
     form_label,
     hline,
+    PathInputField,
 )
 from gui.theme import C, apply_theme
 
@@ -687,17 +687,14 @@ class MainWindow(QMainWindow):
         sec2.addWidget(form_label("WSL 安装目录 (Install Path)"))
         row0 = QHBoxLayout()
         row0.setSpacing(10)
-        self.ed_env_install = QLineEdit(self._env_install_dir)
-        self.ed_env_install.setObjectName("PathEdit")
-        self.ed_env_install.setPlaceholderText(r"C:\Users\...\AppData\Local\WSL\Ubuntu-20.04")
-        folder_action = QWidgetAction(self.ed_env_install)
-        folder_icon = FolderIcon(18, "#F59E0B")
-        folder_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        folder_action.setDefaultWidget(folder_icon)
-        self.ed_env_install.addAction(folder_action, QLineEdit.ActionPosition.LeadingPosition)
-        self.ed_env_install.textChanged.connect(lambda t: self._on_field("env_install", t))
+        self._env_path_field = PathInputField(
+            self._env_install_dir,
+            placeholder=r"C:\Users\...\AppData\Local\WSL\Ubuntu-20.04",
+        )
+        self.ed_env_install = self._env_path_field.ed
+        self._env_path_field.textChanged.connect(lambda t: self._on_field("env_install", t))
         self._track_form(self.ed_env_install)
-        row0.addWidget(self.ed_env_install, 1)
+        row0.addWidget(self._env_path_field, 1)
         b_br = QPushButton("浏览...")
         b_br.setObjectName("EnvGhost")
         b_br.setCursor(Qt.CursorShape.PointingHandCursor)

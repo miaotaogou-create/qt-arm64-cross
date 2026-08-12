@@ -188,6 +188,29 @@ QLineEdit, QComboBox, QSpinBox, QLineEdit#PathEdit {{
     selection-background-color: {C["primary"]};
     min-height: 18px;
 }}
+QFrame#PathField {{
+    background-color: #030712;
+    border: 1px solid {C["border_input"]};
+    border-radius: 8px;
+    min-height: 36px;
+}}
+QFrame#PathField:hover {{
+    border-color: #4B5563;
+}}
+QFrame#PathField[focused="true"] {{
+    border: 1px solid {C["primary"]};
+    background-color: #0B0F17;
+}}
+QLineEdit#PathEditInner {{
+    background: transparent;
+    border: none;
+    padding: 8px 0;
+    color: {C["text_bright"]};
+    font-size: 13px;
+    font-family: "Cascadia Code", Consolas, "Segoe UI", monospace;
+    selection-background-color: {C["primary"]};
+    min-height: 18px;
+}}
 QLineEdit:hover, QComboBox:hover, QSpinBox:hover {{
     border-color: #4B5563;
 }}
