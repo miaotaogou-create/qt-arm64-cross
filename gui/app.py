@@ -53,7 +53,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
 )
 
-from gui.icons import CheckAwareLabel, CircleCheckIcon
+from gui.icons import CheckAwareLabel, CircleCheckIcon, SparklesIcon
 
 
 class _RotatingArrowIcon(QWidget):
@@ -748,12 +748,19 @@ class MainWindow(QMainWindow):
         sc_outer.setContentsMargins(14, 10, 14, 10)
         sc_outer.setSpacing(6)
         head = QHBoxLayout()
+        head.setSpacing(8)
+        self._scratch_icon = SparklesIcon(20, "#F59E0B")
+        head.addWidget(self._scratch_icon, 0, Qt.AlignmentFlag.AlignVCenter)
         self._scratch_btn = QToolButton()
-        self._scratch_btn.setText("✦  无现有环境包？从零搭建向导  ▸")
+        self._scratch_btn.setText("无现有环境包？从零搭建向导")
         self._scratch_btn.setObjectName("ScratchToggle")
         self._scratch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._scratch_btn.clicked.connect(self._toggle_scratch)
         head.addWidget(self._scratch_btn, 1)
+        self._scratch_arrow = QLabel("▸")
+        self._scratch_arrow.setObjectName("Muted")
+        self._scratch_arrow.setStyleSheet("color:#9CA3AF; font-size:14px; background:transparent;")
+        head.addWidget(self._scratch_arrow, 0, Qt.AlignmentFlag.AlignVCenter)
         sc_outer.addLayout(head)
         tip2 = QLabel("无需现成环境包时，可配置全新 WSL 实例并编译 Qt 5.14.2 ARM64 工具链。")
         tip2.setObjectName("Muted")
@@ -1173,8 +1180,9 @@ class MainWindow(QMainWindow):
     def _toggle_scratch(self) -> None:
         self._scratch_open = not self._scratch_open
         self._scratch.setVisible(self._scratch_open)
-        arrow = "▾" if self._scratch_open else "▸"
-        self._scratch_btn.setText(f"✦  无现有环境包？从零搭建向导  {arrow}")
+        if hasattr(self, "_scratch_arrow"):
+            self._scratch_arrow.setText("▾" if self._scratch_open else "▸")
+        self._scratch_btn.setText("无现有环境包？从零搭建向导")
 
     def _on_preset_picked(self, name: str) -> None:
         """界面：点预设卡填入发行版名（非 20.04 仅预留，稍后接逻辑）。"""

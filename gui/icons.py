@@ -225,3 +225,33 @@ class HeaderCpuLogo(QSvgWidget):
 
     def _reload(self) -> None:
         self.load(self._SVG.format(bg_color=self._bg).encode("utf-8"))
+
+
+class SparklesIcon(QSvgWidget):
+    """Lucide Sparkles SVG（从零搭建 / 极速编译）。"""
+
+    _SVG = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 '
+        "9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 "
+        '0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>'
+        '<path d="M20 3v4"></path>'
+        '<path d="M22 5h-4"></path>'
+        '<path d="M4 17v2"></path>'
+        '<path d="M5 18H3"></path>'
+        "</svg>"
+    )
+
+    def __init__(self, size: int = 20, color: str = "#F59E0B", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self._color = color
+        self._reload()
+
+    def set_color(self, color_hex: str) -> None:
+        self._color = color_hex
+        self._reload()
+
+    def _reload(self) -> None:
+        self.load(self._SVG.format(color=self._color).encode("utf-8"))
