@@ -72,11 +72,6 @@ QFrame#CardDivider {{
 QFrame#SpecDivider {{
     background-color: {C["divider_soft"]};
 }}
-QFrame#CodeBadge {{
-    background-color: {C["primary"]};
-    border: none;
-    border-radius: 6px;
-}}
 QPushButton#IconGhost {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border_input"]};

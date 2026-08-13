@@ -59,8 +59,8 @@ from gui.icons import (
     CheckAwareLabel,
     CircleCheckIcon,
     ChevronArrow,
-    CodeBadge,
     ExternalLinkIcon,
+    PlayIcon,
     SparklesIcon,
     TerminalIcon,
     make_svg_icon,
@@ -936,7 +936,7 @@ class MainWindow(QMainWindow):
 
         head = QHBoxLayout()
         head.setSpacing(8)
-        head.addWidget(CodeBadge(22))
+        head.addWidget(PlayIcon(20, "#0D9488"))
         ht = QLabel("Qt 工程路径与构建参数配置")
         ht.setObjectName("CardHeadTitle")
         head.addWidget(ht)
