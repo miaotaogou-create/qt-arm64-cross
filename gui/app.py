@@ -1138,8 +1138,8 @@ class MainWindow(QMainWindow):
         btn_row.setSpacing(10)
 
         self._btn_build = QPushButton("开始交叉编译 (aarch64)")
-        self._btn_build.setObjectName("Primary")
-        self._btn_build.setIcon(make_svg_icon("play", "#FFFFFF", 16))
+        self._btn_build.setObjectName("BtnStartBuild")
+        self._btn_build.setIcon(make_svg_icon("play_solid", "#FFFFFF", 16))
         self._btn_build.setIconSize(QSize(16, 16))
         self._btn_build.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_build.clicked.connect(self._on_build)

@@ -40,6 +40,12 @@ _SVG_PLAY = (
     '<polygon points="5 3 19 12 5 21 5 3"></polygon>'
     "</svg>"
 )
+_SVG_PLAY_SOLID = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="{color}" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M6 4.5v15a1 1 0 0 0 1.55.83l12-7.5a1 1 0 0 0 0-1.66l-12-7.5A1 1 0 0 0 6 4.5z"/>'
+    "</svg>"
+)
 _SVG_TERMINAL = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
     'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
@@ -113,6 +119,7 @@ def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
         "download": _SVG_DOWNLOAD,
         "refresh": _SVG_REFRESH,
         "play": _SVG_PLAY,
+        "play_solid": _SVG_PLAY_SOLID,
         "terminal": _SVG_TERMINAL,
         "sparkles": _SVG_SPARKLES,
         "folder": _SVG_FOLDER,

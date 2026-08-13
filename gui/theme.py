@@ -418,6 +418,27 @@ QPushButton#QuickPrimary:disabled {{
     border-color: {C["border"]};
     color: {C["idle"]};
 }}
+QPushButton#BtnStartBuild {{
+    background-color: #0D9488;
+    border: 1px solid #14B8A6;
+    border-radius: 8px;
+    padding: 8px 18px;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 13px;
+}}
+QPushButton#BtnStartBuild:hover {{
+    background-color: #0F766E;
+    border-color: #2DD4BF;
+}}
+QPushButton#BtnStartBuild:pressed {{
+    background-color: #115E59;
+}}
+QPushButton#BtnStartBuild:disabled {{
+    background-color: #111827;
+    border-color: #1F2937;
+    color: #4B5563;
+}}
 QPushButton#EnvGhost, QPushButton#Ghost, QPushButton#Accent {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border_input"]};
