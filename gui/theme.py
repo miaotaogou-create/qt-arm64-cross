@@ -439,6 +439,23 @@ QPushButton#BtnStartBuild:disabled {{
     border-color: #1F2937;
     color: #4B5563;
 }}
+QPushButton#BtnOpenOutFolder {{
+    background-color: #111827;
+    border: 1px solid #1F2937;
+    border-radius: 8px;
+    padding: 8px 18px;
+    color: #E5E7EB;
+    font-weight: 600;
+    font-size: 13px;
+}}
+QPushButton#BtnOpenOutFolder:hover {{
+    background-color: #1F2937;
+    border-color: #374151;
+    color: #FFFFFF;
+}}
+QPushButton#BtnOpenOutFolder:pressed {{
+    background-color: #030712;
+}}
 QPushButton#EnvGhost, QPushButton#Ghost, QPushButton#Accent {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border_input"]};

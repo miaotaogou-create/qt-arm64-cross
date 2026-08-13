@@ -1147,9 +1147,9 @@ class MainWindow(QMainWindow):
         btn_row.addWidget(self._btn_build)
 
         b_out = QPushButton("打开产物文件夹")
-        b_out.setObjectName("EnvGhost")
-        b_out.setIcon(make_svg_icon("folder", "#F59E0B", 14))
-        b_out.setIconSize(QSize(14, 14))
+        b_out.setObjectName("BtnOpenOutFolder")
+        b_out.setIcon(make_svg_icon("folder", "#F59E0B", 16))
+        b_out.setIconSize(QSize(16, 16))
         b_out.setCursor(Qt.CursorShape.PointingHandCursor)
         b_out.clicked.connect(self._open_out)
         self._track_action(b_out)
