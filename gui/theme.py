@@ -134,53 +134,61 @@ QFrame#PresetCard, QFrame#InnerSubCard {{
     border: 1px solid {C["border"]};
     border-radius: 8px;
 }}
-QFrame#AdvPanel {{
+QFrame#AdvPanel, QFrame#AdvPanelFrame {{
     background-color: #030712;
-    border: 1px solid {C["border"]};
-    border-radius: 8px;
+    border: 1px solid #1F2937;
+    border-radius: 12px;
 }}
 QLabel#AdvSectionLabel {{
     font-size: 13px;
     font-weight: 700;
-    color: {C["text_bright"]};
+    color: #F9FAFB;
     background: transparent;
     border: none;
 }}
-QPushButton#AdvToggle {{
-    background-color: #0B1220;
-    border: 1px solid {C["primary"]};
-    border-radius: 8px;
-    color: {C["primary"]};
-    padding: 4px 12px;
-    font-weight: 600;
+QFrame#AdvToggleBtn {{
+    background-color: #111827;
+    border: 1px solid #1F2937;
+    border-radius: 14px;
+    min-width: 118px;
 }}
-QPushButton#AdvToggle:hover {{
-    background-color: #0F1A2A;
-    border-color: {C["primary_hover"]};
-    color: {C["primary_hover"]};
+QFrame#AdvToggleBtn[expanded="true"] {{
+    background-color: #ECFDF5;
+    border: 1px solid #A7F3D0;
+}}
+QFrame#AdvToggleBtn:hover {{
+    border-color: #6EE7B7;
+}}
+QLabel#AdvToggleLabel {{
+    background: transparent;
+    border: none;
+    font-size: 13px;
 }}
 QPushButton#ModeBtn {{
-    background-color: #0B1220;
-    border: 1px solid {C["border_input"]};
-    border-radius: 8px;
-    color: {C["text_bright"]};
+    background-color: #111827;
+    border: 1px solid #1F2937;
+    border-radius: 12px;
     padding: 6px 14px;
+    color: #9CA3AF;
     font-weight: 600;
+    min-height: 32px;
 }}
 QPushButton#ModeBtn:hover {{
-    border-color: #4B5563;
+    background-color: #1F2937;
+    color: #E5E7EB;
 }}
-QPushButton#ModeBtnActive {{
-    background-color: {C["primary"]};
-    border: 1px solid {C["primary"]};
-    border-radius: 8px;
-    color: #FFFFFF;
+QPushButton#ModeBtnSelected {{
+    background-color: #0D9488;
+    border: 1px solid #14B8A6;
+    border-radius: 12px;
     padding: 6px 14px;
+    color: #FFFFFF;
     font-weight: 700;
+    min-height: 32px;
 }}
-QPushButton#ModeBtnActive:hover {{
-    background-color: {C["primary_hover"]};
-    border-color: {C["primary_hover"]};
+QPushButton#ModeBtnSelected:hover {{
+    background-color: #0F766E;
+    border-color: #14B8A6;
 }}
 QFrame#PresetCard:hover {{
     border: 1px solid #4B5563;
