@@ -61,7 +61,7 @@ from gui.icons import (
     CircleCheckIcon,
     ChevronArrow,
     ExternalLinkIcon,
-    PlayIcon,
+    FileCodeIcon,
     SparklesIcon,
     TerminalIcon,
     make_svg_icon,
@@ -942,7 +942,7 @@ class MainWindow(QMainWindow):
         head.setContentsMargins(0, 0, 0, 0)
         head.setSpacing(8)
         head.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        head.addWidget(PlayIcon(18, "#0D9488"), 0, Qt.AlignmentFlag.AlignVCenter)
+        head.addWidget(FileCodeIcon(20, "#14B8A6"), 0, Qt.AlignmentFlag.AlignVCenter)
         ht = QLabel("Qt 工程路径与构建参数配置")
         ht.setObjectName("CardHeadTitle")
         head.addWidget(ht, 0, Qt.AlignmentFlag.AlignVCenter)

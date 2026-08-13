@@ -72,6 +72,15 @@ _SVG_SLIDERS = (
     '<line x1="17" y1="16" x2="23" y2="16"></line>'
     "</svg>"
 )
+_SVG_FILE_CODE = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>'
+    '<polyline points="14 2 14 8 20 8"></polyline>'
+    '<path d="m10 13-2 2 2 2"></path>'
+    '<path d="m14 13 2 2-2 2"></path>'
+    "</svg>"
+)
 
 
 def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
@@ -85,6 +94,7 @@ def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
         "sparkles": _SVG_SPARKLES,
         "folder": _SVG_FOLDER,
         "sliders": _SVG_SLIDERS,
+        "file_code": _SVG_FILE_CODE,
     }.get(kind, _SVG_UPLOAD)
     renderer = QSvgRenderer(tpl.format(color=color).encode("utf-8"))
     pix = QPixmap(size, size)
@@ -96,13 +106,13 @@ def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
     return QIcon(pix)
 
 
-class PlayIcon(QSvgWidget):
-    """Lucide Play 图标（编译配置卡标题）。"""
+class FileCodeIcon(QSvgWidget):
+    """Lucide FileCode：文件折角 + 内部 <>（参数配置卡标题）。"""
 
-    def __init__(self, size: int = 20, color: str = "#0D9488", parent: QWidget | None = None) -> None:
+    def __init__(self, size: int = 20, color: str = "#14B8A6", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(size, size)
-        self.load(_SVG_PLAY.format(color=color).encode("utf-8"))
+        self.load(_SVG_FILE_CODE.format(color=color).encode("utf-8"))
 
 
 class TerminalIcon(QSvgWidget):
