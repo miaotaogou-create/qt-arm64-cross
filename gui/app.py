@@ -12,6 +12,7 @@ from PySide6.QtCore import (
     Signal,
     QEvent,
     QRectF,
+    QSize,
     QVariantAnimation,
     QPropertyAnimation,
     QSequentialAnimationGroup,
@@ -54,7 +55,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
 )
 
-from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLinkIcon, SparklesIcon
+from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLinkIcon, SparklesIcon, make_svg_icon
 
 
 class HeroPillBtn(QFrame):
@@ -784,25 +785,33 @@ class MainWindow(QMainWindow):
 
         brow = QHBoxLayout()
         brow.setSpacing(12)
-        b_imp = QPushButton("↑  一键导入环境包 (.tar.gz)")
+        b_imp = QPushButton("一键导入环境包 (.tar.gz)")
         b_imp.setObjectName("EnvPrimary")
+        b_imp.setIcon(make_svg_icon("upload", "#FFFFFF", 16))
+        b_imp.setIconSize(QSize(16, 16))
         b_imp.setCursor(Qt.CursorShape.PointingHandCursor)
         b_imp.clicked.connect(self._on_import_env)
         self._track_action(b_imp)
         brow.addWidget(b_imp)
-        self._btn_download = QPushButton("↓  下载预制环境包")
+        self._btn_download = QPushButton("下载预制环境包")
         self._btn_download.setObjectName("EnvAccent")
+        self._btn_download.setIcon(make_svg_icon("download", "#14B8A6", 16))
+        self._btn_download.setIconSize(QSize(16, 16))
         self._btn_download.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_download.clicked.connect(self._open_env_release)
         brow.addWidget(self._btn_download)
-        b_det = QPushButton("↻  检测环境")
+        b_det = QPushButton("检测环境")
         b_det.setObjectName("EnvGhost")
+        b_det.setIcon(make_svg_icon("refresh", "#0D9488", 16))
+        b_det.setIconSize(QSize(16, 16))
         b_det.setCursor(Qt.CursorShape.PointingHandCursor)
         b_det.clicked.connect(lambda: self._on_detect(False))
         self._track_action(b_det)
         brow.addWidget(b_det)
-        b_exp = QPushButton("⇪  导出环境...")
+        b_exp = QPushButton("导出环境...")
         b_exp.setObjectName("EnvGhost")
+        b_exp.setIcon(make_svg_icon("upload", "#E5E7EB", 16))
+        b_exp.setIconSize(QSize(16, 16))
         b_exp.setCursor(Qt.CursorShape.PointingHandCursor)
         b_exp.clicked.connect(self._on_export_env)
         self._track_action(b_exp)

@@ -281,7 +281,7 @@ QPushButton#QuickPrimary:disabled {{
     border-color: {C["border"]};
     color: {C["idle"]};
 }}
-QPushButton#EnvGhost, QPushButton#EnvAccent, QPushButton#Ghost, QPushButton#Accent {{
+QPushButton#EnvGhost, QPushButton#Ghost, QPushButton#Accent {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border_input"]};
     border-radius: 8px;
@@ -290,10 +290,24 @@ QPushButton#EnvGhost, QPushButton#EnvAccent, QPushButton#Ghost, QPushButton#Acce
     font-weight: 600;
     color: #E5E7EB;
 }}
-QPushButton#EnvGhost:hover, QPushButton#EnvAccent:hover, QPushButton#Ghost:hover, QPushButton#Accent:hover {{
+QPushButton#EnvGhost:hover, QPushButton#Ghost:hover, QPushButton#Accent:hover {{
     background-color: {C["border_input"]};
     border-color: #4B5563;
     color: #FFFFFF;
+}}
+QPushButton#EnvAccent {{
+    background-color: #111827;
+    border: 1px solid {C["border"]};
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: {C["accent"]};
+}}
+QPushButton#EnvAccent:hover {{
+    background-color: {C["surface2"]};
+    border-color: {C["accent"]};
+    color: #2DD4BF;
 }}
 QFrame#HeroGhost, QPushButton#HeroGhost {{
     background-color: {C["surface2"]};

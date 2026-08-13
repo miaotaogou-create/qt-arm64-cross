@@ -2,9 +2,55 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import QLabel, QWidget
+
+
+# Lucide 操作图标 SVG
+_SVG_UPLOAD = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>'
+    '<polyline points="17 8 12 3 7 8"></polyline>'
+    '<line x1="12" y1="3" x2="12" y2="15"></line>'
+    "</svg>"
+)
+_SVG_DOWNLOAD = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>'
+    '<polyline points="7 10 12 15 17 10"></polyline>'
+    '<line x1="12" y1="15" x2="12" y2="3"></line>'
+    "</svg>"
+)
+_SVG_REFRESH = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M21 2v6h-6"></path>'
+    '<path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>'
+    '<path d="M3 22v-6h6"></path>'
+    '<path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>'
+    "</svg>"
+)
+
+
+def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
+    """把 Lucide SVG 渲成 QIcon，供 QPushButton.setIcon 使用。"""
+    tpl = {
+        "upload": _SVG_UPLOAD,
+        "download": _SVG_DOWNLOAD,
+        "refresh": _SVG_REFRESH,
+    }.get(kind, _SVG_UPLOAD)
+    renderer = QSvgRenderer(tpl.format(color=color).encode("utf-8"))
+    pix = QPixmap(size, size)
+    pix.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pix)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    renderer.render(p)
+    p.end()
+    return QIcon(pix)
 
 
 def paint_straight_check(
