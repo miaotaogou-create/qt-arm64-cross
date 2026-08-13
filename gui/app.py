@@ -956,9 +956,6 @@ class MainWindow(QMainWindow):
         # —— 配置卡（对齐参考：标题+最近工程 / 三行路径 / 选项）——
         config = QFrame()
         config.setObjectName("Card")
-        # 高度跟内容走；展开高级选项后须显式同步，否则外层仍按收起高度分配
-        config.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self._compile_config = config
         cfg = QVBoxLayout(config)
         cfg.setContentsMargins(20, 16, 20, 16)
         cfg.setSpacing(12)
@@ -1127,13 +1124,14 @@ class MainWindow(QMainWindow):
         flags.addWidget(self._adv_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         cfg.addLayout(flags)
 
+        # 高级面板：独立挂在外层（参数卡与操作栏之间），避免嵌在卡内被压成一条缝
         self._adv = QFrame()
         self._adv.setObjectName("AdvPanel")
         self._adv.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self._adv.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+        self._adv.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._adv.setVisible(False)
         adv_lay = QVBoxLayout(self._adv)
-        adv_lay.setContentsMargins(12, 10, 12, 10)
+        adv_lay.setContentsMargins(14, 12, 14, 12)
         adv_lay.setSpacing(8)
 
         sys_row = QHBoxLayout()
@@ -1193,9 +1191,9 @@ class MainWindow(QMainWindow):
             setattr(self, f"ed_{key}", ed)
             row.addWidget(ed, 1)
             adv_lay.addLayout(row)
-        cfg.addWidget(self._adv)
+
         outer.addWidget(config)
-        self._sync_compile_config_height()
+        outer.addWidget(self._adv)
 
         # —— 操作栏独立卡片（对齐参考 ActionBar）——
         action = QFrame()
@@ -1452,23 +1450,22 @@ class MainWindow(QMainWindow):
         lay.addWidget(self._eth)
 
     # ------------------------------------------------------------------ 折叠 / 跟踪
-    def _sync_compile_config_height(self) -> None:
-        """按当前内容锁死参数卡高度。外层对 Preferred 卡不因子控件显隐自动改高。"""
-        cfg = getattr(self, "_compile_config", None)
-        if cfg is None:
-            return
-        cfg.setMinimumHeight(0)
-        cfg.setMaximumHeight(16777215)
-        cfg.setFixedHeight(cfg.sizeHint().height())
-        parent = cfg.parentWidget()
-        if parent is not None and parent.layout() is not None:
-            parent.layout().activate()
-
     def _toggle_advanced(self) -> None:
         self._advanced_open = not self._advanced_open
-        self._adv.setVisible(self._advanced_open)
         self._adv_btn.setText("高级选项 ▴" if self._advanced_open else "高级选项 ▾")
-        self._sync_compile_config_height()
+        if self._advanced_open:
+            self._adv.setVisible(True)
+            self._adv.setMinimumHeight(0)
+            self._adv.setMaximumHeight(16777215)
+            # 外层不会自动给新显隐的 Preferred 控件让位，按内容锁死高度
+            h = max(self._adv.sizeHint().height(), self._adv.layout().totalSizeHint().height())
+            self._adv.setFixedHeight(h)
+        else:
+            self._adv.setVisible(False)
+            self._adv.setFixedHeight(0)
+        parent = self._adv.parentWidget()
+        if parent is not None and parent.layout() is not None:
+            parent.layout().activate()
 
     def _recent_display_label(self, path: str) -> str:
         """最近工程下拉显示：目录名 (xxx.pro)，对齐参考。"""
