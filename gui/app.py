@@ -63,7 +63,6 @@ from gui.icons import (
     ExternalLinkIcon,
     FileCodeIcon,
     SparklesIcon,
-    TerminalIcon,
     make_svg_icon,
 )
 
@@ -306,6 +305,7 @@ from crosskit import detect, envpack, jobs, netip, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
 from gui.adv_panel import AdvancedOptionsPanel
 from gui.chrome import EdgeResizer, TitleChrome, make_ready_pill, set_ready_pill
+from gui.console_card import BuildLogConsoleCard
 from gui.share_btn import GoShareButton
 from gui.env_panel import (
     build_preset_row,
@@ -405,8 +405,6 @@ class MainWindow(QMainWindow):
         self._persist_timer = QTimer(self)
         self._persist_timer.setSingleShot(True)
         self._persist_timer.timeout.connect(self._persist)
-        self._log_auto_scroll = True
-        self._log_line_count = 0
         self._current_step = 0
 
         # —— 配置字段 ——
@@ -1184,47 +1182,13 @@ class MainWindow(QMainWindow):
         outer.addWidget(action)
 
         # —— 日志终端卡 ——
-        console = QFrame()
-        console.setObjectName("TerminalCard")
-        console.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
-        clog = QVBoxLayout(console)
-        clog.setContentsMargins(20, 16, 20, 16)
-        clog.setSpacing(12)
-
-        top = QHBoxLayout()
-        top.setSpacing(8)
-        top.addWidget(TerminalIcon(18, "#10B981"))
-        ctitle = QLabel("交叉编译日志终端 (aarch64-linux-gnu-gcc)")
-        ctitle.setStyleSheet("font-weight:700; color:#10B981; font-size:13px; background:transparent; border:none;")
-        top.addWidget(ctitle)
-        top.addStretch(1)
-        self._log_count_lbl = QLabel("0 行")
-        self._log_count_lbl.setObjectName("Muted")
-        top.addWidget(self._log_count_lbl)
-        self.chk_autoscroll = QCheckBox("自动滚动")
-        self.chk_autoscroll.setChecked(True)
-        self.chk_autoscroll.toggled.connect(lambda v: setattr(self, "_log_auto_scroll", v))
-        top.addWidget(self.chk_autoscroll)
-        self._compile_progress = QProgressBar()
-        self._compile_progress.setFixedWidth(180)
-        self._compile_progress.setFixedHeight(10)
-        self._compile_progress.setRange(0, 0)
-        self._compile_progress.setTextVisible(False)
-        self._compile_progress.setVisible(False)
-        top.addWidget(self._compile_progress)
-        clog.addLayout(top)
-
-        self.log = QTextEdit()
-        self.log.setReadOnly(True)
-        self.log.setObjectName("TerminalLog")
-        self.log.setMinimumHeight(240)
-        self.log.setPlainText(
-            "[INFO] 交叉编译控制台已就绪…\n"
-            "[INFO] 目标架构: aarch64-linux-gnu (GCC 9.4.0 / Qt 5.14.2)\n"
-            "等待开始编译指令…"
-        )
-        clog.addWidget(self.log, 1)
-        outer.addWidget(console)
+        self._console = BuildLogConsoleCard()
+        self._compile_progress = self._console.progress_bar
+        self.log = self._console.editor
+        self._console.append_line("[INFO] 交叉编译控制台已就绪…")
+        self._console.append_line("[INFO] 目标架构: aarch64-linux-gnu (GCC 9.4.0 / Qt 5.14.2)")
+        self._console.append_line("[INFO] 等待开始编译指令…")
+        outer.addWidget(self._console)
         outer.addStretch(1)
 
     # ------------------------------------------------------------------ 共享页
@@ -1626,9 +1590,8 @@ class MainWindow(QMainWindow):
             self._chrome.set_quick_enabled(on)
 
     def _clear_log(self) -> None:
-        self.log.clear()
-        self._log_line_count = 0
-        self._log_count_lbl.setText("0 行")
+        self._console.clear()
+        self._recent_log_lines.clear()
 
     def _on_clean_cache_hint(self) -> None:
         """勾选全量清理，下次编译会清缓存；仅提示，不立刻删目录。"""
@@ -1770,15 +1733,7 @@ class MainWindow(QMainWindow):
         if len(self._recent_log_lines) > 400:
             self._recent_log_lines = self._recent_log_lines[-300:]
 
-        fmt = QTextCharFormat()
-        fmt.setForeground(QColor(self._log_color_for(line)))
-        cur = self.log.textCursor()
-        cur.movePosition(QTextCursor.MoveOperation.End)
-        cur.insertText(line + "\n", fmt)
-        self._log_line_count += 1
-        self._log_count_lbl.setText(f"{self._log_line_count} 行")
-        if self._log_auto_scroll:
-            self.log.moveCursor(QTextCursor.MoveOperation.End)
+        self._console.append_line(line)
 
         if self._share_log is not None and (
             line.startswith("[http]")
@@ -2597,7 +2552,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "提示", "尚未找到产物文件夹（通常在工程下的 dist/arm64-kylin）")
 
     def _copy_log(self) -> None:
-        QApplication.clipboard().setText(self.log.toPlainText())
+        QApplication.clipboard().setText(self._console.plain_text())
         self._status_lbl.setText("日志已复制")
 
 
