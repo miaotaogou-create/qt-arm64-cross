@@ -1148,8 +1148,8 @@ class MainWindow(QMainWindow):
 
         b_out = QPushButton("打开产物文件夹")
         b_out.setObjectName("BtnOpenOutFolder")
-        b_out.setIcon(make_svg_icon("folder", "#F59E0B", 16))
-        b_out.setIconSize(QSize(16, 16))
+        b_out.setIcon(make_svg_icon("folder_open", "#F59E0B", 16, pad_right=6))
+        b_out.setIconSize(QSize(22, 16))
         b_out.setCursor(Qt.CursorShape.PointingHandCursor)
         b_out.clicked.connect(self._open_out)
         self._track_action(b_out)

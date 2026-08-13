@@ -68,6 +68,14 @@ _SVG_FOLDER = (
     '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"></path>'
     "</svg>"
 )
+# 打开文件夹：后层带页签外框 + 前层水平张开面板（扁平，小尺寸更稳）
+_SVG_FOLDER_OPEN = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M3 8V6a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H19a2 2 0 0 1 2 2v1"/>'
+    '<path d="M3 11h18l-2.2 9H5.2L3 11z"/>'
+    "</svg>"
+)
 _SVG_SLIDERS = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
     'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
@@ -112,8 +120,13 @@ _SVG_TRASH = (
 )
 
 
-def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
-    """把 Lucide SVG 渲成 QIcon，供 QPushButton.setIcon 使用。"""
+def make_svg_icon(
+    kind: str, color: str = "#FFFFFF", size: int = 16, *, pad_right: int = 0
+) -> QIcon:
+    """把 Lucide SVG 渲成 QIcon，供 QPushButton.setIcon 使用。
+
+    pad_right：在图标右侧留透明边，拉开与按钮文字的间距。
+    """
     tpl = {
         "upload": _SVG_UPLOAD,
         "download": _SVG_DOWNLOAD,
@@ -123,6 +136,7 @@ def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
         "terminal": _SVG_TERMINAL,
         "sparkles": _SVG_SPARKLES,
         "folder": _SVG_FOLDER,
+        "folder_open": _SVG_FOLDER_OPEN,
         "sliders": _SVG_SLIDERS,
         "file_code": _SVG_FILE_CODE,
         "share": _SVG_SHARE,
@@ -130,11 +144,12 @@ def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
         "trash": _SVG_TRASH,
     }.get(kind, _SVG_UPLOAD)
     renderer = QSvgRenderer(tpl.format(color=color).encode("utf-8"))
-    pix = QPixmap(size, size)
+    right = max(0, int(pad_right))
+    pix = QPixmap(size + right, size)
     pix.fill(Qt.GlobalColor.transparent)
     p = QPainter(pix)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    renderer.render(p)
+    renderer.render(p, QRectF(0, 0, size, size))
     p.end()
     return QIcon(pix)
 
