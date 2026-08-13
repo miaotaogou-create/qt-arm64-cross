@@ -139,6 +139,49 @@ QFrame#AdvPanel {{
     border: 1px solid {C["border"]};
     border-radius: 8px;
 }}
+QLabel#AdvSectionLabel {{
+    font-size: 13px;
+    font-weight: 700;
+    color: {C["text_bright"]};
+    background: transparent;
+    border: none;
+}}
+QPushButton#AdvToggle {{
+    background-color: #0B1220;
+    border: 1px solid {C["primary"]};
+    border-radius: 8px;
+    color: {C["primary"]};
+    padding: 4px 12px;
+    font-weight: 600;
+}}
+QPushButton#AdvToggle:hover {{
+    background-color: #0F1A2A;
+    border-color: {C["primary_hover"]};
+    color: {C["primary_hover"]};
+}}
+QPushButton#ModeBtn {{
+    background-color: #0B1220;
+    border: 1px solid {C["border_input"]};
+    border-radius: 8px;
+    color: {C["text_bright"]};
+    padding: 6px 14px;
+    font-weight: 600;
+}}
+QPushButton#ModeBtn:hover {{
+    border-color: #4B5563;
+}}
+QPushButton#ModeBtnActive {{
+    background-color: {C["primary"]};
+    border: 1px solid {C["primary"]};
+    border-radius: 8px;
+    color: #FFFFFF;
+    padding: 6px 14px;
+    font-weight: 700;
+}}
+QPushButton#ModeBtnActive:hover {{
+    background-color: {C["primary_hover"]};
+    border-color: {C["primary_hover"]};
+}}
 QFrame#PresetCard:hover {{
     border: 1px solid #4B5563;
 }}

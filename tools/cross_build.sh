@@ -23,6 +23,8 @@ DO_BUNDLE="${DO_BUNDLE:-0}"
 EXTRA_PKGCONFIG="${EXTRA_PKGCONFIG:-}" # 空格分隔，如 "libavformat libavcodec"
 BUILD_DIR="${BUILD_DIR:-build-arm64}"  # 仅 cmake
 CLEAN="${CLEAN:-0}"                    # 1=清掉常见中间产物再编
+BUILD_MODE="${BUILD_MODE:-release}"    # release|debug
+USE_CCACHE="${USE_CCACHE:-0}"          # 1=尽量走 ccache
 
 QMAKE_SPEC="${TOOLKIT}/tools/qmake/linux-aarch64-focal"
 QTCONF="${QMAKE_SPEC}/target-qt.conf"
@@ -139,6 +141,7 @@ resolve_out_bin() {
   fi
   local candidates=(
     "bin/release/${APP_NAME}"
+    "bin/debug/${APP_NAME}"
     "bin/${APP_NAME}"
     "${BUILD_DIR}/${APP_NAME}"
     "${APP_NAME}"
@@ -163,22 +166,54 @@ resolve_out_bin() {
 }
 
 # --- 编译 ---
+if [[ "${BUILD_MODE}" != "debug" ]]; then
+  BUILD_MODE=release
+fi
+QMAKE_CONFIG="CONFIG+=release"
+CMAKE_BUILD_TYPE=Release
+if [[ "${BUILD_MODE}" == "debug" ]]; then
+  QMAKE_CONFIG="CONFIG+=debug"
+  CMAKE_BUILD_TYPE=Debug
+fi
+log "构建模式=${BUILD_MODE}"
+
+CCACHE_QMAKE_ARGS=()
+CMAKE_CCACHE_ARGS=()
+if [[ "${USE_CCACHE}" == "1" ]]; then
+  if command -v ccache >/dev/null 2>&1; then
+    log "启用 ccache"
+    export CCACHE_DIR="${CCACHE_DIR:-${HOME}/.ccache-qt-arm64}"
+    CCACHE_QMAKE_ARGS+=(
+      "QMAKE_CC=ccache aarch64-linux-gnu-gcc"
+      "QMAKE_CXX=ccache aarch64-linux-gnu-g++"
+      "QMAKE_LINK=ccache aarch64-linux-gnu-g++"
+    )
+    CMAKE_CCACHE_ARGS+=(
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+    )
+  else
+    log "未安装 ccache，跳过加速（WSL 内可 apt install ccache）"
+  fi
+fi
+
 if [[ "${BUILD_SYSTEM}" == "qmake" ]]; then
   log "qmake Qt $("${QMAKE}" -query QT_VERSION) spec=${QMAKE_SPEC} project=${PRO_FILE}"
   rm -f Makefile Makefile.* .qmake.stash 2>/dev/null || true
-  "${QMAKE}" "${PRO_FILE}" CONFIG+=release \
+  "${QMAKE}" "${PRO_FILE}" ${QMAKE_CONFIG} \
     "SYSROOT=${ROOTFS}" \
     "QT_PREFIX=${QT_PREFIX}" \
     "QT_HOST=${QT_HOST}" \
     "PKG_CONFIG=pkg-config" \
     -qtconf "${QTCONF}" \
-    -spec "${QMAKE_SPEC}"
+    -spec "${QMAKE_SPEC}" \
+    "${CCACHE_QMAKE_ARGS[@]}"
   patch_qmake_makefile
   log "make -j${JOBS}"
   make -j"${JOBS}"
 else
   need cmake
-  log "cmake toolchain=${CMAKE_TOOLCHAIN} build=${BUILD_DIR}"
+  log "cmake toolchain=${CMAKE_TOOLCHAIN} build=${BUILD_DIR} type=${CMAKE_BUILD_TYPE}"
   # 默认增量；CLEAN=1 时上面已删 BUILD_DIR，此处也可显式清一次
   if [[ "${CLEAN}" == "1" ]]; then
     rm -rf "${BUILD_DIR}"
@@ -197,23 +232,22 @@ else
   if [[ ! -f "${BUILD_DIR}/CMakeCache.txt" ]]; then
     cmake -S "$(dirname "${CMAKE_FILE}")" -B "${BUILD_DIR}" \
       -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN}" \
-      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" \
       -DQt5_DIR="${QT_PREFIX}/lib/cmake/Qt5" \
       -DQT_QMAKE_EXECUTABLE="${QMAKE}" \
       -DCMAKE_PREFIX_PATH="${QT_PREFIX}" \
+      "${CMAKE_CCACHE_ARGS[@]}" \
       "${cmake_extra[@]}"
   else
     log "复用已有 ${BUILD_DIR}（增量）；需要全量请勾选「全量清理」或 CLEAN=1"
-    if [[ ${#cmake_extra[@]} -gt 0 ]]; then
-      # 链接参数变了时刷新缓存里的 EXE_LINKER_FLAGS
-      cmake -S "$(dirname "${CMAKE_FILE}")" -B "${BUILD_DIR}" \
-        -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN}" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DQt5_DIR="${QT_PREFIX}/lib/cmake/Qt5" \
-        -DQT_QMAKE_EXECUTABLE="${QMAKE}" \
-        -DCMAKE_PREFIX_PATH="${QT_PREFIX}" \
-        "${cmake_extra[@]}"
-    fi
+    cmake -S "$(dirname "${CMAKE_FILE}")" -B "${BUILD_DIR}" \
+      -DCMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN}" \
+      -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" \
+      -DQt5_DIR="${QT_PREFIX}/lib/cmake/Qt5" \
+      -DQT_QMAKE_EXECUTABLE="${QMAKE}" \
+      -DCMAKE_PREFIX_PATH="${QT_PREFIX}" \
+      "${CMAKE_CCACHE_ARGS[@]}" \
+      "${cmake_extra[@]}"
   fi
   cmake --build "${BUILD_DIR}" -j"${JOBS}"
 fi

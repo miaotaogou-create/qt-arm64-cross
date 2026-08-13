@@ -421,6 +421,10 @@ class MainWindow(QMainWindow):
         self._do_bundle = bool(self._cfg.get("do_bundle", True))
         self._do_clean = bool(self._cfg.get("do_clean", False))
         self._use_ffmpeg = bool(self._cfg.get("use_ffmpeg", False))
+        self._build_mode = (self._cfg.get("build_mode") or "release").lower()
+        if self._build_mode not in ("release", "debug"):
+            self._build_mode = "release"
+        self._use_ccache = bool(self._cfg.get("use_ccache", True))
         self._plugins = self._cfg.get("plugins", "") or ""
         self._extra_pkg = self._cfg.get("extra_pkgconfig", "") or ""
         self._extra_copy = self._cfg.get("extra_copy", "") or ""
@@ -1113,87 +1117,72 @@ class MainWindow(QMainWindow):
         flags.addWidget(self.chk_clean, 0, Qt.AlignmentFlag.AlignVCenter)
         flags.addStretch(1)
         self._adv_btn = QPushButton("高级选项 ▾")
-        self._adv_btn.setObjectName("EnvGhost")
-        self._adv_btn.setIcon(make_svg_icon("sliders", "#9CA3AF", 14))
+        self._adv_btn.setObjectName("AdvToggle")
+        self._adv_btn.setIcon(make_svg_icon("sliders", "#14B8A6", 14))
         self._adv_btn.setIconSize(QSize(14, 14))
         self._adv_btn.setFixedHeight(32)
-        self._adv_btn.setMinimumWidth(120)
+        self._adv_btn.setMinimumWidth(118)
         self._adv_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._adv_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._adv_btn.clicked.connect(self._toggle_advanced)
         flags.addWidget(self._adv_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         cfg.addLayout(flags)
 
-        # 高级面板：独立挂在外层（参数卡与操作栏之间），避免嵌在卡内被压成一条缝
+        # 高级选项：对齐参考图，仅「编译模式 + ccache」两列
         self._adv = QFrame()
         self._adv.setObjectName("AdvPanel")
         self._adv.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._adv.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._adv.setVisible(False)
-        adv_lay = QVBoxLayout(self._adv)
-        adv_lay.setContentsMargins(14, 12, 14, 12)
-        adv_lay.setSpacing(8)
+        adv_lay = QHBoxLayout(self._adv)
+        adv_lay.setContentsMargins(16, 14, 16, 14)
+        adv_lay.setSpacing(28)
 
-        sys_row = QHBoxLayout()
-        sys_row.addWidget(QLabel("构建系统"))
-        self._sys_group = QButtonGroup(self)
-        for v, t in (("auto", "自动"), ("qmake", "qmake"), ("cmake", "CMake")):
-            rb = QRadioButton(t)
-            rb.setChecked(self._build_system == v)
-            rb.toggled.connect(lambda on, val=v: on and self._on_field("build_system", val))
-            self._sys_group.addButton(rb)
-            self._track_form(rb)
-            sys_row.addWidget(rb)
-        sys_row.addStretch(1)
-        adv_lay.addLayout(sys_row)
-
-        name_row = QHBoxLayout()
-        name_row.addWidget(QLabel("应用名"))
-        self.ed_app_name = QLineEdit(self._app_name)
-        self.ed_app_name.setMaximumWidth(160)
-        self.ed_app_name.textChanged.connect(lambda t: self._on_field("app_name", t))
-        self._track_form(self.ed_app_name)
-        name_row.addWidget(self.ed_app_name)
-        name_row.addWidget(QLabel("可执行文件"))
-        self.ed_out_bin = QLineEdit(self._out_bin)
-        self.ed_out_bin.textChanged.connect(lambda t: self._on_field("out_bin", t))
-        self._track_form(self.ed_out_bin)
-        name_row.addWidget(self.ed_out_bin, 1)
-        adv_lay.addLayout(name_row)
-        mute = QLabel("留空则自动查找")
-        mute.setObjectName("Muted")
-        adv_lay.addWidget(mute)
-
-        jobs_row = QHBoxLayout()
-        jobs_row.addWidget(QLabel("并行 -j"))
-        self.sp_jobs = QSpinBox()
-        self.sp_jobs.setRange(0, 64)
-        self.sp_jobs.setValue(self._jobs_n)
-        self.sp_jobs.valueChanged.connect(lambda v: self._on_field("jobs", v))
-        self._track_form(self.sp_jobs)
-        jobs_row.addWidget(self.sp_jobs)
-        jh = QLabel("0=自动")
-        jh.setObjectName("Muted")
-        jobs_row.addWidget(jh)
-        jobs_row.addStretch(1)
-        adv_lay.addLayout(jobs_row)
-
-        for label, attr, key in (
-            ("插件", "_plugins", "plugins"),
-            ("其他 pkg-config", "_extra_pkg", "extra_pkg"),
-            ("额外复制", "_extra_copy", "extra_copy"),
+        mode_col = QVBoxLayout()
+        mode_col.setSpacing(8)
+        mode_lbl = QLabel("编译模式 (Build Mode):")
+        mode_lbl.setObjectName("AdvSectionLabel")
+        mode_col.addWidget(mode_lbl)
+        mode_btns = QHBoxLayout()
+        mode_btns.setSpacing(8)
+        self._mode_group = QButtonGroup(self)
+        self._btn_mode_release = QPushButton("Release (O2 优化)")
+        self._btn_mode_debug = QPushButton("Debug (带符号)")
+        for btn, val in (
+            (self._btn_mode_release, "release"),
+            (self._btn_mode_debug, "debug"),
         ):
-            row = QHBoxLayout()
-            row.addWidget(QLabel(label))
-            ed = QLineEdit(getattr(self, attr))
-            ed.textChanged.connect(lambda t, k=key: self._on_field(k, t))
-            self._track_form(ed)
-            setattr(self, f"ed_{key}", ed)
-            row.addWidget(ed, 1)
-            adv_lay.addLayout(row)
+            btn.setCheckable(True)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setFixedHeight(34)
+            btn.setMinimumWidth(140)
+            self._mode_group.addButton(btn)
+            self._track_form(btn)
+            mode_btns.addWidget(btn)
+            btn.clicked.connect(lambda _=False, v=val: self._set_build_mode(v))
+        mode_btns.addStretch(1)
+        mode_col.addLayout(mode_btns)
+        adv_lay.addLayout(mode_col, 1)
+        self._refresh_build_mode_btns()
 
+        cc_col = QVBoxLayout()
+        cc_col.setSpacing(8)
+        cc_lbl = QLabel("CCACHE 缓存加速:")
+        cc_lbl.setObjectName("AdvSectionLabel")
+        cc_col.addWidget(cc_lbl)
+        self.chk_ccache = QCheckBox("启用 ccache 增量加速编译 (缩短 60% 构筑时间)")
+        self.chk_ccache.setChecked(self._use_ccache)
+        self.chk_ccache.toggled.connect(lambda v: self._on_field("use_ccache", v))
+        self._track_form(self.chk_ccache)
+        cc_col.addWidget(self.chk_ccache)
+        cc_col.addStretch(1)
+        adv_lay.addLayout(cc_col, 1)
+
+        cfg.addWidget(self._adv)
+        self._compile_config = config
+        config.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         outer.addWidget(config)
-        outer.addWidget(self._adv)
+        self._sync_compile_config_height()
 
         # —— 操作栏独立卡片（对齐参考 ActionBar）——
         action = QFrame()
@@ -1450,22 +1439,45 @@ class MainWindow(QMainWindow):
         lay.addWidget(self._eth)
 
     # ------------------------------------------------------------------ 折叠 / 跟踪
-    def _toggle_advanced(self) -> None:
-        self._advanced_open = not self._advanced_open
-        self._adv_btn.setText("高级选项 ▴" if self._advanced_open else "高级选项 ▾")
+    def _set_build_mode(self, mode: str) -> None:
+        self._build_mode = "debug" if mode == "debug" else "release"
+        self._refresh_build_mode_btns()
+        self._on_field("build_mode", self._build_mode)
+
+    def _refresh_build_mode_btns(self) -> None:
+        release = self._build_mode != "debug"
+        self._btn_mode_release.setChecked(release)
+        self._btn_mode_debug.setChecked(not release)
+        self._btn_mode_release.setObjectName("ModeBtnActive" if release else "ModeBtn")
+        self._btn_mode_debug.setObjectName("ModeBtnActive" if not release else "ModeBtn")
+        for b in (self._btn_mode_release, self._btn_mode_debug):
+            b.style().unpolish(b)
+            b.style().polish(b)
+
+    def _sync_compile_config_height(self) -> None:
+        """参数卡高度跟内容走；展开高级选项后显式锁高，避免被外层压扁。"""
+        cfg = getattr(self, "_compile_config", None)
+        if cfg is None:
+            return
         if self._advanced_open:
-            self._adv.setVisible(True)
             self._adv.setMinimumHeight(0)
             self._adv.setMaximumHeight(16777215)
-            # 外层不会自动给新显隐的 Preferred 控件让位，按内容锁死高度
-            h = max(self._adv.sizeHint().height(), self._adv.layout().totalSizeHint().height())
-            self._adv.setFixedHeight(h)
+            self._adv.setFixedHeight(max(self._adv.sizeHint().height(), 90))
         else:
-            self._adv.setVisible(False)
             self._adv.setFixedHeight(0)
-        parent = self._adv.parentWidget()
+        cfg.setMinimumHeight(0)
+        cfg.setMaximumHeight(16777215)
+        cfg.setFixedHeight(max(cfg.sizeHint().height(), 1))
+        parent = cfg.parentWidget()
         if parent is not None and parent.layout() is not None:
             parent.layout().activate()
+
+    def _toggle_advanced(self) -> None:
+        self._advanced_open = not self._advanced_open
+        self._adv.setVisible(self._advanced_open)
+        self._adv_btn.setText("高级选项 ▴" if self._advanced_open else "高级选项 ▾")
+        # 等一帧再量高度，避免刚 show 时 sizeHint 偏小
+        QTimer.singleShot(0, self._sync_compile_config_height)
 
     def _recent_display_label(self, path: str) -> str:
         """最近工程下拉显示：目录名 (xxx.pro)，对齐参考。"""
@@ -1572,6 +1584,8 @@ class MainWindow(QMainWindow):
             "do_bundle": ("_do_bundle",),
             "do_clean": ("_do_clean",),
             "use_ffmpeg": ("_use_ffmpeg",),
+            "build_mode": ("_build_mode",),
+            "use_ccache": ("_use_ccache",),
             "plugins": ("_plugins",),
             "extra_pkg": ("_extra_pkg",),
             "extra_copy": ("_extra_copy",),
@@ -1606,6 +1620,8 @@ class MainWindow(QMainWindow):
                 "do_bundle": bool(self._do_bundle),
                 "do_clean": bool(self._do_clean),
                 "use_ffmpeg": bool(self._use_ffmpeg),
+                "build_mode": self._build_mode,
+                "use_ccache": bool(self._use_ccache),
                 "plugins": self._plugins,
                 "extra_pkgconfig": self._extra_pkg,
                 "extra_copy": self._extra_copy,
@@ -2598,6 +2614,8 @@ class MainWindow(QMainWindow):
                 extra_pkgconfig=self._extra_pkg,
                 extra_copy=self._extra_copy,
                 use_ffmpeg=bool(self._use_ffmpeg),
+                build_mode=self._build_mode,
+                use_ccache=bool(self._use_ccache),
                 out_dir=self._out_dir_text(),
                 clean=bool(self._do_clean),
                 distro=self._distro_text(),

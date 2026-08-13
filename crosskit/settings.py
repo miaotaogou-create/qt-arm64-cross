@@ -25,6 +25,8 @@ DEFAULTS: dict[str, Any] = {
     "do_bundle": True,
     "do_clean": False,
     "use_ffmpeg": False,
+    "build_mode": "release",
+    "use_ccache": True,
     "plugins": "platforms/libqxcb.so platforms/libqoffscreen.so",
     "extra_pkgconfig": "",
     "extra_copy": "",

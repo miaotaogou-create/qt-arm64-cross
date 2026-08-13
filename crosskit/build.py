@@ -53,6 +53,8 @@ def build(
     extra_pkgconfig: str,
     extra_copy: str,
     use_ffmpeg: bool = False,
+    build_mode: str = "release",
+    use_ccache: bool = True,
     out_dir: str = "",
     clean: bool = False,
     distro: str = wsl.DEFAULT_DISTRO,
@@ -61,6 +63,7 @@ def build(
     tk = detect.toolkit_root()
     tk_w = wsl.win_to_wsl(tk)
     proj_w = wsl.win_to_wsl(project)
+    mode = "debug" if (build_mode or "").lower() == "debug" else "release"
 
     env = {
         "TOOLKIT": tk_w,
@@ -69,6 +72,8 @@ def build(
         "JOBS": str(jobs if jobs > 0 else "$(nproc)"),
         "DO_BUNDLE": "1" if do_bundle else "0",
         "CLEAN": "1" if clean else "0",
+        "BUILD_MODE": mode,
+        "USE_CCACHE": "1" if use_ccache else "0",
         "PLUGINS": plugins.strip(),
         "EXTRA_PKGCONFIG": merge_extra_pkgconfig(use_ffmpeg, extra_pkgconfig),
         "EXTRA_COPY": extra_copy.strip(),
