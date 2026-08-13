@@ -211,23 +211,17 @@ class AdvancedOptionsPanel(QWidget):
 
         self.panel_frame.setVisible(self._expanded)
         self._toggle.set_expanded(self._expanded)
-        self._lock_height()
 
     def is_expanded(self) -> bool:
         return self._expanded
 
     def toggle_panel(self) -> None:
+        """直接 setVisible，由布局引擎重算高度；不要 setFixedHeight。"""
         self._expanded = not self._expanded
         self.panel_frame.setVisible(self._expanded)
         self._toggle.set_expanded(self._expanded)
-        self._lock_height()
+        self.updateGeometry()
         self.expanded_changed.emit(self._expanded)
-
-    def _lock_height(self) -> None:
-        """按内容锁死自身高度，外层布局才会让出/收回空间。"""
-        self.setMinimumHeight(0)
-        self.setMaximumHeight(16777215)
-        self.setFixedHeight(max(self.sizeHint().height(), 1))
 
     def _on_mode_toggled(self, button: QPushButton, checked: bool) -> None:
         if not checked:
