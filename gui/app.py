@@ -1129,8 +1129,10 @@ class MainWindow(QMainWindow):
         self._compile_config = config
         config.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         outer.addWidget(config)
-        # 首帧后按 sizeHint 同步一次（此时布局已算完）
-        QTimer.singleShot(0, self._relayout_compile_config)
+        # 折叠面板提到外层，与 ActionBar 同级，避免卡内撑高后操作栏不让位
+        self._adv_body = self._adv_panel.take_collapsible_panel()
+        self._adv_body.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        outer.addWidget(self._adv_body)
 
         # —— 操作栏独立卡片（对齐参考 ActionBar）——
         action = QFrame()
@@ -1393,34 +1395,12 @@ class MainWindow(QMainWindow):
 
     def _on_adv_expanded(self, expanded: bool) -> None:
         self._advanced_open = bool(expanded)
-        # 等 panel_frame 显隐后 sizeHint 就绪，再按正确高度锁卡（避免锁到折叠旧高度）
-        QTimer.singleShot(0, self._relayout_compile_config)
-
-    def _relayout_compile_config(self) -> None:
-        """展开/收起后：用已更新的 sizeHint 同步高度。
-
-        本页下方终端卡带 stretch，外层不会自动给 Preferred/Maximum 卡片让位；
-        必须在 sizeHint 算准后再 setFixedHeight。禁止在 setVisible 当下立刻锁高。
-        """
-        panel = getattr(self, "_adv_panel", None)
-        cfg = getattr(self, "_compile_config", None)
-        if panel is not None:
-            panel.setMinimumHeight(0)
-            panel.setMaximumHeight(16777215)
-            if panel.layout() is not None:
-                panel.layout().activate()
-            panel.setFixedHeight(max(panel.sizeHint().height(), 1))
-        if cfg is None:
-            return
-        cfg.setMinimumHeight(0)
-        cfg.setMaximumHeight(16777215)
-        if cfg.layout() is not None:
-            cfg.layout().activate()
-        cfg.setFixedHeight(max(cfg.sizeHint().height(), 1))
-        parent = cfg.parentWidget()
-        if parent is not None and parent.layout() is not None:
-            parent.layout().invalidate()
-            parent.layout().activate()
+        # 面板已在外层布局，显隐后只需激活父布局
+        body = getattr(self, "_adv_body", None)
+        if body is not None and body.parentWidget() is not None:
+            parent = body.parentWidget()
+            if parent.layout() is not None:
+                parent.layout().activate()
 
     def _recent_display_label(self, path: str) -> str:
         """最近工程下拉显示：目录名 (xxx.pro)，对齐参考。"""

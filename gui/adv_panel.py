@@ -212,15 +212,28 @@ class AdvancedOptionsPanel(QWidget):
         self.panel_frame.setVisible(self._expanded)
         self._toggle.set_expanded(self._expanded)
 
+    def take_collapsible_panel(self) -> QFrame:
+        """把折叠面板从本组件拆出，交给外层与 ActionBar 同级布局（否则会互相遮挡）。"""
+        lay = self.layout()
+        if lay is not None:
+            lay.removeWidget(self.panel_frame)
+        self.panel_frame.setParent(None)
+        return self.panel_frame
+
     def is_expanded(self) -> bool:
         return self._expanded
 
     def toggle_panel(self) -> None:
-        """直接 setVisible，由布局引擎重算高度；不要 setFixedHeight。"""
+        """直接 setVisible；面板由外层布局托管时会自动推开下方控件。"""
         self._expanded = not self._expanded
         self.panel_frame.setVisible(self._expanded)
         self._toggle.set_expanded(self._expanded)
         self.updateGeometry()
+        if self.panel_frame.parentWidget() is not None:
+            self.panel_frame.updateGeometry()
+            parent = self.panel_frame.parentWidget()
+            if parent.layout() is not None:
+                parent.layout().activate()
         self.expanded_changed.emit(self._expanded)
 
     def _on_mode_toggled(self, button: QPushButton, checked: bool) -> None:
