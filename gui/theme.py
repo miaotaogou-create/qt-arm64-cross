@@ -519,7 +519,7 @@ QPushButton#WinDotClose:hover {{
 /* ---- 5. 复选框 ---- */
 QCheckBox {{
     spacing: 8px;
-    color: {C["muted"]};
+    color: #9CA3AF;
     font-size: 13px;
 }}
 QCheckBox:hover {{
@@ -529,15 +529,16 @@ QCheckBox::indicator {{
     width: 16px;
     height: 16px;
     border-radius: 4px;
-    border: 1px solid #4B5563;
+    border: 1px solid #374151;
     background-color: #030712;
 }}
 QCheckBox::indicator:hover {{
-    border-color: {C["primary"]};
+    border-color: #0D9488;
 }}
 QCheckBox::indicator:checked {{
-    background-color: {C["primary"]};
-    border-color: {C["accent"]};
+    background-color: #0D9488;
+    border: 1px solid #14B8A6;
+    /*CHECKBOX_CHECK_MARK*/
 }}
 QCheckBox:disabled {{
     color: {C["idle"]};
@@ -920,9 +921,35 @@ def _combo_chevron_png() -> Path:
     return out
 
 
+def _checkbox_check_png() -> Path:
+    """生成对号 PNG，供 QCheckBox::indicator:checked 使用（Windows QSS 不稳吃 data:svg）。"""
+    from PySide6.QtCore import Qt, QSize
+    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+
+    out = Path.home() / ".qt-arm64-cross" / "checkbox-check-v1.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    # 深色对号落在翡翠绿底上（对齐参考）
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+        'fill="none" stroke="#111827" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">'
+        '<polyline points="20 6 9 17 4 12"></polyline></svg>'
+    )
+    img = QImage(QSize(24, 24), QImage.Format.Format_ARGB32)
+    img.fill(Qt.GlobalColor.transparent)
+    p = QPainter(img)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    QSvgRenderer(svg.encode("utf-8")).render(p)
+    p.end()
+    img.save(str(out), "PNG")
+    return out
+
+
 def apply_theme(app) -> None:
     app.setStyle("Fusion")
     # Windows QSS：用正斜杠路径并加引号；file:/// 常导致箭头不显示
     arrow = str(_combo_chevron_png().resolve()).replace("\\", "/")
+    check = str(_checkbox_check_png().resolve()).replace("\\", "/")
     qss = APP_QSS.replace("/*COMBO_DOWN_ARROW*/", f'image: url("{arrow}");')
+    qss = qss.replace("/*CHECKBOX_CHECK_MARK*/", f'image: url("{check}");')
     app.setStyleSheet(qss)
