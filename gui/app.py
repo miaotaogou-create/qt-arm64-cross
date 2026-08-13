@@ -306,6 +306,7 @@ from crosskit import detect, envpack, jobs, netip, settings, wsl, wsl_setup
 from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
 from gui.adv_panel import AdvancedOptionsPanel
 from gui.chrome import EdgeResizer, TitleChrome, make_ready_pill, set_ready_pill
+from gui.share_btn import GoShareButton
 from gui.env_panel import (
     build_preset_row,
     build_toolchain_specs,
@@ -1157,11 +1158,7 @@ class MainWindow(QMainWindow):
 
         btn_row.addStretch(1)
 
-        b_share = QPushButton("去极速 HTTP 共享")
-        b_share.setObjectName("EnvAccent")
-        b_share.setIcon(make_svg_icon("share", "#14B8A6", 14))
-        b_share.setIconSize(QSize(14, 14))
-        b_share.setCursor(Qt.CursorShape.PointingHandCursor)
+        b_share = GoShareButton()
         b_share.clicked.connect(lambda: self._select_step(2))
         self._track_action(b_share)
         btn_row.addWidget(b_share)
