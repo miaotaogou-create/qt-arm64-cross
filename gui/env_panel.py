@@ -16,10 +16,13 @@ from gui.icons import CpuIcon, FolderIcon, HardDriveIcon
 from gui.theme import C
 
 
-def hline(*, spec: bool = False) -> QFrame:
-    """卡片内水平分隔线（参考图浅灰横线）。"""
+def hline(*, spec: bool = False, bright: bool = False) -> QFrame:
+    """卡片内水平分隔线（参考图浅灰横线；bright=白线对齐参数卡参考）。"""
     line = QFrame()
-    line.setObjectName("SpecDivider" if spec else "CardDivider")
+    if bright:
+        line.setObjectName("BrightDivider")
+    else:
+        line.setObjectName("SpecDivider" if spec else "CardDivider")
     line.setFixedHeight(1)
     line.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     line.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)

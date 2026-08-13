@@ -1017,7 +1017,7 @@ class MainWindow(QMainWindow):
         shell.installEventFilter(self._recent_shell_filter)
         head.addWidget(shell, 0, Qt.AlignmentFlag.AlignVCenter)
         cfg.addWidget(head_wrap)
-        cfg.addWidget(hline())
+        cfg.addWidget(hline(bright=True))
 
         # 工程目录
         r0 = QHBoxLayout()
@@ -1081,7 +1081,7 @@ class MainWindow(QMainWindow):
         r2.addWidget(b_bo)
         cfg.addLayout(r2)
 
-        cfg.addWidget(hline())
+        cfg.addWidget(hline(bright=True))
 
         # 选项行
         flags = QHBoxLayout()

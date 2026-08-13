@@ -63,7 +63,7 @@ QFrame#Card, QFrame#CardFrame, QFrame#ScratchCard {{
     border: 1px solid {C["border"]};
     border-radius: 12px;
 }}
-QFrame#CardDivider, QFrame#SpecDivider {{
+QFrame#CardDivider, QFrame#SpecDivider, QFrame#BrightDivider {{
     border: none;
     min-height: 1px;
     max-height: 1px;
@@ -73,6 +73,9 @@ QFrame#CardDivider {{
 }}
 QFrame#SpecDivider {{
     background-color: {C["divider_soft"]};
+}}
+QFrame#BrightDivider {{
+    background-color: #E5E7EB;
 }}
 QPushButton#IconGhost {{
     background-color: {C["surface2"]};
