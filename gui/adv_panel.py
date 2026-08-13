@@ -127,7 +127,7 @@ class AdvancedOptionsPanel(QWidget):
     ) -> None:
         super().__init__(parent)
         self._expanded = bool(expanded)
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)

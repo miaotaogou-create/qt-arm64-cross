@@ -477,8 +477,10 @@ class MainWindow(QMainWindow):
         env_lay.addStretch(1)
         self._stack.addWidget(page_env)
 
-        page_compile = QWidget()
-        self._build_tab_compile(page_compile)
+        page_compile, compile_lay = _scroll_page()
+        compile_lay.setContentsMargins(16, 12, 16, 8)
+        compile_lay.setSpacing(16)
+        self._build_tab_compile(compile_lay)
         self._stack.addWidget(page_compile)
 
         page_share, share_lay = _scroll_page()
@@ -946,11 +948,7 @@ class MainWindow(QMainWindow):
         lay.addWidget(self._env_cols_host)
 
     # ------------------------------------------------------------------ 编译页
-    def _build_tab_compile(self, parent: QWidget) -> None:
-        outer = QVBoxLayout(parent)
-        outer.setContentsMargins(16, 12, 16, 8)
-        outer.setSpacing(16)
-
+    def _build_tab_compile(self, outer: QVBoxLayout) -> None:
         def _c_label(text: str) -> QLabel:
             lb = QLabel(text)
             lb.setObjectName("FieldLabel")
@@ -961,6 +959,8 @@ class MainWindow(QMainWindow):
         # —— 配置卡（对齐参考：标题+最近工程 / 三行路径 / 选项）——
         config = QFrame()
         config.setObjectName("Card")
+        # Minimum：矮窗口也不压扁内容，不够高就整页滚动
+        config.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         cfg = QVBoxLayout(config)
         cfg.setContentsMargins(20, 16, 20, 16)
         cfg.setSpacing(12)
@@ -1127,16 +1127,12 @@ class MainWindow(QMainWindow):
         cfg.addWidget(self._adv_panel)
 
         self._compile_config = config
-        config.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         outer.addWidget(config)
-        # 折叠面板提到外层，与 ActionBar 同级，避免卡内撑高后操作栏不让位
-        self._adv_body = self._adv_panel.take_collapsible_panel()
-        self._adv_body.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        outer.addWidget(self._adv_body)
 
         # —— 操作栏独立卡片（对齐参考 ActionBar）——
         action = QFrame()
         action.setObjectName("ActionBar")
+        action.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         btn_row = QHBoxLayout(action)
         btn_row.setContentsMargins(14, 10, 14, 10)
         btn_row.setSpacing(10)
@@ -1194,6 +1190,7 @@ class MainWindow(QMainWindow):
         # —— 日志终端卡 ——
         console = QFrame()
         console.setObjectName("TerminalCard")
+        console.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         clog = QVBoxLayout(console)
         clog.setContentsMargins(20, 16, 20, 16)
         clog.setSpacing(12)
@@ -1231,7 +1228,8 @@ class MainWindow(QMainWindow):
             "等待开始编译指令…"
         )
         clog.addWidget(self.log, 1)
-        outer.addWidget(console, 1)
+        outer.addWidget(console)
+        outer.addStretch(1)
 
     # ------------------------------------------------------------------ 共享页
     def _build_tab_share(self, lay: QVBoxLayout) -> None:
@@ -1395,11 +1393,12 @@ class MainWindow(QMainWindow):
 
     def _on_adv_expanded(self, expanded: bool) -> None:
         self._advanced_open = bool(expanded)
-        # 面板已在外层布局，显隐后只需激活父布局
-        body = getattr(self, "_adv_body", None)
-        if body is not None and body.parentWidget() is not None:
-            parent = body.parentWidget()
-            if parent.layout() is not None:
+        # 整页可滚，只需刷新几何；不再 setFixedHeight
+        cfg = getattr(self, "_compile_config", None)
+        if cfg is not None:
+            cfg.updateGeometry()
+            parent = cfg.parentWidget()
+            if parent is not None and parent.layout() is not None:
                 parent.layout().activate()
 
     def _recent_display_label(self, path: str) -> str:
