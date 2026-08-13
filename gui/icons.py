@@ -145,11 +145,11 @@ _SVG_POWER = (
 _SVG_NETWORK = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
     'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-    '<rect x="2" y="2" width="6" height="6" rx="1"></rect>'
-    '<rect x="16" y="2" width="6" height="6" rx="1"></rect>'
-    '<rect x="9" y="16" width="6" height="6" rx="1"></rect>'
-    '<path d="M5 8v4h14V8"></path>'
-    '<path d="M12 12v4"></path>'
+    '<rect x="9" y="2" width="6" height="6" rx="1"></rect>'
+    '<rect x="2" y="16" width="6" height="6" rx="1"></rect>'
+    '<rect x="16" y="16" width="6" height="6" rx="1"></rect>'
+    '<path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path>'
+    '<path d="M12 12V8"></path>'
     "</svg>"
 )
 _SVG_ARCHIVE = (
@@ -184,6 +184,13 @@ _SVG_EXTERNAL = (
     '<line x1="10" y1="14" x2="21" y2="3"></line>'
     "</svg>"
 )
+_SVG_PLUS = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+    '<line x1="12" y1="5" x2="12" y2="19"></line>'
+    '<line x1="5" y1="12" x2="19" y2="12"></line>'
+    "</svg>"
+)
 
 
 def make_svg_icon(
@@ -216,6 +223,7 @@ def make_svg_icon(
         "qr": _SVG_QR,
         "shield": _SVG_SHIELD,
         "external": _SVG_EXTERNAL,
+        "plus": _SVG_PLUS,
     }.get(kind, _SVG_UPLOAD)
     renderer = QSvgRenderer(tpl.format(color=color).encode("utf-8"))
     right = max(0, int(pad_right))
@@ -560,6 +568,23 @@ class ExternalLinkIcon(QSvgWidget):
 
     def _reload(self) -> None:
         self.load(self._SVG.format(color=self._color).encode("utf-8"))
+
+
+class FolderOpenIcon(QSvgWidget):
+    """Lucide folder-open 图标（共享目录路径框）。"""
+
+    def __init__(self, size: int = 18, color: str = "#14B8A6", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self._color = color
+        self._reload()
+
+    def set_color(self, color_hex: str) -> None:
+        self._color = color_hex
+        self._reload()
+
+    def _reload(self) -> None:
+        self.load(_SVG_FOLDER_OPEN.format(color=self._color).encode("utf-8"))
 
 
 class FolderIcon(QSvgWidget):

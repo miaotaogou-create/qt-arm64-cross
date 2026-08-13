@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.icons import CpuIcon, FolderIcon, HardDriveIcon
+from gui.icons import CpuIcon, FolderIcon, FolderOpenIcon, HardDriveIcon
 from gui.theme import C
 
 
@@ -40,6 +40,7 @@ class PathInputField(QFrame):
         *,
         placeholder: str = "",
         folder_color: str = "#F59E0B",
+        folder_open: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -50,7 +51,10 @@ class PathInputField(QFrame):
         lay.setContentsMargins(12, 0, 12, 0)
         lay.setSpacing(8)
         lay.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        icon = FolderIcon(16, folder_color)
+        if folder_open:
+            icon = FolderOpenIcon(16, folder_color)
+        else:
+            icon = FolderIcon(16, folder_color)
         icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         lay.addWidget(icon, 0, Qt.AlignmentFlag.AlignVCenter)
         self.ed = QLineEdit(text)

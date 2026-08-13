@@ -27,8 +27,6 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPen,
-    QTextCharFormat,
-    QTextCursor,
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -390,12 +388,10 @@ class MainWindow(QMainWindow):
         self._form_widgets: list[QWidget] = []
         self._share = DirectoryShare()
         self._advanced_open = False
-        self._eth_open = False
         self._scratch_open = False
         self._cfg = settings.load()
         self._env_banner_labels: list[QLabel] = []
         self._env_hint_lbl: QLabel | None = None
-        self._share_log: QTextEdit | None = None
         self._btn_cancel: QPushButton | None = None
         self._recent_log_lines: list[str] = []
         self._btn_download: QPushButton | None = None
@@ -568,8 +564,8 @@ class MainWindow(QMainWindow):
         flow.setFrameShape(QFrame.Shape.NoFrame)
         flow.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         fl = QHBoxLayout(flow)
-        fl.setContentsMargins(12, 6, 12, 6)
-        fl.setSpacing(6)
+        fl.setContentsMargins(20, 12, 20, 12)
+        fl.setSpacing(10)
         self._flow_hint_key = QLabel("当前流程状态：")
         self._flow_hint_key.setObjectName("FlowHintKey")
         self._flow_hint_val = QLabel("检测环境…")
@@ -1210,7 +1206,6 @@ class MainWindow(QMainWindow):
         self.ed_share_urls = page.ed_share_urls
         self._share_state_lbl = page._status_badge
         self._http_dot = page._status_badge
-        self._share_log = page.share_log
 
         page.btn_browse.clicked.connect(self._browse_share)
         page.btn_sync.clicked.connect(self._fill_share_from_project)
@@ -1219,10 +1214,6 @@ class MainWindow(QMainWindow):
         page.btn_copy.clicked.connect(self._share_copy_url)
         page.btn_open.clicked.connect(self._share_open_local)
         page.btn_probe.clicked.connect(self._share_probe_local)
-
-        page.btn_eth.clicked.connect(self._toggle_eth)
-        self._eth_btn = page.btn_eth
-        self._eth = page.nic_card
 
         self.ed_eth_ip = page.ed_eth_ip
         self.ed_eth_ip.setText(self._eth_add_ip)
@@ -1311,13 +1302,6 @@ class MainWindow(QMainWindow):
             "追加或删除网卡 IP 会弹出系统 UAC 窗口，点「是」后才会写入当前有线网卡。\n"
             "不会改默认网关，只追加辅助地址。",
         )
-
-    def _toggle_eth(self) -> None:
-        self._eth_open = not self._eth_open
-        self._eth.setVisible(self._eth_open)
-        self._eth_btn.setText("网卡高级 ▾" if self._eth_open else "网卡高级 ▸")
-        if self._eth_open:
-            self._refresh_eth_list()
 
     def _refresh_env_hint(self) -> None:
         if self._env_hint_lbl is None:
@@ -1642,27 +1626,6 @@ class MainWindow(QMainWindow):
             self._recent_log_lines = self._recent_log_lines[-300:]
 
         self._console.append_line(line)
-
-        if self._share_log is not None and (
-            line.startswith("[http]")
-            or line.startswith("[net]")
-            or line.startswith("[env]")
-            or line.startswith("[cancel]")
-        ):
-            sfmt = QTextCharFormat()
-            sfmt.setForeground(QColor(self._log_color_for(line)))
-            sc = self._share_log.textCursor()
-            sc.movePosition(QTextCursor.MoveOperation.End)
-            sc.insertText(line + "\n", sfmt)
-            # 只保留末尾约 200 行
-            doc = self._share_log.document()
-            if doc.blockCount() > 220:
-                c = QTextCursor(doc)
-                c.movePosition(QTextCursor.MoveOperation.Start)
-                for _ in range(doc.blockCount() - 200):
-                    c.movePosition(QTextCursor.MoveOperation.Down, QTextCursor.MoveMode.KeepAnchor)
-                c.removeSelectedText()
-            self._share_log.moveCursor(QTextCursor.MoveOperation.End)
 
         short = line.strip()
         if len(short) > 72:

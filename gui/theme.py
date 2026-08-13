@@ -928,9 +928,10 @@ QLabel#StepChevron {{
     font-weight: 300;
 }}
 QFrame#FlowHintBox {{
-    background-color: rgba(20, 184, 166, 0.05);
-    border: 1px solid rgba(20, 184, 166, 0.1);
-    border-radius: 8px;
+    background-color: rgba(11, 15, 23, 0.92);
+    border: 1px solid #144E49;
+    border-radius: 12px;
+    min-height: 42px;
 }}
 QFrame#FlowHintBox QLabel {{
     background: transparent;
@@ -938,13 +939,12 @@ QFrame#FlowHintBox QLabel {{
 }}
 QLabel#FlowHintKey {{
     color: #5eead4;
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
 }}
 QLabel#FlowHintVal {{
     color: #94a3b8;
-    font-size: 11px;
-    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 14px;
 }}
 QFrame#ShareHero {{
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0B1220, stop:1 #042F2E);
@@ -1059,8 +1059,9 @@ QLabel#LoopUrl {{
     background: transparent;
 }}
 QLabel#QrPlaceholder {{
-    background-color: #FFFFFF;
-    color: #6B7280;
+    background-color: #0B0F17;
+    color: #64748B;
+    border: 1px solid #1F2937;
     border-radius: 12px;
     font-size: 12px;
     padding: 16px;
@@ -1093,34 +1094,61 @@ QLabel#ManifestName {{
     font-size: 12px;
     background: transparent;
 }}
-QLabel#ShareLogTitle {{
-    color: #10B981;
-    font-size: 13px;
+QFrame#NicCard {{
+    background-color: {C["surface"]};
+    border: 1px solid {C["border"]};
+    border-radius: 12px;
+}}
+QLabel#NicCardTitle {{
+    color: #F9FAFB;
+    font-size: 15px;
     font-weight: 700;
     background: transparent;
 }}
-QTextEdit#ShareLogEdit {{
-    background-color: #030712;
-    border: 1px solid #1F2937;
-    border-radius: 8px;
-    font-family: "Cascadia Code", Consolas, monospace;
+QLabel#NicCardDesc {{
+    color: #94A3B8;
     font-size: 12px;
-    color: #A7F3D0;
-    padding: 8px;
+    background: transparent;
+}}
+QFrame#NicTable {{
+    background: transparent;
+    border: none;
+}}
+QLabel#NicDotOn {{
+    background-color: #34D399;
+    border-radius: 4px;
+    min-width: 8px;
+    max-width: 8px;
+    min-height: 8px;
+    max-height: 8px;
+}}
+QLabel#NicDotOff {{
+    background-color: #475569;
+    border-radius: 4px;
+    min-width: 8px;
+    max-width: 8px;
+    min-height: 8px;
+    max-height: 8px;
+}}
+QLabel#NicProtect {{
+    color: #6B7280;
+    font-size: 12px;
+    background: transparent;
 }}
 QFrame#EthAddBar {{
-    background-color: #F8FAFC;
+    background-color: #0B0F17;
+    border: 1px solid #1F2937;
     border-radius: 12px;
 }}
 QLabel#EthBarLabel {{
-    color: #334155;
+    color: #94A3B8;
     font-size: 12px;
     font-weight: 600;
     background: transparent;
 }}
 QLineEdit#EthBarEdit {{
-    background-color: #0B0F17;
-    border: 1px solid #1F2937;
+    background-color: #030712;
+    border: 1px solid #374151;
     border-radius: 8px;
     color: #F9FAFB;
     padding: 8px 10px;
@@ -1132,7 +1160,8 @@ QPushButton#BtnAddIp {{
     border-radius: 8px;
     color: #FFFFFF;
     font-weight: 700;
-    padding: 8px 16px;
+    font-size: 13px;
+    padding: 10px 18px;
 }}
 QPushButton#BtnAddIp:hover {{
     background-color: #0F766E;
@@ -1151,8 +1180,10 @@ QPushButton#BtnUac:hover {{
 }}
 QLabel#NicColHead {{
     color: #6B7280;
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 600;
     background: transparent;
+    padding-bottom: 4px;
 }}
 QFrame#NicRow {{
     background: transparent;
@@ -1160,13 +1191,13 @@ QFrame#NicRow {{
 }}
 QLabel#NicName {{
     color: #E5E7EB;
-    font-size: 12px;
+    font-size: 13px;
     background: transparent;
 }}
 QLabel#NicIp {{
     color: #2DD4BF;
     font-family: "Cascadia Code", Consolas, monospace;
-    font-size: 12px;
+    font-size: 13px;
     background: transparent;
 }}
 QLabel#PrimaryTag {{

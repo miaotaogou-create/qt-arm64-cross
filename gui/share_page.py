@@ -1,4 +1,4 @@
-"""部署与共享页：Hero + 地址/扫码双栏 + HTTP 日志 + 网卡管理。"""
+"""部署与共享页：Hero + 地址/扫码双栏 + 有线网卡管理。"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,12 +14,11 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QSpinBox,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
-from gui.env_panel import PathInputField
+from gui.env_panel import PathInputField, hline
 from gui.icons import make_svg_icon
 
 _SVG = {
@@ -33,10 +32,11 @@ _SVG = {
     "network": (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
         'stroke="{c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-        '<rect x="2" y="2" width="6" height="6" rx="1"/>'
-        '<rect x="16" y="2" width="6" height="6" rx="1"/>'
-        '<rect x="9" y="16" width="6" height="6" rx="1"/>'
-        '<path d="M5 8v4h14V8"/><path d="M12 12v4"/></svg>'
+        '<rect x="9" y="2" width="6" height="6" rx="1"/>'
+        '<rect x="2" y="16" width="6" height="6" rx="1"/>'
+        '<rect x="16" y="16" width="6" height="6" rx="1"/>'
+        '<path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/>'
+        '<path d="M12 12V8"/></svg>'
     ),
     "wifi": (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
@@ -52,11 +52,6 @@ _SVG = {
         '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>'
         '<rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/>'
         '<rect x="18" y="18" width="3" height="3"/></svg>'
-    ),
-    "terminal": (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
-        'stroke="{c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
-        '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>'
     ),
 }
 
@@ -91,7 +86,13 @@ def _qr_pixmap(text: str, px: int = 168) -> QPixmap | None:
         from qrcode.image.pil import PilImage
     except ImportError:
         return None
-    img = qrcode.make(text, border=1, image_factory=PilImage)
+    img = qrcode.make(
+        text,
+        border=2,
+        image_factory=PilImage,
+        fill_color="#F9FAFB",
+        back_color="#0B0F17",
+    )
     if hasattr(img, "get_image"):
         img = img.get_image()
     if hasattr(img, "convert"):
@@ -116,8 +117,6 @@ class SharePage(QWidget):
         root.setSpacing(16)
         root.addWidget(self._build_hero())
         root.addLayout(self._build_main_row(), 1)
-        root.addWidget(self._build_log())
-        root.addWidget(self._build_eth_toggle())
         root.addWidget(self._build_nic())
 
     def _build_hero(self) -> QFrame:
@@ -195,7 +194,7 @@ class SharePage(QWidget):
 
         dir_row = QHBoxLayout()
         dir_row.setSpacing(8)
-        self._path_field = PathInputField("", folder_color="#F59E0B")
+        self._path_field = PathInputField("", folder_color="#14B8A6", folder_open=True)
         self.ed_share_dir = self._path_field.ed
         dir_row.addWidget(self._path_field, 1)
         self.btn_browse = QPushButton("浏览...")
@@ -326,70 +325,45 @@ class SharePage(QWidget):
         lay.addStretch(1)
         return card
 
-    def _build_log(self) -> QFrame:
-        card = QFrame()
-        card.setObjectName("Card")
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(20, 14, 20, 14)
-        lay.setSpacing(8)
-        head = QHBoxLayout()
-        head.addWidget(_Svg("terminal", "#10B981", 16))
-        t = QLabel("HTTP 服务传输日志")
-        t.setObjectName("ShareLogTitle")
-        head.addWidget(t)
-        head.addStretch(1)
-        lay.addLayout(head)
-        self.share_log = QTextEdit()
-        self.share_log.setObjectName("ShareLogEdit")
-        self.share_log.setReadOnly(True)
-        self.share_log.setFixedHeight(120)
-        self.share_log.setPlainText("[HTTP] 服务器就绪，等待启动服务...\n")
-        lay.addWidget(self.share_log)
-        return card
-
-    def _build_eth_toggle(self) -> QPushButton:
-        self.btn_eth = QPushButton("网卡高级 ▸")
-        self.btn_eth.setObjectName("ShareLinkBtn")
-        self.btn_eth.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_eth.setFlat(True)
-        return self.btn_eth
-
     def _build_nic(self) -> QFrame:
         self.nic_card = QFrame()
-        self.nic_card.setObjectName("Card")
-        self.nic_card.setVisible(False)
+        self.nic_card.setObjectName("NicCard")
+        self.nic_card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         lay = QVBoxLayout(self.nic_card)
-        lay.setContentsMargins(20, 16, 20, 16)
-        lay.setSpacing(12)
+        lay.setContentsMargins(20, 18, 20, 18)
+        lay.setSpacing(14)
 
         head = QHBoxLayout()
-        head.addWidget(_Svg("network", "#0D9488", 18))
-        titles = QVBoxLayout()
-        titles.setSpacing(2)
+        head.setSpacing(12)
+        head.addWidget(_Svg("network", "#14B8A6", 22), 0, Qt.AlignmentFlag.AlignVCenter)
         t = QLabel("有线网卡高级 IP 地址绑定与管理 (NIC Manager)")
-        t.setObjectName("CardTitle")
-        titles.addWidget(t)
-        d = QLabel("支持向现有网卡快速追加辅助调试段 IP（例如 192.168.8.x），以便连接不同网段的 ARM 板，无需修改默认网关。")
-        d.setObjectName("Muted")
-        d.setWordWrap(True)
-        titles.addWidget(d)
-        head.addLayout(titles, 1)
-        self.btn_uac = QPushButton("Windows UAC 提权管理")
+        t.setObjectName("NicCardTitle")
+        head.addWidget(t, 1)
+        self.btn_uac = QPushButton("Windows UAC 授权管理")
         self.btn_uac.setObjectName("BtnUac")
         self.btn_uac.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_uac.setIcon(make_svg_icon("shield", "#F59E0B", 14, pad_right=4))
         self.btn_uac.setIconSize(QSize(18, 14))
-        head.addWidget(self.btn_uac, 0, Qt.AlignmentFlag.AlignTop)
+        head.addWidget(self.btn_uac, 0, Qt.AlignmentFlag.AlignVCenter)
         lay.addLayout(head)
+        lay.addWidget(hline())
+
+        d = QLabel(
+            "支持向现有网卡快速追加辅助调试段 IP（例如 192.168.8.x），"
+            "以便无缝连接不同网段的 ARM 嵌入式开发板，无需修改默认网关。"
+        )
+        d.setObjectName("NicCardDesc")
+        d.setWordWrap(True)
+        lay.addWidget(d)
 
         bar = QFrame()
         bar.setObjectName("EthAddBar")
         bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         bar_lay = QHBoxLayout(bar)
-        bar_lay.setContentsMargins(14, 12, 14, 12)
-        bar_lay.setSpacing(12)
+        bar_lay.setContentsMargins(16, 14, 16, 14)
+        bar_lay.setSpacing(14)
         col_ip = QVBoxLayout()
-        col_ip.setSpacing(4)
+        col_ip.setSpacing(6)
         ip_lbl = QLabel("追加辅助 IP 地址:")
         ip_lbl.setObjectName("EthBarLabel")
         col_ip.addWidget(ip_lbl)
@@ -399,7 +373,7 @@ class SharePage(QWidget):
         col_ip.addWidget(self.ed_eth_ip)
         bar_lay.addLayout(col_ip, 1)
         col_mask = QVBoxLayout()
-        col_mask.setSpacing(4)
+        col_mask.setSpacing(6)
         mask_lbl = QLabel("子网掩码 (Subnet Mask):")
         mask_lbl.setObjectName("EthBarLabel")
         col_mask.addWidget(mask_lbl)
@@ -410,23 +384,35 @@ class SharePage(QWidget):
         self.btn_add_ip = QPushButton("追加绑定 IP")
         self.btn_add_ip.setObjectName("BtnAddIp")
         self.btn_add_ip.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_add_ip.setMinimumHeight(36)
+        self.btn_add_ip.setIcon(make_svg_icon("plus", "#FFFFFF", 14, pad_right=6))
+        self.btn_add_ip.setIconSize(QSize(16, 16))
+        self.btn_add_ip.setMinimumHeight(40)
         bar_lay.addWidget(self.btn_add_ip, 0, Qt.AlignmentFlag.AlignBottom)
         lay.addWidget(bar)
 
+        table = QFrame()
+        table.setObjectName("NicTable")
+        table.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        table_lay = QVBoxLayout(table)
+        table_lay.setContentsMargins(0, 0, 0, 0)
+        table_lay.setSpacing(0)
         cols = QHBoxLayout()
+        cols.setContentsMargins(0, 0, 8, 0)
         for text, stretch in (("网卡与名称", 3), ("绑定 IP 地址", 2), ("子网掩码", 2), ("操作", 1)):
             h = QLabel(text)
             h.setObjectName("NicColHead")
             cols.addWidget(h, stretch)
-        lay.addLayout(cols)
+        table_lay.addLayout(cols)
+        table_lay.addSpacing(6)
 
         self._nic_rows = QVBoxLayout()
         self._nic_rows.setSpacing(0)
-        lay.addLayout(self._nic_rows)
+        table_lay.addLayout(self._nic_rows)
         self._nic_empty = QLabel("（尚未刷新）")
         self._nic_empty.setObjectName("Muted")
-        lay.addWidget(self._nic_empty)
+        self._nic_empty.setContentsMargins(0, 8, 0, 4)
+        table_lay.addWidget(self._nic_empty)
+        lay.addWidget(table)
         return self.nic_card
 
     def set_running(self, running: bool, state_text: str = "") -> None:
@@ -539,19 +525,24 @@ class SharePage(QWidget):
         if rows == 0:
             self._nic_empty.setText("未检测到物理以太网卡")
 
+    def _status_dot(self, *, up: bool) -> QLabel:
+        dot = QLabel()
+        dot.setFixedSize(8, 8)
+        dot.setObjectName("NicDotOn" if up else "NicDotOff")
+        return dot
+
     def _nic_row(self, adapter, ip, *, protected: bool, primary: bool) -> QFrame:
         row = QFrame()
         row.setObjectName("NicRow")
         lay = QHBoxLayout(row)
-        lay.setContentsMargins(0, 8, 0, 8)
-        lay.setSpacing(8)
+        lay.setContentsMargins(0, 10, 8, 10)
+        lay.setSpacing(10)
         name_box = QHBoxLayout()
-        name_box.setSpacing(8)
-        dot = QLabel("●")
-        dot.setStyleSheet("color:#34D399;" if primary else "color:#38BDF8;")
-        name_box.addWidget(dot)
+        name_box.setSpacing(10)
+        up = str(getattr(adapter, "status", "")).lower() == "up"
+        name_box.addWidget(self._status_dot(up=up), 0, Qt.AlignmentFlag.AlignVCenter)
         label = adapter.name
-        if str(getattr(adapter, "status", "")).lower() == "up":
+        if up:
             label = f"{label} (Up)"
         if primary:
             label += "  [Primary]"
@@ -575,7 +566,7 @@ class SharePage(QWidget):
         lay.addWidget(ml, 2)
         if protected or ip is None:
             op = QLabel("主网卡保护")
-            op.setObjectName("Muted")
+            op.setObjectName("NicProtect")
             lay.addWidget(op, 1)
         else:
             btn = QPushButton()
