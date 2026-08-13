@@ -1143,7 +1143,6 @@ class MainWindow(QMainWindow):
         self._btn_build.setIconSize(QSize(16, 16))
         self._btn_build.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_build.clicked.connect(self._on_build)
-        self._btn_build.setEnabled(False)
         self._track_action(self._btn_build)
         btn_row.addWidget(self._btn_build)
 
@@ -1477,9 +1476,6 @@ class MainWindow(QMainWindow):
         for b in self._action_btns:
             keep = (not enabled) and id(b) in self._busy_keep
             on = enabled or keep
-            # 编译按钮另由 _sync_build_enabled 管
-            if b is getattr(self, "_btn_build", None):
-                continue
             b.setEnabled(on)
         if self._btn_cancel is not None:
             self._btn_cancel.setVisible(not enabled)
@@ -1625,7 +1621,8 @@ class MainWindow(QMainWindow):
         return r == QMessageBox.StandardButton.Yes
 
     def _sync_build_enabled(self) -> None:
-        on = (not self._busy) and self._env_ready
+        # 主按钮始终可点；环境未就绪时点下去再提示，不灰掉
+        on = not self._busy
         if hasattr(self, "_btn_build"):
             self._btn_build.setEnabled(on)
         if self._chrome is not None:
