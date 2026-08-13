@@ -56,6 +56,35 @@ from PySide6.QtWidgets import (
 from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLinkIcon, SparklesIcon
 
 
+class HeroPillBtn(QFrame):
+    """胶囊操作钮：外框圆角 + 内部图标/文字（避免空 QPushButton 被压成小方块）。"""
+
+    clicked = Signal()
+
+    def __init__(self, object_name: str = "HeroGhost", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName(object_name)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(32)
+        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        self._lay = QHBoxLayout(self)
+        self._lay.setContentsMargins(14, 0, 16, 0)
+        self._lay.setSpacing(6)
+
+    def add_content(self, *widgets: QWidget) -> None:
+        for w in widgets:
+            w.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+            self._lay.addWidget(w)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self.isEnabled() and event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+
 class _RotatingArrowIcon(QWidget):
     """双向环形箭头旋转图标（QPainter 绘制）。"""
 
@@ -606,45 +635,25 @@ class MainWindow(QMainWindow):
 
         actions = QHBoxLayout()
         actions.setSpacing(10)
-        det_wrap = QPushButton()
-        det_wrap.setObjectName("HeroGhost")
-        det_wrap.setCursor(Qt.CursorShape.PointingHandCursor)
-        det_wrap.setFlat(True)
-        det_wrap.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        det_wrap.setMinimumHeight(32)
+        det_wrap = HeroPillBtn("HeroGhost")
         det_wrap.clicked.connect(lambda: self._on_detect(False))
         self._track_action(det_wrap)
-        det_inner = QHBoxLayout(det_wrap)
-        det_inner.setContentsMargins(14, 0, 16, 0)
-        det_inner.setSpacing(6)
         self._detect_icon = _RotatingArrowIcon(14, "#14b8a6")
-        det_inner.addWidget(self._detect_icon)
         self._detect_label = QLabel("重新检测环境")
         self._detect_label.setStyleSheet(
             "background:transparent; border:none; color:#E2E8F0; font-size:12px; font-weight:500;"
         )
-        self._detect_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        det_inner.addWidget(self._detect_label)
+        det_wrap.add_content(self._detect_icon, self._detect_label)
         actions.addWidget(det_wrap)
         self._btn_redetect = det_wrap
-        self._btn_go_compile = QPushButton()
-        self._btn_go_compile.setObjectName("HeroPrimary")
-        self._btn_go_compile.setFlat(True)
-        self._btn_go_compile.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self._btn_go_compile.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_go_compile.setMinimumHeight(32)
-        go_inner = QHBoxLayout(self._btn_go_compile)
-        go_inner.setContentsMargins(16, 0, 16, 0)
-        go_inner.setSpacing(6)
+
+        self._btn_go_compile = HeroPillBtn("HeroPrimary")
         self._go_text = QLabel("前往「2 交叉编译」")
         self._go_text.setStyleSheet(
             "background:transparent; border:none; color:#FFFFFF; font-size:12px; font-weight:600;"
         )
-        self._go_text.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        go_inner.addWidget(self._go_text)
         self._go_icon = ExternalLinkIcon(size=12, color="#FFFFFF")
-        self._go_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        go_inner.addWidget(self._go_icon)
+        self._btn_go_compile.add_content(self._go_text, self._go_icon)
         self._btn_go_compile.clicked.connect(lambda: self._select_step(1))
         self._btn_go_compile.setEnabled(False)
         actions.addWidget(self._btn_go_compile)

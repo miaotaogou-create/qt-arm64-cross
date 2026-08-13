@@ -260,23 +260,23 @@ QPushButton:disabled {{
     color: {C["idle"]};
 }}
 QPushButton#Primary, QPushButton#PrimaryBtn, QPushButton#EnvPrimary,
-QPushButton#HeroPrimary, QPushButton#QuickPrimary {{
+QPushButton#QuickPrimary {{
     background-color: {C["primary"]};
     border: 1px solid {C["accent"]};
     color: #FFFFFF;
     font-weight: 600;
 }}
 QPushButton#Primary:hover, QPushButton#PrimaryBtn:hover, QPushButton#EnvPrimary:hover,
-QPushButton#HeroPrimary:hover, QPushButton#QuickPrimary:hover {{
+QPushButton#QuickPrimary:hover {{
     background-color: {C["primary_hover"]};
     border-color: #2DD4BF;
 }}
 QPushButton#Primary:pressed, QPushButton#PrimaryBtn:pressed, QPushButton#EnvPrimary:pressed,
-QPushButton#HeroPrimary:pressed, QPushButton#QuickPrimary:pressed {{
+QPushButton#QuickPrimary:pressed {{
     background-color: {C["primary_pressed"]};
 }}
 QPushButton#Primary:disabled, QPushButton#PrimaryBtn:disabled, QPushButton#EnvPrimary:disabled,
-QPushButton#HeroPrimary:disabled, QPushButton#QuickPrimary:disabled {{
+QPushButton#QuickPrimary:disabled {{
     background-color: #111827;
     border-color: {C["border"]};
     color: {C["idle"]};
@@ -295,7 +295,7 @@ QPushButton#EnvGhost:hover, QPushButton#EnvAccent:hover, QPushButton#Ghost:hover
     border-color: #4B5563;
     color: #FFFFFF;
 }}
-QPushButton#HeroGhost {{
+QFrame#HeroGhost, QPushButton#HeroGhost {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border_input"]};
     border-radius: 999px;
@@ -304,16 +304,16 @@ QPushButton#HeroGhost {{
     color: #E2E8F0;
     min-height: 32px;
 }}
-QPushButton#HeroGhost:hover {{
+QFrame#HeroGhost:hover, QPushButton#HeroGhost:hover {{
     background-color: {C["border_input"]};
     border-color: #4B5563;
 }}
-QPushButton#HeroGhost:disabled {{
+QFrame#HeroGhost:disabled, QPushButton#HeroGhost:disabled {{
     background-color: #111827;
     border-color: {C["border"]};
     color: {C["idle"]};
 }}
-QPushButton#HeroPrimary {{
+QFrame#HeroPrimary, QPushButton#HeroPrimary {{
     background-color: {C["primary"]};
     border: 1px solid {C["accent"]};
     border-radius: 999px;
@@ -323,11 +323,11 @@ QPushButton#HeroPrimary {{
     font-weight: 600;
     min-height: 32px;
 }}
-QPushButton#HeroPrimary:hover {{
+QFrame#HeroPrimary:hover, QPushButton#HeroPrimary:hover {{
     background-color: {C["primary_hover"]};
     border-color: #2DD4BF;
 }}
-QPushButton#HeroPrimary:disabled {{
+QFrame#HeroPrimary:disabled, QPushButton#HeroPrimary:disabled {{
     background-color: #111827;
     border-color: {C["border"]};
     color: {C["idle"]};
