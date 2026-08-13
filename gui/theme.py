@@ -456,6 +456,20 @@ QPushButton#BtnOpenOutFolder:hover {{
 QPushButton#BtnOpenOutFolder:pressed {{
     background-color: #030712;
 }}
+/* 底色/描边由 GoShareButton 呼吸动画逐帧写入，这里只管字色与内边距 */
+QPushButton#BtnGoShare {{
+    padding: 0 16px 0 14px;
+    color: #14B8A6;
+    font-weight: 600;
+    font-size: 13px;
+}}
+QPushButton#BtnGoShare:hover {{
+    color: #2DD4BF;
+    font-weight: 700;
+}}
+QPushButton#BtnGoShare:disabled {{
+    color: #4B5563;
+}}
 QPushButton#EnvGhost, QPushButton#Ghost, QPushButton#Accent {{
     background-color: {C["surface2"]};
     border: 1px solid {C["border_input"]};
