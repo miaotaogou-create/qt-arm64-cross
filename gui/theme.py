@@ -263,6 +263,8 @@ QComboBox QAbstractItemView {{
     selection-background-color: {C["primary"]};
     selection-color: #FFFFFF;
     color: {C["text_bright"]};
+    padding: 4px;
+    outline: none;
 }}
 QComboBox#RecentComboInner {{
     background: transparent;
@@ -270,9 +272,12 @@ QComboBox#RecentComboInner {{
     padding: 0;
     margin: 0;
     min-height: 0;
-    max-height: 22px;
     font-size: 12px;
     color: {C["text_bright"]};
+}}
+QComboBox#RecentComboInner QAbstractItemView {{
+    min-width: 340px;
+    padding: 4px;
 }}
 QComboBox#RecentComboInner:hover,
 QComboBox#RecentComboInner:focus {{

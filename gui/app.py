@@ -68,6 +68,31 @@ from gui.icons import (
 )
 
 
+class RecentCombo(QComboBox):
+    """关闭时保持矮；弹出列表按条数加高加宽，避免只露出一行还带滚动箭头。"""
+
+    _ROW_H = 30
+    _MAX_ROWS = 10
+
+    def showPopup(self) -> None:
+        n = max(1, min(self.count(), self._MAX_ROWS))
+        self.setMaxVisibleItems(n)
+        view = self.view()
+        view.setMinimumHeight(n * self._ROW_H)
+        w = max(340, self.width() + 100)
+        view.setMinimumWidth(w)
+        super().showPopup()
+
+        def _fit() -> None:
+            popup = view.window()
+            if popup is None or popup is self.window():
+                return
+            popup.setMinimumWidth(w)
+            popup.resize(max(popup.width(), w), max(popup.height(), n * self._ROW_H + 10))
+
+        QTimer.singleShot(0, _fit)
+
+
 class HeroPillBtn(QFrame):
     """圆角矩形操作钮：手绘圆角底，避免 QFrame QSS radius 在 Windows 不生效。"""
 
@@ -955,19 +980,19 @@ class MainWindow(QMainWindow):
         shell = QFrame()
         shell.setObjectName("RecentComboShell")
         shell.setFixedHeight(26)
-        shell.setMinimumWidth(220)
-        shell.setMaximumWidth(320)
+        shell.setMinimumWidth(240)
+        shell.setMaximumWidth(360)
         shell.setCursor(Qt.CursorShape.PointingHandCursor)
         shell.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         sl = QHBoxLayout(shell)
         sl.setContentsMargins(10, 0, 6, 0)
         sl.setSpacing(2)
 
-        self.cmb_recent = QComboBox()
+        self.cmb_recent = RecentCombo()
         self.cmb_recent.setObjectName("RecentComboInner")
         self.cmb_recent.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.cmb_recent.setFixedHeight(22)
-        self.cmb_recent.setMaxVisibleItems(12)
+        self.cmb_recent.setMaxVisibleItems(10)
         self.cmb_recent.addItem("选择最近工程…")
         for p in self._cfg.get("recent_projects") or []:
             self.cmb_recent.addItem(self._recent_display_label(p), p)
