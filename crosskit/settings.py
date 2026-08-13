@@ -40,6 +40,8 @@ DEFAULTS: dict[str, Any] = {
     "pending_import_dir": "",
     "pending_import_distro": "",
     "pending_import_replace": False,
+    # 上次检测通过后记住；启动不再自动跑 WSL 检测
+    "env_ready": False,
 }
 
 

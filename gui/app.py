@@ -417,9 +417,14 @@ class MainWindow(QMainWindow):
             self._fill_share_from_project()
         self._set_http_dot(False)
 
+        # 记住上次检测结果：已就绪则直达交叉编译页，不再每次启动跑 WSL 检测
+        remembered = bool(self._cfg.get("env_ready", False))
+        self._apply_env_ready(remembered)
+        if remembered:
+            self._select_step(1)
+
         QTimer.singleShot(600, self._maybe_resume_pending_import)
         QTimer.singleShot(200, self._refresh_eth_list)
-        QTimer.singleShot(500, lambda: self._on_detect(auto=True))
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self) -> None:
@@ -682,7 +687,7 @@ class MainWindow(QMainWindow):
         actions = QHBoxLayout()
         actions.setSpacing(10)
         det_wrap = HeroPillBtn("HeroGhost")
-        det_wrap.clicked.connect(lambda: self._on_detect(False))
+        det_wrap.clicked.connect(self._on_detect)
         self._track_action(det_wrap)
         self._detect_icon = _RotatingArrowIcon(14, "#14b8a6")
         self._detect_label = QLabel("重新检测环境")
@@ -814,7 +819,7 @@ class MainWindow(QMainWindow):
         b_det.setIcon(make_svg_icon("refresh", "#0D9488", 16))
         b_det.setIconSize(QSize(16, 16))
         b_det.setCursor(Qt.CursorShape.PointingHandCursor)
-        b_det.clicked.connect(lambda: self._on_detect(False))
+        b_det.clicked.connect(lambda: self._on_detect())
         self._track_action(b_det)
         brow.addWidget(b_det)
         b_exp = QPushButton("导出环境...")
@@ -1487,6 +1492,7 @@ class MainWindow(QMainWindow):
                 "env_install_dir": (self._env_install_dir or "").strip(),
                 "env_slim_export": bool(self._env_slim),
                 "env_replace_on_import": bool(self._env_replace),
+                "env_ready": bool(self._env_ready),
             }
         )
 
@@ -1611,6 +1617,7 @@ class MainWindow(QMainWindow):
 
     def _apply_env_ready(self, ready: bool) -> None:
         self._env_ready = ready
+        self._schedule_persist()
         if ready:
             text = (
                 "检测到完整的 WSL2 Linux 交叉编译镜像。已预装 ARM64 交叉编译器 "
@@ -2354,23 +2361,22 @@ class MainWindow(QMainWindow):
         self.chk_env_replace.setChecked(replace)
         self._start_import(archive, install_dir, distro, replace)
 
-    def _on_detect(self, auto: bool = False) -> None:
+    def _on_detect(self) -> None:
         if self._busy:
             return
-        if not auto and not self._confirm_distro():
+        if not self._confirm_distro():
             return
         jobs.begin()
         self._set_busy(True, "检测环境")
-        if not auto:
-            self._append_log("==== 开始检测环境 ====")
-            self._append_log("[detect] 准备调用 WSL（可能稍慢，请看底栏进度）…")
+        self._append_log("==== 开始检测环境 ====")
+        self._append_log("[detect] 准备调用 WSL（可能稍慢，请看底栏进度）…")
         self._set_env_box("检测中…")
         self._start_detect_spin()
 
         def work() -> None:
             report = detect.detect(
                 self._distro_text(),
-                on_line=None if auto else (lambda line: self.sig_log.emit(line)),
+                on_line=lambda line: self.sig_log.emit(line),
             )
 
             def ui() -> None:
@@ -2387,15 +2393,12 @@ class MainWindow(QMainWindow):
                         lines.append(f"      → {it.fix}")
                 self._set_env_box("\n".join(lines) or "(无结果)")
                 self._apply_env_ready(report.ready)
-                if not auto:
-                    self._append_log("==== 检测结束 ====")
+                self._append_log("==== 检测结束 ====")
                 self._set_busy(False, "环境就绪" if report.ready else "环境不完整")
                 if report.ready:
                     self._show_toast("环境全面检测完成：aarch64 交叉编译器与 Qt 库正常！")
                 else:
                     self._show_toast("环境检测完成：部分组件缺失，请导入环境包。")
-                if auto and not report.ready:
-                    self._select_step(0)
 
             self._ui(ui)
 
