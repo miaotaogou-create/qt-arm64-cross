@@ -613,6 +613,102 @@ QProgressBar::chunk {{
 }}
 
 /* ---- 7. 日志控制台 ---- */
+QFrame#ConsoleCard {{
+    background-color: #030712;
+    border: 1px solid #1F2937;
+    border-radius: 12px;
+}}
+QFrame#ConsoleHeader {{
+    background-color: #111827;
+    border: none;
+    border-bottom: 1px solid #1F2937;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}}
+QFrame#ConsoleBody {{
+    background-color: #030712;
+    border: none;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}}
+QLabel#ConsoleTitle {{
+    font-size: 13px;
+    font-weight: 700;
+    color: #F9FAFB;
+    background: transparent;
+}}
+QLabel#BadgeCount {{
+    background-color: #0B0F17;
+    border: 1px solid #1F2937;
+    color: #9CA3AF;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 6px;
+}}
+QFrame#SearchBox {{
+    background-color: #0B0F17;
+    border: 1px solid #1F2937;
+    border-radius: 6px;
+    min-width: 160px;
+    max-height: 28px;
+}}
+QFrame#SearchBox:focus-within {{
+    border-color: #0D9488;
+}}
+QLineEdit#FilterEdit {{
+    background: transparent;
+    border: none;
+    color: #F9FAFB;
+    font-size: 12px;
+    padding: 0;
+}}
+QPushButton#AutoScrollBtnOn {{
+    background-color: #022C22;
+    border: 1px solid #059669;
+    border-radius: 6px;
+    color: #34D399;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+}}
+QPushButton#AutoScrollBtnOn:hover {{
+    background-color: #064E3B;
+}}
+QPushButton#AutoScrollBtnOff {{
+    background-color: #0B0F17;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #9CA3AF;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+}}
+QTextEdit#TerminalEdit {{
+    background-color: #030712;
+    border: none;
+    font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+    font-size: 12px;
+    color: #34D399;
+    padding: 6px 0;
+}}
+QTextEdit#TerminalEdit QScrollBar:vertical {{
+    border: none;
+    background: #030712;
+    width: 6px;
+    border-radius: 3px;
+}}
+QTextEdit#TerminalEdit QScrollBar::handle:vertical {{
+    background: #1F2937;
+    border-radius: 3px;
+    min-height: 20px;
+}}
+QTextEdit#TerminalEdit QScrollBar::handle:vertical:hover {{
+    background: #374151;
+}}
+QTextEdit#TerminalEdit QScrollBar::add-line:vertical,
+QTextEdit#TerminalEdit QScrollBar::sub-line:vertical {{
+    height: 0;
+}}
 QTextEdit#Log, QTextEdit#TerminalLog, QTextEdit#ConsoleEdit {{
     background-color: #030712;
     border: 1px solid {C["border"]};
