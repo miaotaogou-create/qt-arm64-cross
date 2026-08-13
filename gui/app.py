@@ -1019,6 +1019,22 @@ class MainWindow(QMainWindow):
         cfg.addWidget(head_wrap)
         cfg.addWidget(hline(bright=True))
 
+        # 工程 / 构建 / 产物：左列同宽拉伸，右列按钮统一宽度对齐
+        _side_btn_w = 88
+
+        def _side_btn(text: str = "", *, icon: str | None = None, tip: str = "") -> QPushButton:
+            b = QPushButton(text)
+            b.setObjectName("EnvGhost")
+            b.setFixedWidth(_side_btn_w)
+            b.setFixedHeight(36)
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            if icon:
+                b.setIcon(make_svg_icon(icon, "#0D9488", 16))
+                b.setIconSize(QSize(16, 16))
+            if tip:
+                b.setToolTip(tip)
+            return b
+
         # 工程目录
         r0 = QHBoxLayout()
         r0.setSpacing(10)
@@ -1032,9 +1048,7 @@ class MainWindow(QMainWindow):
         self._proj_path_field.textChanged.connect(lambda t: self._on_field("project", t))
         self._track_form(self.ed_project)
         r0.addWidget(self._proj_path_field, 1)
-        b_bp = QPushButton("浏览...")
-        b_bp.setObjectName("EnvGhost")
-        b_bp.setCursor(Qt.CursorShape.PointingHandCursor)
+        b_bp = _side_btn("浏览...")
         b_bp.clicked.connect(self._browse_project)
         r0.addWidget(b_bp)
         cfg.addLayout(r0)
@@ -1044,19 +1058,16 @@ class MainWindow(QMainWindow):
         r1.setSpacing(10)
         r1.addWidget(_c_label("构建文件 (Build File):"))
         self.build_combo = QComboBox()
+        self.build_combo.setObjectName("CompileFieldCombo")
         self.build_combo.setEditable(True)
+        self.build_combo.setFixedHeight(36)
         self.build_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         if self._build_file:
             self.build_combo.setEditText(self._build_file)
         self.build_combo.currentTextChanged.connect(lambda t: self._on_field("build_file", t))
         self._track_form(self.build_combo)
         r1.addWidget(self.build_combo, 1)
-        b_ref = QPushButton()
-        b_ref.setObjectName("IconGhost")
-        b_ref.setToolTip("刷新构建文件列表")
-        b_ref.setIcon(make_svg_icon("refresh", "#0D9488", 16))
-        b_ref.setIconSize(QSize(16, 16))
-        b_ref.setCursor(Qt.CursorShape.PointingHandCursor)
+        b_ref = _side_btn(icon="refresh", tip="刷新构建文件列表")
         b_ref.clicked.connect(self._refresh_build_files)
         r1.addWidget(b_ref)
         cfg.addLayout(r1)
@@ -1074,9 +1085,7 @@ class MainWindow(QMainWindow):
         self._out_path_field.textChanged.connect(lambda t: self._on_field("out_dir", t))
         self._track_form(self.ed_out_dir)
         r2.addWidget(self._out_path_field, 1)
-        b_bo = QPushButton("浏览...")
-        b_bo.setObjectName("EnvGhost")
-        b_bo.setCursor(Qt.CursorShape.PointingHandCursor)
+        b_bo = _side_btn("浏览...")
         b_bo.clicked.connect(self._browse_out_dir)
         r2.addWidget(b_bo)
         cfg.addLayout(r2)

@@ -217,6 +217,7 @@ QFrame#PathField {{
     border: 1px solid {C["border_input"]};
     border-radius: 8px;
     min-height: 36px;
+    max-height: 36px;
 }}
 QFrame#PathField:hover {{
     border-color: #4B5563;
@@ -228,12 +229,12 @@ QFrame#PathField[focused="true"] {{
 QLineEdit#PathEditInner {{
     background: transparent;
     border: none;
-    padding: 8px 0;
+    padding: 0;
     color: {C["text_bright"]};
     font-size: 13px;
     font-family: "Cascadia Code", Consolas, "Segoe UI", monospace;
     selection-background-color: {C["primary"]};
-    min-height: 18px;
+    min-height: 0;
 }}
 QLineEdit:hover, QComboBox:hover, QSpinBox:hover {{
     border-color: #4B5563;
