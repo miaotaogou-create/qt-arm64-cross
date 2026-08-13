@@ -10,6 +10,7 @@ from PySide6.QtCore import (
     Qt,
     QTimer,
     Signal,
+    QEvent,
     QRectF,
     QVariantAnimation,
     QPropertyAnimation,
@@ -57,17 +58,20 @@ from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLi
 
 
 class HeroPillBtn(QFrame):
-    """胶囊操作钮：外框圆角 + 内部图标/文字（避免空 QPushButton 被压成小方块）。"""
+    """圆角矩形操作钮：手绘圆角底，避免 QFrame QSS radius 在 Windows 不生效。"""
 
     clicked = Signal()
 
     def __init__(self, object_name: str = "HeroGhost", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName(object_name)
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(32)
         self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        self._hover = False
+        self._primary = object_name == "HeroPrimary"
+        self._radius = 8  # 圆角矩形（非胶囊）
         self._lay = QHBoxLayout(self)
         self._lay.setContentsMargins(14, 0, 16, 0)
         self._lay.setSpacing(6)
@@ -77,12 +81,44 @@ class HeroPillBtn(QFrame):
             w.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
             self._lay.addWidget(w)
 
+    def enterEvent(self, event) -> None:  # noqa: N802
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def changeEvent(self, event) -> None:  # noqa: N802
+        if event.type() == QEvent.Type.EnabledChange:
+            self.update()
+        super().changeEvent(event)
+
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if self.isEnabled() and event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
             event.accept()
             return
         super().mousePressEvent(event)
+
+    def paintEvent(self, _e) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        if not self.isEnabled():
+            bg, bd = QColor("#111827"), QColor(C["border"])
+        elif self._primary:
+            bg = QColor(C["primary_hover"] if self._hover else C["primary"])
+            bd = QColor("#2DD4BF" if self._hover else C["accent"])
+        else:
+            bg = QColor(C["border_input"] if self._hover else C["surface2"])
+            bd = QColor("#4B5563" if self._hover else C["border_input"])
+        p.setPen(QPen(bd, 1.0))
+        p.setBrush(bg)
+        p.drawRoundedRect(r, self._radius, self._radius)
+        p.end()
 
 
 class _RotatingArrowIcon(QWidget):
