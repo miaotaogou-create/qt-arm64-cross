@@ -1,5 +1,5 @@
 # Build portable QtArm64Cross.exe (single-file, PySide6)
-# Requires: pip install pyinstaller PySide6
+# Requires: pip install -r requirements.txt pyinstaller
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 $root = $PSScriptRoot
@@ -7,28 +7,33 @@ $root = $PSScriptRoot
 Get-Process QtArm64Cross -ErrorAction SilentlyContinue | Stop-Process -Force
 
 python -c "import PySide6" 2>$null
-if ($LASTEXITCODE -ne 0) { throw "需要先 pip install PySide6" }
+if ($LASTEXITCODE -ne 0) { throw "need: pip install PySide6" }
+python -c "import qrcode, PIL" 2>$null
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "installing qrcode[pil]..."
+  python -m pip install "qrcode[pil]>=7.4"
+  if ($LASTEXITCODE -ne 0) { throw "pip install qrcode[pil] failed" }
+}
 
 if (Test-Path ".\build") { Remove-Item -Recurse -Force ".\build" }
 if (Test-Path ".\QtArm64Cross.exe") { Remove-Item -Force ".\QtArm64Cross.exe" }
 Get-ChildItem -Filter "QtArm64Cross.smoke_ok" -ErrorAction SilentlyContinue | Remove-Item -Force
 
-# 写入版本 BUILD（日期 + git 短 hash），便于排障认 exe
+# Write BUILD stamp (date + short git hash)
 $verDate = Get-Date -Format "yyyy.M.d"
 $gitHash = "nogit"
 try { $gitHash = (git -C $root rev-parse --short HEAD 2>$null).Trim() } catch {}
 if (-not $gitHash) { $gitHash = "nogit" }
 $verFile = Join-Path $root "crosskit\app_version.py"
-$verBody = @"
-"""App version (BUILD rewritten by build_exe.ps1)."""
-
-VERSION = "1.2.0"
-BUILD = "$verDate+$gitHash"
-"@
-[System.IO.File]::WriteAllText($verFile, $verBody + "`n", [System.Text.UTF8Encoding]::new($false))
+$nl = [char]10
+$verBody = '"""App version (BUILD rewritten by build_exe.ps1)."""' + $nl + $nl +
+  'VERSION = "1.2.0"' + $nl +
+  ('BUILD = "{0}+{1}"' -f $verDate, $gitHash) + $nl
+[System.IO.File]::WriteAllText($verFile, $verBody, [System.Text.UTF8Encoding]::new($false))
 
 $runPy = Join-Path $root "run.py"
 $toolsDir = Join-Path $root "tools"
+$addData = $toolsDir + ";tools"
 
 python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx `
   --name QtArm64Cross `
@@ -38,7 +43,12 @@ python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx `
   --collect-all PySide6 `
   --hidden-import gui.app `
   --hidden-import gui.theme `
-  --add-data ($toolsDir + ";tools") `
+  --hidden-import qrcode `
+  --hidden-import qrcode.image.pil `
+  --hidden-import PIL `
+  --hidden-import PIL.Image `
+  --collect-submodules qrcode `
+  --add-data $addData `
   $runPy
 
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller exit $LASTEXITCODE" }

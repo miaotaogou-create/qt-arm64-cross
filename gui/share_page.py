@@ -83,14 +83,15 @@ def _fmt_size(n: int) -> str:
 
 
 def _qr_pixmap(text: str, px: int = 168) -> QPixmap | None:
-    """有 qrcode 库就出真码；没有就返回 None（卡片改显示地址）。"""
+    """把 URL 渲成二维码图；缺依赖时返回 None（界面退回显示文字）。"""
     if not text or text == "—":
         return None
     try:
         import qrcode
+        from qrcode.image.pil import PilImage
     except ImportError:
         return None
-    img = qrcode.make(text, border=1)
+    img = qrcode.make(text, border=1, image_factory=PilImage)
     if hasattr(img, "get_image"):
         img = img.get_image()
     if hasattr(img, "convert"):
