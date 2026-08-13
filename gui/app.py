@@ -55,7 +55,16 @@ from PySide6.QtWidgets import (
     QButtonGroup,
 )
 
-from gui.icons import CheckAwareLabel, CircleCheckIcon, ChevronArrow, ExternalLinkIcon, SparklesIcon, make_svg_icon
+from gui.icons import (
+    CheckAwareLabel,
+    CircleCheckIcon,
+    ChevronArrow,
+    ExternalLinkIcon,
+    PlayIcon,
+    SparklesIcon,
+    TerminalIcon,
+    make_svg_icon,
+)
 
 
 class HeroPillBtn(QFrame):
@@ -903,17 +912,44 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------ 编译页
     def _build_tab_compile(self, parent: QWidget) -> None:
         outer = QVBoxLayout(parent)
-        outer.setContentsMargins(2, 0, 2, 8)
-        outer.setSpacing(12)
+        outer.setContentsMargins(16, 12, 16, 8)
+        outer.setSpacing(16)
 
-        proj, proj_lay = _card("工程")
+        def _c_label(text: str) -> QLabel:
+            lb = QLabel(text)
+            lb.setObjectName("FieldLabel")
+            lb.setFixedWidth(130)
+            lb.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            return lb
+
+        # —— 配置卡 ——
+        config = QFrame()
+        config.setObjectName("Card")
+        cfg = QVBoxLayout(config)
+        cfg.setContentsMargins(20, 18, 20, 18)
+        cfg.setSpacing(14)
+
+        head = QHBoxLayout()
+        head.setSpacing(8)
+        head.addWidget(PlayIcon(20, "#0D9488"))
+        ht = QLabel("项目交叉编译参数配置")
+        ht.setObjectName("CardHeadTitle")
+        head.addWidget(ht)
+        head.addStretch(1)
+        cfg.addLayout(head)
+
+        # 项目路径
         r0 = QHBoxLayout()
-        r0.addWidget(_field_label("工程目录"))
-        self.ed_project = QLineEdit(self._project)
-        self.ed_project.textChanged.connect(lambda t: self._on_field("project", t))
+        r0.setSpacing(10)
+        r0.addWidget(_c_label("Qt 项目源码路径:"))
+        self._proj_path_field = PathInputField(self._project, placeholder=r"选择 Qt 工程目录…")
+        self.ed_project = self._proj_path_field.ed
+        self._proj_path_field.textChanged.connect(lambda t: self._on_field("project", t))
         self._track_form(self.ed_project)
-        r0.addWidget(self.ed_project, 1)
-        b_bp = _btn("浏览…")
+        r0.addWidget(self._proj_path_field, 1)
+        b_bp = QPushButton("选择项目...")
+        b_bp.setObjectName("EnvGhost")
+        b_bp.setCursor(Qt.CursorShape.PointingHandCursor)
         b_bp.clicked.connect(self._browse_project)
         r0.addWidget(b_bp)
         recent = self._cfg.get("recent_projects") or []
@@ -924,10 +960,12 @@ class MainWindow(QMainWindow):
                 self.cmb_recent.addItem(p)
             self.cmb_recent.activated.connect(self._on_recent_picked)
             r0.addWidget(self.cmb_recent)
-        proj_lay.addLayout(r0)
+        cfg.addLayout(r0)
 
+        # 构建文件
         r1 = QHBoxLayout()
-        r1.addWidget(_field_label("构建文件"))
+        r1.setSpacing(10)
+        r1.addWidget(_c_label("构建配置文件:"))
         self.build_combo = QComboBox()
         self.build_combo.setEditable(True)
         self.build_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -936,25 +974,34 @@ class MainWindow(QMainWindow):
         self.build_combo.currentTextChanged.connect(lambda t: self._on_field("build_file", t))
         self._track_form(self.build_combo)
         r1.addWidget(self.build_combo, 1)
-        b_ref = _btn("刷新")
+        b_ref = QPushButton("刷新")
+        b_ref.setObjectName("EnvGhost")
+        b_ref.setIcon(make_svg_icon("refresh", "#0D9488", 14))
+        b_ref.setIconSize(QSize(14, 14))
+        b_ref.setCursor(Qt.CursorShape.PointingHandCursor)
         b_ref.clicked.connect(self._refresh_build_files)
         r1.addWidget(b_ref)
-        proj_lay.addLayout(r1)
+        cfg.addLayout(r1)
 
+        # 产物路径
         r2 = QHBoxLayout()
-        r2.addWidget(_field_label("产物目录"))
-        self.ed_out_dir = QLineEdit(self._out_dir)
-        self.ed_out_dir.textChanged.connect(lambda t: self._on_field("out_dir", t))
+        r2.setSpacing(10)
+        r2.addWidget(_c_label("编译产物导出路径:"))
+        self._out_path_field = PathInputField(self._out_dir, placeholder=r"留空则用工程下 dist/…")
+        self.ed_out_dir = self._out_path_field.ed
+        self._out_path_field.textChanged.connect(lambda t: self._on_field("out_dir", t))
         self._track_form(self.ed_out_dir)
-        r2.addWidget(self.ed_out_dir, 1)
-        b_bo = _btn("浏览…")
+        r2.addWidget(self._out_path_field, 1)
+        b_bo = QPushButton("选择输出...")
+        b_bo.setObjectName("EnvGhost")
+        b_bo.setCursor(Qt.CursorShape.PointingHandCursor)
         b_bo.clicked.connect(self._browse_out_dir)
         r2.addWidget(b_bo)
-        proj_lay.addLayout(r2)
-        outer.addWidget(proj)
+        cfg.addLayout(r2)
 
-        opts, opts_lay = _card("选项")
+        # 选项行（保留业务开关，折叠高级）
         flags = QHBoxLayout()
+        flags.setSpacing(16)
         self.chk_bundle = QCheckBox("生成运行包")
         self.chk_bundle.setChecked(self._do_bundle)
         self.chk_bundle.toggled.connect(lambda v: self._on_field("do_bundle", v))
@@ -970,16 +1017,19 @@ class MainWindow(QMainWindow):
         self.chk_clean.toggled.connect(lambda v: self._on_field("do_clean", v))
         self._track_form(self.chk_clean)
         flags.addWidget(self.chk_clean)
-        self._adv_btn = _btn("高级 ▸", "Accent")
+        self._adv_btn = QPushButton("高级 ▸")
+        self._adv_btn.setObjectName("EnvGhost")
+        self._adv_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._adv_btn.clicked.connect(self._toggle_advanced)
         flags.addWidget(self._adv_btn)
         flags.addStretch(1)
-        opts_lay.addLayout(flags)
+        cfg.addLayout(flags)
 
         self._adv = QWidget()
         self._adv.setVisible(False)
         adv_lay = QVBoxLayout(self._adv)
-        adv_lay.setContentsMargins(0, 8, 0, 0)
+        adv_lay.setContentsMargins(0, 4, 0, 0)
+        adv_lay.setSpacing(8)
 
         sys_row = QHBoxLayout()
         sys_row.addWidget(QLabel("构建系统"))
@@ -1038,56 +1088,103 @@ class MainWindow(QMainWindow):
             setattr(self, f"ed_{key}", ed)
             row.addWidget(ed, 1)
             adv_lay.addLayout(row)
+        cfg.addWidget(self._adv)
 
-        opts_lay.addWidget(self._adv)
-        outer.addWidget(opts)
-
-        action_bar = QFrame()
-        action_bar.setObjectName("ActionBar")
-        actions = QHBoxLayout(action_bar)
-        actions.setContentsMargins(14, 10, 14, 10)
-        actions.setSpacing(8)
-        self._btn_build = _btn("▶  开始交叉编译 (aarch64)", "Primary")
+        # 操作按钮
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+        self._btn_build = QPushButton("一键极速编译 (aarch64)")
+        self._btn_build.setObjectName("Primary")
+        self._btn_build.setIcon(make_svg_icon("sparkles", "#FFFFFF", 16))
+        self._btn_build.setIconSize(QSize(16, 16))
+        self._btn_build.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_build.clicked.connect(self._on_build)
         self._btn_build.setEnabled(False)
         self._track_action(self._btn_build)
-        actions.addWidget(self._btn_build)
-        b_out = _btn("📁  打开产物文件夹")
+        btn_row.addWidget(self._btn_build)
+
+        b_clean = QPushButton("清理构建缓存")
+        b_clean.setObjectName("EnvGhost")
+        b_clean.setIcon(make_svg_icon("terminal", "#9CA3AF", 16))
+        b_clean.setIconSize(QSize(16, 16))
+        b_clean.setCursor(Qt.CursorShape.PointingHandCursor)
+        b_clean.clicked.connect(self._on_clean_cache_hint)
+        self._track_action(b_clean)
+        btn_row.addWidget(b_clean)
+
+        b_out = QPushButton("打开产物文件夹")
+        b_out.setObjectName("EnvGhost")
+        b_out.setIcon(make_svg_icon("folder", "#F59E0B", 14))
+        b_out.setIconSize(QSize(14, 14))
+        b_out.setCursor(Qt.CursorShape.PointingHandCursor)
         b_out.clicked.connect(self._open_out)
         self._track_action(b_out)
-        actions.addWidget(b_out)
-        b_share = _btn("去共享", "Accent")
+        btn_row.addWidget(b_out)
+
+        b_share = QPushButton("去共享")
+        b_share.setObjectName("EnvAccent")
+        b_share.setIcon(make_svg_icon("upload", "#14B8A6", 14))
+        b_share.setIconSize(QSize(14, 14))
+        b_share.setCursor(Qt.CursorShape.PointingHandCursor)
         b_share.clicked.connect(lambda: self._select_step(2))
         self._track_action(b_share)
-        actions.addWidget(b_share)
-        actions.addStretch(1)
-        b_clear = _btn("清空")
-        b_clear.clicked.connect(self._clear_log)
-        actions.addWidget(b_clear)
-        b_copy = _btn("复制日志")
-        b_copy.clicked.connect(self._copy_log)
-        self._track_action(b_copy, keep_when_busy=True)
-        actions.addWidget(b_copy)
-        outer.addWidget(action_bar)
+        btn_row.addWidget(b_share)
+        btn_row.addStretch(1)
+        cfg.addLayout(btn_row)
+        outer.addWidget(config)
 
-        log_card, log_lay = _card("构建日志")
-        log_card.setObjectName("TerminalCard")
-        meta = QHBoxLayout()
+        # —— 日志终端卡 ——
+        console = QFrame()
+        console.setObjectName("TerminalCard")
+        clog = QVBoxLayout(console)
+        clog.setContentsMargins(20, 16, 20, 16)
+        clog.setSpacing(12)
+
+        top = QHBoxLayout()
+        top.setSpacing(8)
+        top.addWidget(TerminalIcon(18, "#10B981"))
+        ctitle = QLabel("交叉编译日志终端 (aarch64-linux-gnu-gcc)")
+        ctitle.setStyleSheet("font-weight:700; color:#10B981; font-size:13px; background:transparent; border:none;")
+        top.addWidget(ctitle)
+        top.addStretch(1)
         self._log_count_lbl = QLabel("0 行")
         self._log_count_lbl.setObjectName("Muted")
-        meta.addWidget(self._log_count_lbl)
-        meta.addStretch(1)
+        top.addWidget(self._log_count_lbl)
         self.chk_autoscroll = QCheckBox("自动滚动")
         self.chk_autoscroll.setChecked(True)
         self.chk_autoscroll.toggled.connect(lambda v: setattr(self, "_log_auto_scroll", v))
-        meta.addWidget(self.chk_autoscroll)
-        log_lay.addLayout(meta)
+        top.addWidget(self.chk_autoscroll)
+        self._compile_progress = QProgressBar()
+        self._compile_progress.setFixedWidth(180)
+        self._compile_progress.setFixedHeight(10)
+        self._compile_progress.setRange(0, 0)
+        self._compile_progress.setTextVisible(False)
+        self._compile_progress.setVisible(False)
+        top.addWidget(self._compile_progress)
+        b_clear = QPushButton("清空")
+        b_clear.setObjectName("EnvGhost")
+        b_clear.setCursor(Qt.CursorShape.PointingHandCursor)
+        b_clear.clicked.connect(self._clear_log)
+        top.addWidget(b_clear)
+        b_copy = QPushButton("复制日志")
+        b_copy.setObjectName("EnvGhost")
+        b_copy.setCursor(Qt.CursorShape.PointingHandCursor)
+        b_copy.clicked.connect(self._copy_log)
+        self._track_action(b_copy, keep_when_busy=True)
+        top.addWidget(b_copy)
+        clog.addLayout(top)
+
         self.log = QTextEdit()
         self.log.setReadOnly(True)
         self.log.setObjectName("TerminalLog")
-        self.log.setMinimumHeight(220)
-        log_lay.addWidget(self.log, 1)
-        outer.addWidget(log_card, 1)
+        self.log.setMinimumHeight(240)
+        self.log.setPlainText(
+            "[INFO] 交叉编译控制台已就绪…\n"
+            "[INFO] 目标架构: aarch64-linux-gnu (GCC 9.4.0 / Qt 5.14.2)\n"
+            "等待开始编译指令…"
+        )
+        clog.addWidget(self.log, 1)
+        outer.addWidget(console, 1)
 
     # ------------------------------------------------------------------ 共享页
     def _build_tab_share(self, lay: QVBoxLayout) -> None:
@@ -1470,6 +1567,13 @@ class MainWindow(QMainWindow):
         self._log_line_count = 0
         self._log_count_lbl.setText("0 行")
 
+    def _on_clean_cache_hint(self) -> None:
+        """勾选全量清理，下次编译会清缓存；仅提示，不立刻删目录。"""
+        if hasattr(self, "chk_clean"):
+            self.chk_clean.setChecked(True)
+        self._append_log("[CLEAN] 已勾选「全量清理」，下次一键编译将清空构建缓存。")
+        self._append_log("[SUCCESS] 准备就绪。")
+
     def _set_env_box(self, text: str) -> None:
         self.env_box.setPlainText(text)
 
@@ -1667,6 +1771,8 @@ class MainWindow(QMainWindow):
         self._sync_build_enabled()
         text = msg or ("忙碌…" if busy else "就绪")
         self._status_lbl.setText(text)
+        if hasattr(self, "_compile_progress"):
+            self._compile_progress.setVisible(busy)
         if busy:
             self._progress.setVisible(True)
             if self._btn_cancel is not None:

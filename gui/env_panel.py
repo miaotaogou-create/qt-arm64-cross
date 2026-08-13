@@ -61,6 +61,8 @@ class PathInputField(QFrame):
             self.style().unpolish(self)
             self.style().polish(self)
         return super().eventFilter(obj, event)
+
+
 # 界面预设；当前仅 Ubuntu-20.04 有现成环境包
 DISTRO_PRESETS: list[dict[str, str]] = [
     {

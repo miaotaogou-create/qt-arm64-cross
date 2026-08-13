@@ -34,6 +34,34 @@ _SVG_REFRESH = (
     '<path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>'
     "</svg>"
 )
+_SVG_PLAY = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<polygon points="5 3 19 12 5 21 5 3"></polygon>'
+    "</svg>"
+)
+_SVG_TERMINAL = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<polyline points="4 17 10 11 4 5"></polyline>'
+    '<line x1="12" y1="19" x2="20" y2="19"></line>'
+    "</svg>"
+)
+_SVG_SPARKLES = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 '
+    "9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 "
+    '0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>'
+    '<path d="M20 3v4"></path><path d="M22 5h-4"></path>'
+    "</svg>"
+)
+_SVG_FOLDER = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"></path>'
+    "</svg>"
+)
 
 
 def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
@@ -42,6 +70,10 @@ def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
         "upload": _SVG_UPLOAD,
         "download": _SVG_DOWNLOAD,
         "refresh": _SVG_REFRESH,
+        "play": _SVG_PLAY,
+        "terminal": _SVG_TERMINAL,
+        "sparkles": _SVG_SPARKLES,
+        "folder": _SVG_FOLDER,
     }.get(kind, _SVG_UPLOAD)
     renderer = QSvgRenderer(tpl.format(color=color).encode("utf-8"))
     pix = QPixmap(size, size)
@@ -51,6 +83,24 @@ def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
     renderer.render(p)
     p.end()
     return QIcon(pix)
+
+
+class PlayIcon(QSvgWidget):
+    """Lucide Play 图标（编译配置卡标题）。"""
+
+    def __init__(self, size: int = 20, color: str = "#0D9488", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self.load(_SVG_PLAY.format(color=color).encode("utf-8"))
+
+
+class TerminalIcon(QSvgWidget):
+    """Lucide Terminal 图标（日志终端标题）。"""
+
+    def __init__(self, size: int = 18, color: str = "#10B981", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+        self.load(_SVG_TERMINAL.format(color=color).encode("utf-8"))
 
 
 def paint_straight_check(
