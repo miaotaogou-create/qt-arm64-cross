@@ -1092,38 +1092,44 @@ class MainWindow(QMainWindow):
 
         cfg.addWidget(hline(bright=True))
 
-        # 选项行
+        # 选项行：复选框可压缩，高级按钮固定宽度避免「高级选…」省略
         flags = QHBoxLayout()
-        flags.setSpacing(18)
+        flags.setSpacing(14)
+        flags.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.chk_bundle = QCheckBox("生成运行独立打包 (.tar.gz)")
         self.chk_bundle.setChecked(self._do_bundle)
         self.chk_bundle.toggled.connect(lambda v: self._on_field("do_bundle", v))
         self._track_form(self.chk_bundle)
-        flags.addWidget(self.chk_bundle)
+        flags.addWidget(self.chk_bundle, 0, Qt.AlignmentFlag.AlignVCenter)
         self.chk_ffmpeg = QCheckBox("附加 FFmpeg 多媒体依赖")
         self.chk_ffmpeg.setChecked(self._use_ffmpeg)
         self.chk_ffmpeg.toggled.connect(lambda v: self._on_field("use_ffmpeg", v))
         self._track_form(self.chk_ffmpeg)
-        flags.addWidget(self.chk_ffmpeg)
+        flags.addWidget(self.chk_ffmpeg, 0, Qt.AlignmentFlag.AlignVCenter)
         self.chk_clean = QCheckBox("编译前全量清理 (make clean)")
         self.chk_clean.setChecked(self._do_clean)
         self.chk_clean.toggled.connect(lambda v: self._on_field("do_clean", v))
         self._track_form(self.chk_clean)
-        flags.addWidget(self.chk_clean)
+        flags.addWidget(self.chk_clean, 0, Qt.AlignmentFlag.AlignVCenter)
         flags.addStretch(1)
         self._adv_btn = QPushButton("高级选项 ▾")
         self._adv_btn.setObjectName("EnvGhost")
         self._adv_btn.setIcon(make_svg_icon("sliders", "#9CA3AF", 14))
         self._adv_btn.setIconSize(QSize(14, 14))
+        self._adv_btn.setFixedHeight(32)
+        self._adv_btn.setMinimumWidth(120)
+        self._adv_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._adv_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._adv_btn.clicked.connect(self._toggle_advanced)
-        flags.addWidget(self._adv_btn)
+        flags.addWidget(self._adv_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         cfg.addLayout(flags)
 
-        self._adv = QWidget()
+        self._adv = QFrame()
+        self._adv.setObjectName("AdvPanel")
+        self._adv.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._adv.setVisible(False)
         adv_lay = QVBoxLayout(self._adv)
-        adv_lay.setContentsMargins(0, 4, 0, 0)
+        adv_lay.setContentsMargins(12, 10, 12, 10)
         adv_lay.setSpacing(8)
 
         sys_row = QHBoxLayout()
@@ -1445,6 +1451,10 @@ class MainWindow(QMainWindow):
         self._advanced_open = not self._advanced_open
         self._adv.setVisible(self._advanced_open)
         self._adv_btn.setText("高级选项 ▴" if self._advanced_open else "高级选项 ▾")
+        # 展开后撑开参数卡，避免被下方 ActionBar 视觉「顶穿」
+        if self._advanced_open:
+            self._adv.updateGeometry()
+            self._adv.adjustSize()
 
     def _recent_display_label(self, path: str) -> str:
         """最近工程下拉显示：目录名 (xxx.pro)，对齐参考。"""

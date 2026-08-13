@@ -134,6 +134,11 @@ QFrame#PresetCard, QFrame#InnerSubCard {{
     border: 1px solid {C["border"]};
     border-radius: 8px;
 }}
+QFrame#AdvPanel {{
+    background-color: #030712;
+    border: 1px solid {C["border"]};
+    border-radius: 8px;
+}}
 QFrame#PresetCard:hover {{
     border: 1px solid #4B5563;
 }}
