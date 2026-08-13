@@ -59,8 +59,8 @@ from gui.icons import (
     CheckAwareLabel,
     CircleCheckIcon,
     ChevronArrow,
+    CodeBadge,
     ExternalLinkIcon,
-    PlayIcon,
     SparklesIcon,
     TerminalIcon,
     make_svg_icon,
@@ -923,54 +923,62 @@ class MainWindow(QMainWindow):
         def _c_label(text: str) -> QLabel:
             lb = QLabel(text)
             lb.setObjectName("FieldLabel")
-            lb.setFixedWidth(130)
-            lb.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            lb.setFixedWidth(158)
+            lb.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             return lb
 
-        # —— 配置卡 ——
+        # —— 配置卡（对齐参考：标题+最近工程 / 三行路径 / 选项）——
         config = QFrame()
         config.setObjectName("Card")
         cfg = QVBoxLayout(config)
-        cfg.setContentsMargins(20, 18, 20, 18)
-        cfg.setSpacing(14)
+        cfg.setContentsMargins(20, 16, 20, 16)
+        cfg.setSpacing(12)
 
         head = QHBoxLayout()
         head.setSpacing(8)
-        head.addWidget(PlayIcon(20, "#0D9488"))
-        ht = QLabel("项目交叉编译参数配置")
+        head.addWidget(CodeBadge(22))
+        ht = QLabel("Qt 工程路径与构建参数配置")
         ht.setObjectName("CardHeadTitle")
         head.addWidget(ht)
         head.addStretch(1)
+        recent_lbl = QLabel("最近工程:")
+        recent_lbl.setObjectName("Muted")
+        head.addWidget(recent_lbl)
+        self.cmb_recent = QComboBox()
+        self.cmb_recent.setMinimumWidth(220)
+        self.cmb_recent.setMaximumWidth(320)
+        self.cmb_recent.addItem("选择最近工程…")
+        for p in self._cfg.get("recent_projects") or []:
+            self.cmb_recent.addItem(self._recent_display_label(p), p)
+        self.cmb_recent.activated.connect(self._on_recent_picked)
+        head.addWidget(self.cmb_recent)
         cfg.addLayout(head)
+        cfg.addWidget(hline())
 
-        # 项目路径
+        # 工程目录
         r0 = QHBoxLayout()
         r0.setSpacing(10)
-        r0.addWidget(_c_label("Qt 项目源码路径:"))
-        self._proj_path_field = PathInputField(self._project, placeholder=r"选择 Qt 工程目录…")
+        r0.addWidget(_c_label("工程目录 (Project):"))
+        self._proj_path_field = PathInputField(
+            self._project,
+            placeholder=r"选择 Qt 工程目录…",
+            folder_color="#F59E0B",
+        )
         self.ed_project = self._proj_path_field.ed
         self._proj_path_field.textChanged.connect(lambda t: self._on_field("project", t))
         self._track_form(self.ed_project)
         r0.addWidget(self._proj_path_field, 1)
-        b_bp = QPushButton("选择项目...")
+        b_bp = QPushButton("浏览...")
         b_bp.setObjectName("EnvGhost")
         b_bp.setCursor(Qt.CursorShape.PointingHandCursor)
         b_bp.clicked.connect(self._browse_project)
         r0.addWidget(b_bp)
-        recent = self._cfg.get("recent_projects") or []
-        if recent:
-            self.cmb_recent = QComboBox()
-            self.cmb_recent.addItem("最近…")
-            for p in recent:
-                self.cmb_recent.addItem(p)
-            self.cmb_recent.activated.connect(self._on_recent_picked)
-            r0.addWidget(self.cmb_recent)
         cfg.addLayout(r0)
 
         # 构建文件
         r1 = QHBoxLayout()
         r1.setSpacing(10)
-        r1.addWidget(_c_label("构建配置文件:"))
+        r1.addWidget(_c_label("构建文件 (Build File):"))
         self.build_combo = QComboBox()
         self.build_combo.setEditable(True)
         self.build_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -979,55 +987,64 @@ class MainWindow(QMainWindow):
         self.build_combo.currentTextChanged.connect(lambda t: self._on_field("build_file", t))
         self._track_form(self.build_combo)
         r1.addWidget(self.build_combo, 1)
-        b_ref = QPushButton("刷新")
-        b_ref.setObjectName("EnvGhost")
-        b_ref.setIcon(make_svg_icon("refresh", "#0D9488", 14))
-        b_ref.setIconSize(QSize(14, 14))
+        b_ref = QPushButton()
+        b_ref.setObjectName("IconGhost")
+        b_ref.setToolTip("刷新构建文件列表")
+        b_ref.setIcon(make_svg_icon("refresh", "#0D9488", 16))
+        b_ref.setIconSize(QSize(16, 16))
         b_ref.setCursor(Qt.CursorShape.PointingHandCursor)
         b_ref.clicked.connect(self._refresh_build_files)
         r1.addWidget(b_ref)
         cfg.addLayout(r1)
 
-        # 产物路径
+        # 产物目录
         r2 = QHBoxLayout()
         r2.setSpacing(10)
-        r2.addWidget(_c_label("编译产物导出路径:"))
-        self._out_path_field = PathInputField(self._out_dir, placeholder=r"留空则用工程下 dist/…")
+        r2.addWidget(_c_label("产物目录 (Output):"))
+        self._out_path_field = PathInputField(
+            self._out_dir,
+            placeholder=r"留空则用工程下 dist/…",
+            folder_color="#14B8A6",
+        )
         self.ed_out_dir = self._out_path_field.ed
         self._out_path_field.textChanged.connect(lambda t: self._on_field("out_dir", t))
         self._track_form(self.ed_out_dir)
         r2.addWidget(self._out_path_field, 1)
-        b_bo = QPushButton("选择输出...")
+        b_bo = QPushButton("浏览...")
         b_bo.setObjectName("EnvGhost")
         b_bo.setCursor(Qt.CursorShape.PointingHandCursor)
         b_bo.clicked.connect(self._browse_out_dir)
         r2.addWidget(b_bo)
         cfg.addLayout(r2)
 
-        # 选项行（保留业务开关，折叠高级）
+        cfg.addWidget(hline())
+
+        # 选项行
         flags = QHBoxLayout()
-        flags.setSpacing(16)
-        self.chk_bundle = QCheckBox("生成运行包")
+        flags.setSpacing(18)
+        self.chk_bundle = QCheckBox("生成运行独立打包 (.tar.gz)")
         self.chk_bundle.setChecked(self._do_bundle)
         self.chk_bundle.toggled.connect(lambda v: self._on_field("do_bundle", v))
         self._track_form(self.chk_bundle)
         flags.addWidget(self.chk_bundle)
-        self.chk_ffmpeg = QCheckBox("附加 FFmpeg")
+        self.chk_ffmpeg = QCheckBox("附加 FFmpeg 多媒体依赖")
         self.chk_ffmpeg.setChecked(self._use_ffmpeg)
         self.chk_ffmpeg.toggled.connect(lambda v: self._on_field("use_ffmpeg", v))
         self._track_form(self.chk_ffmpeg)
         flags.addWidget(self.chk_ffmpeg)
-        self.chk_clean = QCheckBox("全量清理")
+        self.chk_clean = QCheckBox("编译前全量清理 (make clean)")
         self.chk_clean.setChecked(self._do_clean)
         self.chk_clean.toggled.connect(lambda v: self._on_field("do_clean", v))
         self._track_form(self.chk_clean)
         flags.addWidget(self.chk_clean)
-        self._adv_btn = QPushButton("高级 ▸")
+        flags.addStretch(1)
+        self._adv_btn = QPushButton("高级选项 ▾")
         self._adv_btn.setObjectName("EnvGhost")
+        self._adv_btn.setIcon(make_svg_icon("sliders", "#9CA3AF", 14))
+        self._adv_btn.setIconSize(QSize(14, 14))
         self._adv_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._adv_btn.clicked.connect(self._toggle_advanced)
         flags.addWidget(self._adv_btn)
-        flags.addStretch(1)
         cfg.addLayout(flags)
 
         self._adv = QWidget()
@@ -1350,7 +1367,17 @@ class MainWindow(QMainWindow):
     def _toggle_advanced(self) -> None:
         self._advanced_open = not self._advanced_open
         self._adv.setVisible(self._advanced_open)
-        self._adv_btn.setText("高级 ▾" if self._advanced_open else "高级 ▸")
+        self._adv_btn.setText("高级选项 ▴" if self._advanced_open else "高级选项 ▾")
+
+    def _recent_display_label(self, path: str) -> str:
+        """最近工程下拉显示：目录名 (xxx.pro)，对齐参考。"""
+        p = Path(path)
+        name = p.name or path
+        if p.is_dir():
+            pros = sorted(p.glob("*.pro"))
+            if pros:
+                return f"{name} ({pros[0].name})"
+        return name
 
     def _on_scratch_header_press(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1813,9 +1840,11 @@ class MainWindow(QMainWindow):
     def _on_recent_picked(self, idx: int) -> None:
         if idx <= 0:
             return
-        path = self.cmb_recent.itemText(idx)
+        path = self.cmb_recent.itemData(idx)
+        if not path:
+            path = self.cmb_recent.itemText(idx)
         if path:
-            self._set_project(path)
+            self._set_project(str(path))
 
     def _set_project(self, path: str) -> None:
         self.ed_project.setText(path)

@@ -36,6 +36,7 @@ class PathInputField(QFrame):
         text: str = "",
         *,
         placeholder: str = "",
+        folder_color: str = "#F59E0B",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -44,7 +45,7 @@ class PathInputField(QFrame):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(12, 0, 12, 0)
         lay.setSpacing(8)
-        icon = FolderIcon(16, "#F59E0B")
+        icon = FolderIcon(16, folder_color)
         icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         lay.addWidget(icon)
         self.ed = QLineEdit(text)

@@ -5,7 +5,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtSvgWidgets import QSvgWidget
-from PySide6.QtWidgets import QLabel, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QWidget
 
 
 # Lucide 操作图标 SVG
@@ -62,6 +62,23 @@ _SVG_FOLDER = (
     '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"></path>'
     "</svg>"
 )
+_SVG_CODE = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<polyline points="16 18 22 12 16 6"></polyline>'
+    '<polyline points="8 6 2 12 8 18"></polyline>'
+    "</svg>"
+)
+_SVG_SLIDERS = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>'
+    '<line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>'
+    '<line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>'
+    '<line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line>'
+    '<line x1="17" y1="16" x2="23" y2="16"></line>'
+    "</svg>"
+)
 
 
 def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
@@ -74,6 +91,8 @@ def make_svg_icon(kind: str, color: str = "#FFFFFF", size: int = 16) -> QIcon:
         "terminal": _SVG_TERMINAL,
         "sparkles": _SVG_SPARKLES,
         "folder": _SVG_FOLDER,
+        "code": _SVG_CODE,
+        "sliders": _SVG_SLIDERS,
     }.get(kind, _SVG_UPLOAD)
     renderer = QSvgRenderer(tpl.format(color=color).encode("utf-8"))
     pix = QPixmap(size, size)
@@ -101,6 +120,24 @@ class TerminalIcon(QSvgWidget):
         super().__init__(parent)
         self.setFixedSize(size, size)
         self.load(_SVG_TERMINAL.format(color=color).encode("utf-8"))
+
+
+class CodeBadge(QFrame):
+    """青绿圆角方块 + 白色 <>，编译参数卡标题左侧。"""
+
+    def __init__(self, size: int = 22, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("CodeBadge")
+        self.setFixedSize(size, size)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(3, 3, 3, 3)
+        lay.setSpacing(0)
+        icon = QSvgWidget()
+        icon.setFixedSize(size - 6, size - 6)
+        icon.load(_SVG_CODE.format(color="#FFFFFF").encode("utf-8"))
+        icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        lay.addWidget(icon)
 
 
 def paint_straight_check(

@@ -72,6 +72,25 @@ QFrame#CardDivider {{
 QFrame#SpecDivider {{
     background-color: {C["divider_soft"]};
 }}
+QFrame#CodeBadge {{
+    background-color: {C["primary"]};
+    border: none;
+    border-radius: 6px;
+}}
+QPushButton#IconGhost {{
+    background-color: {C["surface2"]};
+    border: 1px solid {C["border_input"]};
+    border-radius: 8px;
+    padding: 0;
+    min-width: 36px;
+    max-width: 36px;
+    min-height: 36px;
+    max-height: 36px;
+}}
+QPushButton#IconGhost:hover {{
+    background-color: {C["border_input"]};
+    border-color: #4B5563;
+}}
 QLabel#Title {{
     font-size: 17px;
     font-weight: 700;
