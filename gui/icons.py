@@ -118,6 +118,72 @@ _SVG_TRASH = (
     '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>'
     "</svg>"
 )
+_SVG_GLOBE = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="12" cy="12" r="10"></circle>'
+    '<line x1="2" y1="12" x2="22" y2="12"></line>'
+    '<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>'
+    "</svg>"
+)
+_SVG_WIFI = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M5 12.55a11 11 0 0 1 14.08 0"></path>'
+    '<path d="M1.42 9a16 16 0 0 1 21.16 0"></path>'
+    '<path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>'
+    '<line x1="12" y1="20" x2="12.01" y2="20"></line>'
+    "</svg>"
+)
+_SVG_POWER = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>'
+    '<line x1="12" y1="2" x2="12" y2="12"></line>'
+    "</svg>"
+)
+_SVG_NETWORK = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2" y="2" width="6" height="6" rx="1"></rect>'
+    '<rect x="16" y="2" width="6" height="6" rx="1"></rect>'
+    '<rect x="9" y="16" width="6" height="6" rx="1"></rect>'
+    '<path d="M5 8v4h14V8"></path>'
+    '<path d="M12 12v4"></path>'
+    "</svg>"
+)
+_SVG_ARCHIVE = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<polyline points="21 8 21 21 3 21 3 8"></polyline>'
+    '<rect x="1" y="3" width="22" height="5"></rect>'
+    '<line x1="10" y1="12" x2="14" y2="12"></line>'
+    "</svg>"
+)
+_SVG_QR = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="3" y="3" width="7" height="7"></rect>'
+    '<rect x="14" y="3" width="7" height="7"></rect>'
+    '<rect x="3" y="14" width="7" height="7"></rect>'
+    '<rect x="14" y="14" width="3" height="3"></rect>'
+    '<rect x="18" y="18" width="3" height="3"></rect>'
+    "</svg>"
+)
+_SVG_SHIELD = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>'
+    "</svg>"
+)
+_SVG_EXTERNAL = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+    'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>'
+    '<polyline points="15 3 21 3 21 9"></polyline>'
+    '<line x1="10" y1="14" x2="21" y2="3"></line>'
+    "</svg>"
+)
 
 
 def make_svg_icon(
@@ -142,6 +208,14 @@ def make_svg_icon(
         "share": _SVG_SHARE,
         "copy": _SVG_COPY,
         "trash": _SVG_TRASH,
+        "globe": _SVG_GLOBE,
+        "wifi": _SVG_WIFI,
+        "power": _SVG_POWER,
+        "network": _SVG_NETWORK,
+        "archive": _SVG_ARCHIVE,
+        "qr": _SVG_QR,
+        "shield": _SVG_SHIELD,
+        "external": _SVG_EXTERNAL,
     }.get(kind, _SVG_UPLOAD)
     renderer = QSvgRenderer(tpl.format(color=color).encode("utf-8"))
     right = max(0, int(pad_right))

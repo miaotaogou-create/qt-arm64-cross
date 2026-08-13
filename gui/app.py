@@ -49,7 +49,6 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSpinBox,
     QStackedWidget,
-    QToolButton,
     QVBoxLayout,
     QWidget,
     QTextEdit,
@@ -307,6 +306,7 @@ from gui.adv_panel import AdvancedOptionsPanel
 from gui.chrome import EdgeResizer, TitleChrome, make_ready_pill, set_ready_pill
 from gui.console_card import BuildLogConsoleCard
 from gui.share_btn import GoShareButton
+from gui.share_page import SharePage
 from gui.env_panel import (
     build_preset_row,
     build_toolchain_specs,
@@ -1193,158 +1193,52 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------ 共享页
     def _build_tab_share(self, lay: QVBoxLayout) -> None:
-        hero = QFrame()
-        hero.setObjectName("SectionHero")
-        hero_lay = QHBoxLayout(hero)
-        hero_lay.setContentsMargins(20, 16, 20, 16)
-        hero_lay.setSpacing(16)
-        texts = QVBoxLayout()
-        texts.setSpacing(3)
-        t1 = QLabel("嵌入式板端 HTTP 极速部署共享")
-        t1.setObjectName("SectionHeroTitle")
-        texts.addWidget(t1)
-        t2 = QLabel("支持浏览器 / wget / curl 直连下载，适配麒麟、飞腾和树莓派等板端环境。")
-        t2.setObjectName("SectionHeroDesc")
-        t2.setWordWrap(True)
-        texts.addWidget(t2)
-        hero_lay.addLayout(texts, 1)
-        lay.addWidget(hero)
-
-        share, share_lay = _card("HTTP 共享")
-        r0 = QHBoxLayout()
-        r0.addWidget(_field_label("共享目录"))
-        self.ed_share_dir = QLineEdit(self._share_dir)
+        page = SharePage()
+        self._share_page = page
+        self.ed_share_dir = page.ed_share_dir
+        self.ed_share_dir.setText(self._share_dir)
         self.ed_share_dir.textChanged.connect(lambda t: self._on_field("share_dir", t))
+        self.ed_share_dir.textChanged.connect(lambda t: page.refresh_manifest(t))
         self._track_form(self.ed_share_dir)
-        r0.addWidget(self.ed_share_dir, 1)
-        b_bs = _btn("浏览…")
-        b_bs.clicked.connect(self._browse_share)
-        r0.addWidget(b_bs)
-        b_use = _btn("用产物目录", "Accent")
-        b_use.clicked.connect(self._fill_share_from_project)
-        r0.addWidget(b_use)
-        share_lay.addLayout(r0)
 
-        r1 = QHBoxLayout()
-        r1.addWidget(_field_label("端口"))
-        self.sp_port = QSpinBox()
-        self.sp_port.setRange(1, 65535)
+        self.sp_port = page.sp_port
         self.sp_port.setValue(self._share_port)
         self.sp_port.valueChanged.connect(lambda v: self._on_field("share_port", v))
         self._track_form(self.sp_port)
-        r1.addWidget(self.sp_port)
-        b_start = _btn("启动共享", "Accent")
-        b_start.clicked.connect(self._share_start)
-        self._track_action(b_start)
-        r1.addWidget(b_start)
-        b_stop = _btn("停止")
-        b_stop.clicked.connect(self._share_stop)
-        self._track_action(b_stop, keep_when_busy=True)
-        r1.addWidget(b_stop)
-        r1.addStretch(1)
-        share_lay.addLayout(r1)
 
-        head = QHBoxLayout()
-        self._http_dot = QLabel("●")
-        self._http_dot.setStyleSheet(f"color:{C['idle']}; font-size:14px;")
-        head.addWidget(self._http_dot)
-        self._share_state_lbl = QLabel("未启动")
-        self._share_state_lbl.setObjectName("Muted")
-        head.addWidget(self._share_state_lbl)
-        head.addStretch(1)
-        share_lay.addLayout(head)
+        self.ed_share_local = page.ed_share_local
+        self.ed_share_urls = page.ed_share_urls
+        self._share_state_lbl = page._status_badge
+        self._http_dot = page._status_badge
+        self._share_log = page.share_log
 
-        local_row = QHBoxLayout()
-        local_row.addWidget(QLabel("本机测试"))
-        self.ed_share_local = QLineEdit("—")
-        self.ed_share_local.setReadOnly(True)
-        local_row.addWidget(self.ed_share_local, 1)
-        b_open = _btn("打开")
-        b_open.clicked.connect(self._share_open_local)
-        local_row.addWidget(b_open)
-        b_probe = _btn("自检", "Accent")
-        b_probe.clicked.connect(self._share_probe_local)
-        local_row.addWidget(b_probe)
-        share_lay.addLayout(local_row)
+        page.btn_browse.clicked.connect(self._browse_share)
+        page.btn_sync.clicked.connect(self._fill_share_from_project)
+        page.btn_toggle.clicked.connect(self._on_share_toggle)
+        self._track_action(page.btn_toggle, keep_when_busy=True)
+        page.btn_copy.clicked.connect(self._share_copy_url)
+        page.btn_open.clicked.connect(self._share_open_local)
+        page.btn_probe.clicked.connect(self._share_probe_local)
 
-        lan_row = QHBoxLayout()
-        lan_row.addWidget(QLabel("局域网地址"))
-        self.ed_share_urls = QLineEdit("—")
-        self.ed_share_urls.setReadOnly(True)
-        lan_row.addWidget(self.ed_share_urls, 1)
-        b_copy_u = _btn("复制")
-        b_copy_u.clicked.connect(self._share_copy_url)
-        lan_row.addWidget(b_copy_u)
-        share_lay.addLayout(lan_row)
-        lay.addWidget(share)
+        page.btn_eth.clicked.connect(self._toggle_eth)
+        self._eth_btn = page.btn_eth
+        self._eth = page.nic_card
 
-        tip = QLabel("麒麟机浏览器打开「局域网地址」。本机打不开时先点「自检」，并确认代理绕过 127.0.0.1。")
-        tip.setObjectName("Muted")
-        tip.setWordWrap(True)
-        lay.addWidget(tip)
-
-        slog, slog_lay = _card("本页日志")
-        self._share_log = QTextEdit()
-        self._share_log.setReadOnly(True)
-        self._share_log.setObjectName("Log")
-        self._share_log.setMaximumHeight(140)
-        slog_lay.addWidget(self._share_log)
-        lay.addWidget(slog)
-
-        self._eth_btn = QToolButton()
-        self._eth_btn.setText("网卡高级 ▸")
-        self._eth_btn.setObjectName("Accent")
-        self._eth_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._eth_btn.clicked.connect(self._toggle_eth)
-        lay.addWidget(self._eth_btn, 0, Qt.AlignmentFlag.AlignLeft)
-
-        self._eth = QWidget()
-        self._eth.setVisible(False)
-        eth_outer = QVBoxLayout(self._eth)
-        eth_outer.setContentsMargins(0, 0, 0, 0)
-        eth, eth_lay = _card("有线网卡 IP（追加地址）")
-        eth_tip = QLabel("等同 Windows「IP 设置 → 添加」；不改网关，需 UAC。")
-        eth_tip.setObjectName("Muted")
-        eth_tip.setWordWrap(True)
-        eth_lay.addWidget(eth_tip)
-        self._eth_list_lbl = QLabel("（尚未刷新）")
-        self._eth_list_lbl.setWordWrap(True)
-        eth_lay.addWidget(self._eth_list_lbl)
-        erow = QHBoxLayout()
-        erow.addWidget(QLabel("附加 IP"))
-        self.ed_eth_ip = QLineEdit(self._eth_add_ip)
-        self.ed_eth_ip.setMaximumWidth(140)
+        self.ed_eth_ip = page.ed_eth_ip
+        self.ed_eth_ip.setText(self._eth_add_ip)
         self.ed_eth_ip.textChanged.connect(lambda t: self._on_field("eth_add_ip", t))
         self._track_form(self.ed_eth_ip)
-        erow.addWidget(self.ed_eth_ip)
-        erow.addWidget(QLabel("掩码"))
-        self.ed_eth_mask = QLineEdit(self._eth_add_mask)
-        self.ed_eth_mask.setMaximumWidth(130)
+        self.ed_eth_mask = page.ed_eth_mask
+        self.ed_eth_mask.setText(self._eth_add_mask or "255.255.255.0")
         self.ed_eth_mask.textChanged.connect(lambda t: self._on_field("eth_add_mask", t))
         self._track_form(self.ed_eth_mask)
-        erow.addWidget(self.ed_eth_mask)
-        b_add = _btn("添加 IP", "Accent")
-        b_add.clicked.connect(self._on_add_eth_ip)
-        self._track_action(b_add)
-        erow.addWidget(b_add)
-        b_del = _btn("删除所选")
-        b_del.clicked.connect(self._on_remove_eth_ip)
-        self._track_action(b_del)
-        erow.addWidget(b_del)
-        b_er = _btn("刷新")
-        b_er.clicked.connect(self._refresh_eth_list)
-        self._track_action(b_er)
-        erow.addWidget(b_er)
-        erow.addStretch(1)
-        eth_lay.addLayout(erow)
-        mute = QLabel("删除时在下方选一个已有地址：")
-        mute.setObjectName("Muted")
-        eth_lay.addWidget(mute)
-        self.eth_combo = QComboBox()
-        self._track_form(self.eth_combo)
-        eth_lay.addWidget(self.eth_combo)
-        eth_outer.addWidget(eth)
-        lay.addWidget(self._eth)
+        page.btn_add_ip.clicked.connect(self._on_add_eth_ip)
+        self._track_action(page.btn_add_ip)
+        page.btn_uac.clicked.connect(self._on_uac_hint)
+        page.remove_ip_requested.connect(self._on_remove_eth_ip_addr)
+
+        page.refresh_manifest(self._share_dir)
+        lay.addWidget(page)
 
     # ------------------------------------------------------------------ 折叠 / 跟踪
     def _set_build_mode(self, mode: str) -> None:
@@ -1403,6 +1297,20 @@ class MainWindow(QMainWindow):
             return
         for n, card in cards.items():
             card.set_selected(n == name)
+
+    def _on_share_toggle(self) -> None:
+        if self._share.running:
+            self._share_stop()
+        else:
+            self._share_start()
+
+    def _on_uac_hint(self) -> None:
+        QMessageBox.information(
+            self,
+            "Windows UAC 提权",
+            "追加或删除网卡 IP 会弹出系统 UAC 窗口，点「是」后才会写入当前有线网卡。\n"
+            "不会改默认网关，只追加辅助地址。",
+        )
 
     def _toggle_eth(self) -> None:
         self._eth_open = not self._eth_open
@@ -1715,8 +1623,8 @@ class MainWindow(QMainWindow):
             self._chrome.set_busy_text(text, fg)
 
     def _set_http_dot(self, on: bool) -> None:
-        color = C["ok"] if on else C["idle"]
-        self._http_dot.setStyleSheet(f"color:{color}; font-size:14px;")
+        if hasattr(self, "_share_page"):
+            self._share_page.set_running(on)
 
     def _log_color_for(self, line: str) -> str:
         low = line.lower()
@@ -1964,13 +1872,14 @@ class MainWindow(QMainWindow):
             def done() -> None:
                 if err:
                     self._append_log(f"[http] 启动失败: {err}")
-                    self._share_state_lbl.setText("未启动")
+                    self._share_page.set_running(False)
                     self._set_busy(False, "共享启动失败")
                     QMessageBox.critical(self, "错误", f"无法监听端口 {port}: {err}")
                     return
                 self.ed_share_urls.setText(primary or "—")
-                self.ed_share_local.setText(local or f"http://127.0.0.1:{port}/")
-                self._share_state_lbl.setText(f"运行中 · 端口 {port}")
+                self._share_page.set_loop_url(local or f"http://127.0.0.1:{port}/")
+                self._share_page.refresh_manifest(directory)
+                self._share_state_lbl.setToolTip(f"运行中 · 端口 {port}")
                 self._set_http_dot(True)
                 self._persist()
                 self._append_log(f"[http] 共享已启动: {directory}")
@@ -1998,14 +1907,14 @@ class MainWindow(QMainWindow):
     def _share_stop(self) -> None:
         if not self._share.running:
             self.ed_share_urls.setText("—")
-            self.ed_share_local.setText("—")
-            self._share_state_lbl.setText("未启动")
+            self._share_page.set_loop_url("—")
+            self._share_page.set_running(False)
             self._set_http_dot(False)
             return
         self._share.stop()
         self.ed_share_urls.setText("—")
-        self.ed_share_local.setText("—")
-        self._share_state_lbl.setText("未启动")
+        self._share_page.set_loop_url("—")
+        self._share_page.set_running(False)
         self._set_http_dot(False)
         self._append_log("[http] 共享已停止")
         self._set_busy(False, "就绪")
@@ -2020,26 +1929,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_eth_list(self) -> None:
         adapters = netip.list_ethernet_adapters()
-        if not adapters:
-            self._eth_list_lbl.setText("未检测到物理以太网卡")
-            self.eth_combo.clear()
-            return
-        lines: list[str] = []
-        picks: list[str] = []
-        for a in adapters:
-            ip_s = ", ".join(f"{x.address}/{x.prefix}" for x in a.ips) or "（无 IPv4）"
-            lines.append(f"{a.name} [{a.status}]  ifIndex={a.if_index}  {ip_s}")
-            for x in a.ips:
-                picks.append(f"{x.address}  ({a.name})")
-        self._eth_list_lbl.setText("\n".join(lines))
-        cur = self.eth_combo.currentText()
-        self.eth_combo.clear()
-        self.eth_combo.addItems(picks)
-        if picks:
-            if cur in picks:
-                self.eth_combo.setCurrentText(cur)
-            else:
-                self.eth_combo.setCurrentIndex(0)
+        self._share_page.refresh_nics(adapters)
 
     def _on_add_eth_ip(self) -> None:
         if self._busy:
@@ -2068,14 +1958,12 @@ class MainWindow(QMainWindow):
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _on_remove_eth_ip(self) -> None:
+    def _on_remove_eth_ip_addr(self, ip: str) -> None:
         if self._busy:
             return
-        pick = self.eth_combo.currentText().strip()
-        if not pick:
-            QMessageBox.information(self, "提示", "请先在列表中选一个要删除的地址")
+        ip = (ip or "").strip()
+        if not ip:
             return
-        ip = pick.split()[0]
         if (
             QMessageBox.question(self, "确认", f"从有线网卡删除附加地址 {ip}？")
             != QMessageBox.StandardButton.Yes

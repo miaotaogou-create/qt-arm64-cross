@@ -946,6 +946,245 @@ QLabel#FlowHintVal {{
     font-size: 11px;
     font-family: "Cascadia Code", Consolas, monospace;
 }}
+QFrame#ShareHero {{
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0B1220, stop:1 #042F2E);
+    border: 1px solid rgba(20, 184, 166, 0.35);
+    border-radius: 12px;
+}}
+QFrame#ShareHeroIcon {{
+    background-color: #0D2024;
+    border: 1px solid #144E49;
+    border-radius: 12px;
+}}
+QLabel#ShareHeroTitle {{
+    color: #F9FAFB;
+    font-size: 15px;
+    font-weight: 700;
+    background: transparent;
+}}
+QLabel#ShareHeroDesc {{
+    color: #9CA3AF;
+    font-size: 12px;
+    background: transparent;
+}}
+QLabel#ShareStatusOff {{
+    background-color: #1F2937;
+    border: 1px solid #374151;
+    color: #9CA3AF;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+}}
+QLabel#ShareStatusOn {{
+    background-color: #022C22;
+    border: 1px solid #059669;
+    color: #34D399;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+}}
+QPushButton#BtnShareStart {{
+    background-color: #0D9488;
+    border: 1px solid #14B8A6;
+    border-radius: 10px;
+    padding: 8px 18px;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 13px;
+}}
+QPushButton#BtnShareStart:hover {{
+    background-color: #0F766E;
+    border-color: #2DD4BF;
+}}
+QPushButton#BtnShareStop {{
+    background-color: #1F2937;
+    border: 1px solid #F87171;
+    border-radius: 10px;
+    padding: 8px 18px;
+    color: #FCA5A5;
+    font-weight: 700;
+    font-size: 13px;
+}}
+QPushButton#BtnShareStop:hover {{
+    background-color: #374151;
+}}
+QLabel#ShareFieldLabel {{
+    color: #14B8A6;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+}}
+QPushButton#ShareLinkBtn {{
+    background: transparent;
+    border: none;
+    color: #14B8A6;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 2px 4px;
+    text-align: left;
+}}
+QPushButton#ShareLinkBtn:hover {{
+    color: #2DD4BF;
+}}
+QFrame#LanUrlCard {{
+    background-color: #0B0F17;
+    border: 1px solid #1F2937;
+    border-radius: 10px;
+}}
+QLineEdit#LanUrlEdit {{
+    background: transparent;
+    border: none;
+    color: #2DD4BF;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 0;
+}}
+QPushButton#BtnCopyUrl {{
+    background-color: #0D2024;
+    border: 1px solid #14B8A6;
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: #14B8A6;
+    font-weight: 600;
+}}
+QPushButton#BtnCopyUrl:hover {{
+    background-color: #113836;
+    color: #2DD4BF;
+}}
+QLabel#LoopUrl {{
+    color: #9CA3AF;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 12px;
+    background: transparent;
+}}
+QLabel#QrPlaceholder {{
+    background-color: #FFFFFF;
+    color: #6B7280;
+    border-radius: 12px;
+    font-size: 12px;
+    padding: 16px;
+}}
+QLabel#PackBadgeOn {{
+    background-color: #022C22;
+    border: 1px solid #059669;
+    color: #34D399;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+}}
+QLabel#PackBadgeOff {{
+    background-color: #111827;
+    border: 1px solid #374151;
+    color: #9CA3AF;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11px;
+}}
+QFrame#ManifestRow {{
+    background-color: #0B0F17;
+    border: 1px solid #1F2937;
+    border-radius: 8px;
+}}
+QLabel#ManifestName {{
+    color: #E5E7EB;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 12px;
+    background: transparent;
+}}
+QLabel#ShareLogTitle {{
+    color: #10B981;
+    font-size: 13px;
+    font-weight: 700;
+    background: transparent;
+}}
+QTextEdit#ShareLogEdit {{
+    background-color: #030712;
+    border: 1px solid #1F2937;
+    border-radius: 8px;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 12px;
+    color: #A7F3D0;
+    padding: 8px;
+}}
+QFrame#EthAddBar {{
+    background-color: #F8FAFC;
+    border-radius: 12px;
+}}
+QLabel#EthBarLabel {{
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+}}
+QLineEdit#EthBarEdit {{
+    background-color: #0B0F17;
+    border: 1px solid #1F2937;
+    border-radius: 8px;
+    color: #F9FAFB;
+    padding: 8px 10px;
+    font-family: "Cascadia Code", Consolas, monospace;
+}}
+QPushButton#BtnAddIp {{
+    background-color: #0D9488;
+    border: 1px solid #14B8A6;
+    border-radius: 8px;
+    color: #FFFFFF;
+    font-weight: 700;
+    padding: 8px 16px;
+}}
+QPushButton#BtnAddIp:hover {{
+    background-color: #0F766E;
+}}
+QPushButton#BtnUac {{
+    background-color: #111827;
+    border: 1px solid #F59E0B;
+    border-radius: 8px;
+    color: #F59E0B;
+    font-weight: 600;
+    padding: 6px 12px;
+    font-size: 12px;
+}}
+QPushButton#BtnUac:hover {{
+    background-color: #1F2937;
+}}
+QLabel#NicColHead {{
+    color: #6B7280;
+    font-size: 11px;
+    background: transparent;
+}}
+QFrame#NicRow {{
+    background: transparent;
+    border-bottom: 1px solid #1F2937;
+}}
+QLabel#NicName {{
+    color: #E5E7EB;
+    font-size: 12px;
+    background: transparent;
+}}
+QLabel#NicIp {{
+    color: #2DD4BF;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 12px;
+    background: transparent;
+}}
+QLabel#PrimaryTag {{
+    background-color: #0D2024;
+    border: 1px solid #14B8A6;
+    color: #14B8A6;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+}}
+QSpinBox#SharePort {{
+    background-color: #030712;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 4px 8px;
+    color: #F9FAFB;
+}}
 QFrame#SectionHero, QFrame#ActionBar {{
     background-color: {C["surface"]};
     border: 1px solid {C["border"]};
