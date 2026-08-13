@@ -956,6 +956,9 @@ class MainWindow(QMainWindow):
         # —— 配置卡（对齐参考：标题+最近工程 / 三行路径 / 选项）——
         config = QFrame()
         config.setObjectName("Card")
+        # 高度跟内容走；展开高级选项后须显式同步，否则外层仍按收起高度分配
+        config.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self._compile_config = config
         cfg = QVBoxLayout(config)
         cfg.setContentsMargins(20, 16, 20, 16)
         cfg.setSpacing(12)
@@ -1127,6 +1130,7 @@ class MainWindow(QMainWindow):
         self._adv = QFrame()
         self._adv.setObjectName("AdvPanel")
         self._adv.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._adv.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self._adv.setVisible(False)
         adv_lay = QVBoxLayout(self._adv)
         adv_lay.setContentsMargins(12, 10, 12, 10)
@@ -1191,6 +1195,7 @@ class MainWindow(QMainWindow):
             adv_lay.addLayout(row)
         cfg.addWidget(self._adv)
         outer.addWidget(config)
+        self._sync_compile_config_height()
 
         # —— 操作栏独立卡片（对齐参考 ActionBar）——
         action = QFrame()
@@ -1447,14 +1452,23 @@ class MainWindow(QMainWindow):
         lay.addWidget(self._eth)
 
     # ------------------------------------------------------------------ 折叠 / 跟踪
+    def _sync_compile_config_height(self) -> None:
+        """按当前内容锁死参数卡高度。外层对 Preferred 卡不因子控件显隐自动改高。"""
+        cfg = getattr(self, "_compile_config", None)
+        if cfg is None:
+            return
+        cfg.setMinimumHeight(0)
+        cfg.setMaximumHeight(16777215)
+        cfg.setFixedHeight(cfg.sizeHint().height())
+        parent = cfg.parentWidget()
+        if parent is not None and parent.layout() is not None:
+            parent.layout().activate()
+
     def _toggle_advanced(self) -> None:
         self._advanced_open = not self._advanced_open
         self._adv.setVisible(self._advanced_open)
         self._adv_btn.setText("高级选项 ▴" if self._advanced_open else "高级选项 ▾")
-        # 展开后撑开参数卡，避免被下方 ActionBar 视觉「顶穿」
-        if self._advanced_open:
-            self._adv.updateGeometry()
-            self._adv.adjustSize()
+        self._sync_compile_config_height()
 
     def _recent_display_label(self, path: str) -> str:
         """最近工程下拉显示：目录名 (xxx.pro)，对齐参考。"""
