@@ -1,8 +1,8 @@
 """无边框窗口：深色标题条拖拽 / 缩放 / 最小化最大化关闭。"""
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtCore import QPoint, QRect, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -15,52 +15,80 @@ from PySide6.QtWidgets import (
 )
 
 from crosskit.app_version import VERSION
-from gui.icons import CheckAwareLabel, HeaderCpuLogo
+from gui.icons import CircleCheckIcon, HeaderCpuLogo
 from gui.theme import C
 
 _EDGE = 6
 
 
-def make_ready_pill(text: str = "环境就绪", *, ok: bool = True, show_check: bool = True) -> QFrame:
+class ReadyPill(QFrame):
+    """环境就绪胶囊：手绘半圆两端，避免 QFrame QSS radius 不生效。"""
+
+    def __init__(
+        self,
+        text: str = "环境就绪",
+        *,
+        ok: bool = True,
+        show_check: bool = True,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setFixedHeight(28)
+        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        self._ok = ok
+        self._show_check = show_check
+        lay = QHBoxLayout(self)
+        lay.setSpacing(6)
+        if show_check:
+            lay.setContentsMargins(6, 0, 12, 0)
+            self._circle = CircleCheckIcon(16, C["ok"] if ok else C["warn"], circle=True)
+            lay.addWidget(self._circle, 0, Qt.AlignmentFlag.AlignVCenter)
+        else:
+            lay.setContentsMargins(12, 0, 12, 0)
+            self._circle = None
+        self._label = QLabel(text)
+        self._label.setStyleSheet(self._text_qss(ok))
+        lay.addWidget(self._label, 0, Qt.AlignmentFlag.AlignVCenter)
+
+    @staticmethod
+    def _text_qss(ok: bool) -> str:
+        color = C["ok"] if ok else C["warn"]
+        return f"background:transparent; border:none; color:{color}; font-size:12px; font-weight:600;"
+
+    def set_state(self, text: str, *, ok: bool) -> None:
+        self._ok = ok
+        self._label.setText(text)
+        self._label.setStyleSheet(self._text_qss(ok))
+        if self._circle is not None:
+            self._circle.set_color(C["ok"] if ok else C["warn"])
+        self.update()
+
+    def paintEvent(self, _e) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        # 半径 = 半高 → 两端半圆胶囊
+        radius = r.height() / 2.0
+        if self._ok:
+            bg = QColor(16, 185, 129, 38)  # ~15%
+            bd = QColor(52, 211, 153, 160)
+        else:
+            bg = QColor(251, 191, 36, 31)  # ~12%
+            bd = QColor(251, 191, 36, 120)
+        p.setPen(QPen(bd, 1.2))
+        p.setBrush(bg)
+        p.drawRoundedRect(r, radius, radius)
+        p.end()
+
+
+def make_ready_pill(text: str = "环境就绪", *, ok: bool = True, show_check: bool = True) -> ReadyPill:
     """状态胶囊徽章；show_check=False 时仅文字（Hero 横幅用）。"""
-    pill = QFrame()
-    pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
-    pill.setFixedHeight(28)
-    lay = QHBoxLayout(pill)
-    lay.setSpacing(6)
-    pill._show_check = show_check  # type: ignore[attr-defined]
-    if show_check:
-        lay.setContentsMargins(6, 4, 12, 4)
-        icon = CheckAwareLabel("✓" if ok else "!")
-        icon.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
-        icon.setFixedSize(18, 18)
-        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(icon)
-        pill._circle = icon  # type: ignore[attr-defined]
-    else:
-        lay.setContentsMargins(10, 4, 10, 4)
-        pill._circle = None  # type: ignore[attr-defined]
-    lab = QLabel(text)
-    lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
-    lay.addWidget(lab)
-    pill._label = lab  # type: ignore[attr-defined]
-    return pill
+    return ReadyPill(text, ok=ok, show_check=show_check)
 
 
-def set_ready_pill(pill: QFrame, text: str, *, ok: bool) -> None:
-    pill.setObjectName("ReadyPillOk" if ok else "ReadyPillBad")
-    lab: QLabel = pill._label  # type: ignore[attr-defined]
-    lab.setText(text)
-    lab.setObjectName("ReadyPillTextOk" if ok else "ReadyPillTextBad")
-    polish = [pill, lab]
-    circle = getattr(pill, "_circle", None)
-    if circle is not None:
-        circle.setText("✓" if ok else "!")
-        circle.setObjectName("ReadyPillCircleOk" if ok else "ReadyPillCircleBad")
-        polish.append(circle)
-    for w in polish:
-        w.style().unpolish(w)
-        w.style().polish(w)
+def set_ready_pill(pill: ReadyPill, text: str, *, ok: bool) -> None:
+    pill.set_state(text, ok=ok)
 
 
 class TitleChrome(QFrame):
