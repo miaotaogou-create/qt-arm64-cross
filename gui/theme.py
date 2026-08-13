@@ -1,6 +1,8 @@
 """深色主题 QSS（对齐全局参考样式）。"""
 from __future__ import annotations
 
+from pathlib import Path
+
 C = {
     "bg": "#0B0F17",
     "surface": "#111827",
@@ -202,6 +204,9 @@ QLineEdit, QComboBox, QSpinBox, QLineEdit#PathEdit {{
     selection-background-color: {C["primary"]};
     min-height: 18px;
 }}
+QComboBox {{
+    padding-right: 28px;
+}}
 QFrame#PathField {{
     background-color: #030712;
     border: 1px solid {C["border_input"]};
@@ -238,8 +243,17 @@ QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {{
     border-color: {C["border"]};
 }}
 QComboBox::drop-down {{
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 28px;
     border: none;
-    width: 24px;
+    background: transparent;
+}}
+QComboBox::down-arrow {{
+    /*COMBO_DOWN_ARROW*/
+    width: 12px;
+    height: 12px;
+    margin-right: 4px;
 }}
 QComboBox QAbstractItemView {{
     background-color: {C["surface"]};
@@ -247,6 +261,45 @@ QComboBox QAbstractItemView {{
     selection-background-color: {C["primary"]};
     selection-color: #FFFFFF;
     color: {C["text_bright"]};
+}}
+QComboBox#RecentComboInner {{
+    background: transparent;
+    border: none;
+    padding: 0 2px 0 0;
+    min-height: 20px;
+    font-size: 12px;
+    color: {C["text_bright"]};
+}}
+QComboBox#RecentComboInner:hover,
+QComboBox#RecentComboInner:focus {{
+    background: transparent;
+    border: none;
+}}
+QComboBox#RecentComboInner::drop-down {{
+    width: 0;
+    border: none;
+    background: transparent;
+}}
+QComboBox#RecentComboInner::down-arrow {{
+    image: none;
+    width: 0;
+    height: 0;
+}}
+QFrame#RecentComboShell {{
+    background-color: #030712;
+    border: 1px solid {C["border_input"]};
+    border-radius: 10px;
+}}
+QFrame#RecentComboShell:hover {{
+    border-color: #4B5563;
+}}
+QLabel#RecentLabel {{
+    color: {C["muted"]};
+    font-size: 12px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
 }}
 
 /* ---- 4. 按钮 ---- */
@@ -774,6 +827,32 @@ QToolTip {{
 """
 
 
+def _combo_chevron_png() -> Path:
+    """生成下拉箭头 PNG，供 QSS url() 使用（Fusion 样式表会吃掉系统箭头）。"""
+    from PySide6.QtCore import Qt, QSize
+    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+
+    out = Path.home() / ".qt-arm64-cross" / "combo-chevron-v2.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
+        'fill="none" stroke="#E5E7EB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+        '<polyline points="6 9 12 15 18 9"></polyline></svg>'
+    )
+    img = QImage(QSize(24, 24), QImage.Format.Format_ARGB32)
+    img.fill(Qt.GlobalColor.transparent)
+    p = QPainter(img)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    QSvgRenderer(svg.encode("utf-8")).render(p)
+    p.end()
+    img.save(str(out), "PNG")
+    return out
+
+
 def apply_theme(app) -> None:
     app.setStyle("Fusion")
-    app.setStyleSheet(APP_QSS)
+    # Windows QSS：用正斜杠路径并加引号；file:/// 常导致箭头不显示
+    arrow = str(_combo_chevron_png().resolve()).replace("\\", "/")
+    qss = APP_QSS.replace("/*COMBO_DOWN_ARROW*/", f'image: url("{arrow}");')
+    app.setStyleSheet(qss)
