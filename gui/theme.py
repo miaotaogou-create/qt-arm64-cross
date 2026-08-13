@@ -107,10 +107,12 @@ QLabel#Muted, QLabel#FieldLabel, QLabel#FormSectionLabel {{
 }}
 QLabel#CardTitle, QLabel#CardHeadTitle {{
     font-weight: 700;
-    font-size: 16px;
+    font-size: 14px;
     color: {C["text_bright"]};
     background: transparent;
     border: none;
+    padding: 0;
+    margin: 0;
 }}
 QLabel#CardHeadRight {{
     font-size: 12px;
@@ -265,8 +267,10 @@ QComboBox QAbstractItemView {{
 QComboBox#RecentComboInner {{
     background: transparent;
     border: none;
-    padding: 0 2px 0 0;
-    min-height: 20px;
+    padding: 0;
+    margin: 0;
+    min-height: 0;
+    max-height: 22px;
     font-size: 12px;
     color: {C["text_bright"]};
 }}
@@ -288,7 +292,8 @@ QComboBox#RecentComboInner::down-arrow {{
 QFrame#RecentComboShell {{
     background-color: #030712;
     border: 1px solid {C["border_input"]};
-    border-radius: 10px;
+    border-radius: 8px;
+    max-height: 26px;
 }}
 QFrame#RecentComboShell:hover {{
     border-color: #4B5563;

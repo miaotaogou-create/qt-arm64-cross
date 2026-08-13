@@ -935,50 +935,49 @@ class MainWindow(QMainWindow):
         cfg.setContentsMargins(20, 16, 20, 16)
         cfg.setSpacing(12)
 
-        head = QHBoxLayout()
+        # 标题行固定高度，避免「最近工程」外壳比标题高导致视觉偏下/贴底裁切
+        head_wrap = QWidget()
+        head_wrap.setFixedHeight(28)
+        head = QHBoxLayout(head_wrap)
+        head.setContentsMargins(0, 0, 0, 0)
         head.setSpacing(8)
         head.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        head.addWidget(PlayIcon(20, "#0D9488"), 0, Qt.AlignmentFlag.AlignVCenter)
+        head.addWidget(PlayIcon(18, "#0D9488"), 0, Qt.AlignmentFlag.AlignVCenter)
         ht = QLabel("Qt 工程路径与构建参数配置")
         ht.setObjectName("CardHeadTitle")
         head.addWidget(ht, 0, Qt.AlignmentFlag.AlignVCenter)
         head.addStretch(1)
 
-        # 最近工程：标签与外壳垂直居中；箭头用手绘 Chevron，不依赖 QSS url（Win 常不显示）
-        recent_box = QWidget()
-        recent_lay = QHBoxLayout(recent_box)
-        recent_lay.setContentsMargins(0, 0, 0, 0)
-        recent_lay.setSpacing(8)
         recent_lbl = QLabel("最近工程:")
         recent_lbl.setObjectName("RecentLabel")
-        recent_lay.addWidget(recent_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
+        head.addWidget(recent_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
 
         shell = QFrame()
         shell.setObjectName("RecentComboShell")
-        shell.setFixedHeight(32)
+        shell.setFixedHeight(26)
         shell.setMinimumWidth(220)
         shell.setMaximumWidth(320)
         shell.setCursor(Qt.CursorShape.PointingHandCursor)
         shell.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         sl = QHBoxLayout(shell)
-        sl.setContentsMargins(12, 0, 8, 0)
-        sl.setSpacing(4)
+        sl.setContentsMargins(10, 0, 6, 0)
+        sl.setSpacing(2)
 
         self.cmb_recent = QComboBox()
         self.cmb_recent.setObjectName("RecentComboInner")
         self.cmb_recent.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.cmb_recent.setFixedHeight(28)
+        self.cmb_recent.setFixedHeight(22)
+        self.cmb_recent.setMaxVisibleItems(12)
         self.cmb_recent.addItem("选择最近工程…")
         for p in self._cfg.get("recent_projects") or []:
             self.cmb_recent.addItem(self._recent_display_label(p), p)
         self.cmb_recent.activated.connect(self._on_recent_picked)
         sl.addWidget(self.cmb_recent, 1)
 
-        chev = ChevronArrow("down", "#E5E7EB", 14)
+        chev = ChevronArrow("down", "#E5E7EB", 12)
         chev.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         sl.addWidget(chev, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        # 点外壳/箭头区域也能弹出（隐藏原生 drop-down 后右侧需补）
         class _RecentShellFilter(QObject):
             def __init__(self, combo: QComboBox) -> None:
                 super().__init__(combo)
@@ -991,9 +990,8 @@ class MainWindow(QMainWindow):
 
         self._recent_shell_filter = _RecentShellFilter(self.cmb_recent)
         shell.installEventFilter(self._recent_shell_filter)
-        recent_lay.addWidget(shell, 0, Qt.AlignmentFlag.AlignVCenter)
-        head.addWidget(recent_box, 0, Qt.AlignmentFlag.AlignVCenter)
-        cfg.addLayout(head)
+        head.addWidget(shell, 0, Qt.AlignmentFlag.AlignVCenter)
+        cfg.addWidget(head_wrap)
         cfg.addWidget(hline())
 
         # 工程目录
