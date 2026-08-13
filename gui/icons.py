@@ -68,12 +68,12 @@ _SVG_FOLDER = (
     '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"></path>'
     "</svg>"
 )
-# 打开文件夹：后层带页签外框 + 前层水平张开面板（扁平，小尺寸更稳）
+# Lucide folder-open：后层带页签 + 前层平行四边形托盘，一眼就是打开
 _SVG_FOLDER_OPEN = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" '
     'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-    '<path d="M3 8V6a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H19a2 2 0 0 1 2 2v1"/>'
-    '<path d="M3 11h18l-2.2 9H5.2L3 11z"/>'
+    '<path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5'
+    'H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>'
     "</svg>"
 )
 _SVG_SLIDERS = (
