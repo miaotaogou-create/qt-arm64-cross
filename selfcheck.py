@@ -123,6 +123,14 @@ def main() -> None:
 
     qapp = QApplication.instance() or QApplication([])
     assert qapp is not None
+    from gui.share_page import SharePage, _qr_pixmap
+
+    pix = _qr_pixmap("http://10.0.0.1:8899/")
+    assert pix is not None and not pix.isNull()
+    page = SharePage()
+    page.ed_share_urls.setText("http://10.0.0.1:8899/")
+    page.set_running(True)
+    assert page._qr_lbl.pixmap() is not None and not page._qr_lbl.pixmap().isNull()
     card = ToolchainSpecsCard()
     card.apply_report(report)
     assert "9.4.0" in card._vals["gcc"].text()

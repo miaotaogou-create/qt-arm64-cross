@@ -78,7 +78,7 @@ def _fmt_size(n: int) -> str:
 
 
 def _qr_pixmap(text: str, px: int = 168) -> QPixmap | None:
-    """把 URL 渲成二维码图；缺依赖时返回 None（界面退回显示文字）。"""
+    """把 URL 渲成二维码图；失败时返回 None（界面退回显示文字）。"""
     if not text or text == "—":
         return None
     try:
@@ -86,23 +86,28 @@ def _qr_pixmap(text: str, px: int = 168) -> QPixmap | None:
         from qrcode.image.pil import PilImage
     except ImportError:
         return None
-    img = qrcode.make(
-        text,
-        border=2,
-        image_factory=PilImage,
-        fill_color="#F9FAFB",
-        back_color="#0B0F17",
-    )
-    if hasattr(img, "get_image"):
-        img = img.get_image()
-    if hasattr(img, "convert"):
-        img = img.convert("RGB")
-    w, h = img.size
-    data = img.tobytes("raw", "RGB")
-    qimg = QImage(data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
-    return QPixmap.fromImage(qimg).scaled(
-        px, px, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
-    )
+    try:
+        qr = qrcode.QRCode(border=2, box_size=6)
+        qr.add_data(text)
+        qr.make(fit=True)
+        img = qr.make_image(
+            image_factory=PilImage,
+            fill_color="#F9FAFB",
+            back_color="#0B0F17",
+        )
+        if hasattr(img, "get_image"):
+            img = img.get_image()
+        if hasattr(img, "convert"):
+            img = img.convert("RGB")
+        w, h = img.size
+        data = img.tobytes("raw", "RGB")
+        qimg = QImage(data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
+        pix = QPixmap.fromImage(qimg).scaled(
+            px, px, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+        )
+        return None if pix.isNull() else pix
+    except Exception:
+        return None
 
 
 class SharePage(QWidget):
@@ -238,6 +243,7 @@ class SharePage(QWidget):
         self.ed_share_urls = QLineEdit("—")
         self.ed_share_urls.setObjectName("LanUrlEdit")
         self.ed_share_urls.setReadOnly(True)
+        self.ed_share_urls.textChanged.connect(lambda _t: self.refresh_qr())
         lan_texts.addWidget(self.ed_share_urls)
         lan_lay.addLayout(lan_texts, 1)
         self.btn_copy = QPushButton("复制地址")
@@ -433,25 +439,22 @@ class SharePage(QWidget):
             w.style().polish(w)
         if state_text:
             self._status_badge.setToolTip(state_text)
-        self.refresh_qr()
 
     def set_loop_url(self, url: str) -> None:
         self.ed_share_local.setText(url)
         self._loop_url.setText(url if url and url != "—" else "http://127.0.0.1:—")
-        self.refresh_qr()
 
     def refresh_qr(self) -> None:
         url = self.ed_share_urls.text().strip()
         pix = _qr_pixmap(url)
-        if pix is not None:
+        if pix is not None and not pix.isNull():
+            self._qr_lbl.clear()
             self._qr_lbl.setPixmap(pix)
-            self._qr_lbl.setText("")
             return
+        self._qr_lbl.clear()
         if url and url != "—":
-            self._qr_lbl.setPixmap(QPixmap())
             self._qr_lbl.setText(url)
         else:
-            self._qr_lbl.setPixmap(QPixmap())
             self._qr_lbl.setText("启动共享后显示二维码")
 
     def refresh_manifest(self, directory: str) -> None:
