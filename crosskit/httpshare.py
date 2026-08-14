@@ -309,10 +309,10 @@ def ensure_firewall_allow(port: int, on_line=None) -> bool:
         ok = r.returncode == 0
         if on_line:
             if ok:
-                on_line(f"[http] 已放行防火墙入站 TCP {port}（规则 {name}）")
+                on_line(f"[http] 已放行防火墙 TCP {port}")
             else:
-                on_line(f"[http] 防火墙放行失败（可能需管理员）: {(r.stderr or r.stdout or '').strip()}")
-                on_line("[http] 同事连不上时：Windows 安全中心 → 防火墙 → 允许应用，或用管理员重开本工具")
+                on_line(f"[http] 防火墙未自动放行 TCP {port}（可管理员运行）")
+                on_line("[http] 板端 wget 不受影响；仅同事连不上时再查 Windows 防火墙")
         return ok
     except (OSError, subprocess.TimeoutExpired) as e:
         if on_line:

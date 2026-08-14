@@ -306,7 +306,6 @@ from crosskit.httpshare import (
     ensure_firewall_allow,
     ethernet_ipv4,
     guess_share_dir,
-    lan_ipv4,
 )
 from gui.adv_panel import AdvancedOptionsPanel
 from gui.chrome import EdgeResizer, TitleChrome, make_ready_pill, set_ready_pill
@@ -645,8 +644,9 @@ class MainWindow(QMainWindow):
         self._activity_lbl = QLabel("")
         self._activity_lbl.setObjectName("FooterMuted")
         self._activity_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self._activity_lbl.setMaximumWidth(420)
-        lay.addWidget(self._activity_lbl)
+        self._activity_lbl.setMaximumWidth(360)
+        self._activity_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        lay.addWidget(self._activity_lbl, 1)
 
         self._btn_cancel = QPushButton("取消任务")
         self._btn_cancel.setObjectName("FooterCancel")
@@ -1656,6 +1656,17 @@ class MainWindow(QMainWindow):
             return C["accent"]
         return C["log_fg"]
 
+    def _set_activity_line(self, line: str) -> None:
+        raw = (line or "").strip()
+        if not raw:
+            self._activity_lbl.setText("")
+            self._activity_lbl.setToolTip("")
+            return
+        w = max(self._activity_lbl.maximumWidth(), 120)
+        elided = self._activity_lbl.fontMetrics().elidedText(raw, Qt.TextElideMode.ElideLeft, w)
+        self._activity_lbl.setText(elided)
+        self._activity_lbl.setToolTip(raw if elided != raw else "")
+
     def _append_log(self, line: str) -> None:
         self._recent_log_lines.append(line)
         if len(self._recent_log_lines) > 400:
@@ -1663,10 +1674,9 @@ class MainWindow(QMainWindow):
 
         self._console.append_line(line)
 
-        short = line.strip()
-        if len(short) > 72:
-            short = short[:69] + "…"
-        self._activity_lbl.setText(short)
+        # 共享已就绪后，[http] 诊断日志只进控制台，避免底栏活动区被长句截断
+        if self._busy or not (line.startswith("[http]") and self._share.running):
+            self._set_activity_line(line)
 
     def _start_pulse(self, base: str) -> None:
         self._stop_pulse()
@@ -1713,6 +1723,7 @@ class MainWindow(QMainWindow):
                 self._btn_cancel.setEnabled(False)
             self._stop_pulse()
             self._activity_lbl.setText("")
+            self._activity_lbl.setToolTip("")
             if "共享" in text:
                 self._pill(text.replace("HTTP ", ""), "#99F6E4")
             elif text.startswith("成功") or text.startswith("环境就绪"):
@@ -1848,12 +1859,12 @@ class MainWindow(QMainWindow):
         def work() -> None:
             err: str | None = None
             try:
-                self._ui(lambda: self._append_log(f"[http] 监听目录: {directory}"))
                 self._share.start(directory, port)
             except OSError as e:
                 err = str(e)
 
             if err:
+
                 def fail() -> None:
                     self._append_log(f"[http] 启动失败: {err}")
                     self._share_page.set_running(False)
@@ -1864,41 +1875,45 @@ class MainWindow(QMainWindow):
                 return
 
             local = self._share.local_url()
-            ips = lan_ipv4()
-            quick_ip = default_route_ipv4() or (ips[0] if ips else "127.0.0.1")
+            quick_ip = default_route_ipv4() or "127.0.0.1"
             primary = f"http://{quick_ip}:{port}/"
-            ok, detail = self._share.probe_local()
 
             def live() -> None:
-                self.ed_share_urls.setText(primary or "—")
-                self._share_page.set_loop_url(local or f"http://127.0.0.1:{port}/")
-                self._share_page.set_running(True, f"运行中 · 端口 {port}")
-                self._share_page.refresh_manifest(directory)
-                self._share_state_lbl.setToolTip(f"运行中 · 端口 {port}")
-                self._set_http_dot(True)
-                self._persist()
-                self._append_log(f"[http] 共享已启动: {directory}")
-                self._append_log(f"[http] 本机测试: {local}")
-                self._append_log(f"[http] 局域网地址: {primary}")
-                self._append_log(f"[http] 本机自检: {detail}")
-                self._set_busy(False, f"HTTP 共享中 :{port}")
-                self._pill(f"共享 :{port}", "#99F6E4")
+                try:
+                    self.ed_share_urls.setText(primary or "—")
+                    self._share_page.set_loop_url(local or f"http://127.0.0.1:{port}/")
+                    self._share_page.set_running(True, f"运行中 · 端口 {port}")
+                    self._share_page.refresh_manifest(directory)
+                    self._share_state_lbl.setToolTip(f"运行中 · 端口 {port}")
+                    self._set_http_dot(True)
+                    self._persist()
+                    self._append_log(f"[http] 共享已启动: {directory}")
+                    self._append_log(f"[http] 本机: {local}")
+                    self._append_log(f"[http] 局域网: {primary}")
+                finally:
+                    self._set_busy(False, f"HTTP 共享中 :{port}")
+                    self._pill(f"共享 :{port}", "#99F6E4")
 
             self._ui(live)
 
-            ensure_firewall_allow(port, on_line=lambda line: self.sig_log.emit(line))
-            eth = ethernet_ipv4()
-            if eth and self._share.running:
-                better = self._share.primary_url()
+            def post() -> None:
+                ensure_firewall_allow(port, on_line=lambda line: self.sig_log.emit(line))
+                ok, detail = self._share.probe_local()
+                self._ui(lambda: self._append_log(f"[http] 本机自检: {detail}"))
+                eth = ethernet_ipv4()
+                if eth and self._share.running:
+                    better = self._share.primary_url()
 
-                def refresh_lan() -> None:
-                    if not self._share.running or not better:
-                        return
-                    self.ed_share_urls.setText(better)
-                    self._share_page.refresh_qr()
-                    self._append_log(f"[http] 有线网卡地址: {better}")
+                    def refresh_lan() -> None:
+                        if not self._share.running or not better:
+                            return
+                        self.ed_share_urls.setText(better)
+                        self._share_page.refresh_qr()
+                        self._append_log(f"[http] 有线网卡: {better}")
 
-                self._ui(refresh_lan)
+                    self._ui(refresh_lan)
+
+            threading.Thread(target=post, daemon=True).start()
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -1993,12 +2008,15 @@ class MainWindow(QMainWindow):
         ok, detail = self._share.probe_local()
         self._append_log(f"[http] 打开前自检: {detail}")
         if not ok:
-            QMessageBox.warning(
-                self,
-                "本机自检失败",
-                f"{detail}\n\n服务进程可能未真正响应，或端口冲突。请换端口后重试。",
-            )
-            return
+            if (
+                QMessageBox.question(
+                    self,
+                    "本机自检未通过",
+                    f"{detail}\n\n服务已在监听，仍用浏览器打开本机地址？\n（与 Clash 无关，板端 wget 不受影响）",
+                )
+                != QMessageBox.StandardButton.Yes
+            ):
+                return
         try:
             os.startfile(url)  # noqa: S606
         except OSError as e:
