@@ -15,7 +15,7 @@ Windows 绿色 GUI（**PySide6 / Qt**）+ WSL `Ubuntu-20.04`，把 Qt 工程（`
 
 两样东西即可（都从 GitHub Release 下，不进 git）：
 
-1. [`QtArm64Cross.exe`](https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/app-v1.2.0)（PySide6 绿色版，约 245 MB）
+1. [`QtArm64Cross.exe`](https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/app-v1.2.0)（PySide6 绿色单文件，约 55 MB）
 2. 环境包 [`Ubuntu-20.04-cross-env.tar.gz`](https://github.com/miaotaogou-create/qt-arm64-cross/releases/tag/env-ubuntu-20.04)（约 1.8 GB）
 
 本机开发也可 `.\build_exe.ps1` 自己打 exe。也可在 GUI「导出环境包」再打一份环境。
