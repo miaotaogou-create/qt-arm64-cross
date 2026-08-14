@@ -1236,8 +1236,6 @@ class MainWindow(QMainWindow):
         self._track_action(page.btn_add_ip)
         page.btn_uac.clicked.connect(self._on_uac_hint)
         page.remove_ip_requested.connect(self._on_remove_eth_ip_addr)
-        if netip.elevation_ready():
-            self._mark_uac_ready()
 
         page.refresh_manifest(self._share_dir)
         lay.addWidget(page)
@@ -1323,33 +1321,13 @@ class MainWindow(QMainWindow):
             detect.EnvReport(bool(getattr(self, "_last_detect_distro_ok", False)), items, facts=dict(facts))
         )
 
-    def _mark_uac_ready(self) -> None:
-        btn = getattr(getattr(self, "_share_page", None), "btn_uac", None)
-        if btn is not None:
-            btn.setToolTip("已授权：本次运行追加/删除 IP 不再弹出 UAC")
-
     def _on_uac_hint(self) -> None:
-        if self._busy:
-            return
-
-        def work() -> None:
-            self._ui(lambda: self._set_busy(True, "等待 UAC 授权…"))
-            status, msg = netip.ensure_elevation(on_line=lambda line: self.sig_log.emit(line))
-
-            def done() -> None:
-                self._append_log(f"[net] {msg}")
-                self._set_busy(False, "已授权" if status == "ok" else "就绪")
-                if status == "ok":
-                    self._mark_uac_ready()
-                    self._show_toast(msg)
-                elif status == "cancelled":
-                    QMessageBox.information(self, "Windows UAC", msg)
-                else:
-                    QMessageBox.critical(self, "Windows UAC", msg)
-
-            self._ui(done)
-
-        threading.Thread(target=work, daemon=True).start()
+        QMessageBox.information(
+            self,
+            "Windows UAC 提权",
+            "追加或删除网卡 IP 会弹出系统 UAC 窗口，点「是」后才会写入当前有线网卡。\n"
+            "不会改默认网关，只追加辅助地址。",
+        )
 
     def _refresh_env_hint(self) -> None:
         if self._env_hint_lbl is None:
@@ -1964,8 +1942,6 @@ class MainWindow(QMainWindow):
                 self._refresh_eth_list()
                 self._set_busy(False, "就绪" if status in ("ok", "exists") else f"失败: {msg}")
                 if status in ("ok", "exists"):
-                    if netip.elevation_ready():
-                        self._mark_uac_ready()
                     QMessageBox.information(self, "网卡 IP", msg)
                 else:
                     QMessageBox.critical(self, "网卡 IP", msg)
@@ -1995,8 +1971,6 @@ class MainWindow(QMainWindow):
                 self._refresh_eth_list()
                 self._set_busy(False, "就绪" if status == "ok" else f"失败: {msg}")
                 if status == "ok":
-                    if netip.elevation_ready():
-                        self._mark_uac_ready()
                     QMessageBox.information(self, "网卡 IP", msg)
                 else:
                     QMessageBox.critical(self, "网卡 IP", msg)
@@ -2078,10 +2052,6 @@ class MainWindow(QMainWindow):
         self._persist()
         try:
             self._share.stop()
-        except Exception:
-            pass
-        try:
-            netip.stop_helper()
         except Exception:
             pass
         event.accept()

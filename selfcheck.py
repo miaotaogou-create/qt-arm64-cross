@@ -99,10 +99,7 @@ def main() -> None:
     assert DISTRO_PRESETS[2]["supported"] == "0"
     assert all(p["name"] != "Kirin-ARM64-SDK" for p in DISTRO_PRESETS)
 
-    helper = netipmod._HELPER_PS1.format(dir=r"C:\Temp\qtarm64-netip-helper", ppid=1234)
-    assert r"C:\Temp\qtarm64-netip-helper" in helper
-    assert "{dir}" not in helper
-    assert "$ppid = 1234" in helper
+    assert callable(netipmod._run_elevated_ps1)
     report = detect.EnvReport(
         True,
         [
