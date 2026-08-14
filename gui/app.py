@@ -307,6 +307,7 @@ from gui.console_card import BuildLogConsoleCard
 from gui.share_btn import GoShareButton
 from gui.share_page import SharePage
 from gui.env_panel import (
+    DISTRO_PRESETS,
     build_preset_row,
     build_toolchain_specs,
     card_header,
@@ -426,6 +427,8 @@ class MainWindow(QMainWindow):
         self._extra_pkg = self._cfg.get("extra_pkgconfig", "") or ""
         self._extra_copy = self._cfg.get("extra_copy", "") or ""
         self._distro = self._cfg.get("distro", wsl.DEFAULT_DISTRO) or wsl.DEFAULT_DISTRO
+        if self._distro == "Kirin-ARM64-SDK":
+            self._distro = "Kylin-ARM64-SDK"
         self._share_dir = self._cfg.get("share_dir", "") or ""
         self._share_port = int(self._cfg.get("share_port") or 18080)
         self._eth_add_ip = self._cfg.get("eth_add_ip", "") or ""
@@ -433,6 +436,9 @@ class MainWindow(QMainWindow):
         self._env_install_dir = default_env
         self._env_slim = bool(self._cfg.get("env_slim_export", False))
         self._env_replace = bool(self._cfg.get("env_replace_on_import", False))
+        self._last_detect_facts = dict(self._cfg.get("last_detect_facts") or {})
+        self._last_detect_ok = dict(self._cfg.get("last_detect_ok") or {})
+        self._last_detect_distro_ok = bool(self._cfg.get("last_detect_distro_ok", False))
 
         self.sig_log.connect(self._append_log)
         self.sig_busy_done.connect(self._run_on_ui)
@@ -864,7 +870,9 @@ class MainWindow(QMainWindow):
         left.addWidget(envp)
 
         # —— 右：工具链明细 + 从零搭建 + 检测结果 ——
-        right.addWidget(build_toolchain_specs())
+        self._toolchain_card = build_toolchain_specs()
+        right.addWidget(self._toolchain_card)
+        self._restore_toolchain_card()
 
         scratch = QFrame()
         scratch.setObjectName("ScratchCard")
@@ -1228,6 +1236,8 @@ class MainWindow(QMainWindow):
         self._track_action(page.btn_add_ip)
         page.btn_uac.clicked.connect(self._on_uac_hint)
         page.remove_ip_requested.connect(self._on_remove_eth_ip_addr)
+        if netip.elevation_ready():
+            self._mark_uac_ready()
 
         page.refresh_manifest(self._share_dir)
         lay.addWidget(page)
@@ -1268,7 +1278,11 @@ class MainWindow(QMainWindow):
             self._scratch_arrow.set_direction("up" if self._scratch_open else "down")
 
     def _on_preset_picked(self, name: str) -> None:
-        """界面：点预设卡填入发行版名（非 20.04 仅预留，稍后接逻辑）。"""
+        """点预设卡：仅支持的发行版写入表单；其余只提示，界面保持不动。"""
+        meta = next((p for p in DISTRO_PRESETS if p["name"] == name), None)
+        if meta and meta.get("supported") != "1":
+            QMessageBox.information(self, "环境包", "暂无环境包，请用 Ubuntu-20.04")
+            return
         if hasattr(self, "ed_distro"):
             self.ed_distro.setText(name)
         self._sync_preset_selection(name)
@@ -1276,7 +1290,8 @@ class MainWindow(QMainWindow):
         if hasattr(self, "ed_env_install"):
             cur = self.ed_env_install.text().strip()
             base = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "WSL" / name
-            if (not cur) or cur.rstrip("\\/").endswith(("Ubuntu-20.04", "Ubuntu-22.04", "Kirin-ARM64-SDK")):
+            preset_tails = ("Ubuntu-20.04", "Ubuntu-22.04", "Kirin-ARM64-SDK", "Kylin-ARM64-SDK")
+            if (not cur) or cur.rstrip("\\/").endswith(preset_tails):
                 self.ed_env_install.setText(str(base))
 
     def _on_distro_edited(self, text: str) -> None:
@@ -1296,13 +1311,45 @@ class MainWindow(QMainWindow):
         else:
             self._share_start()
 
-    def _on_uac_hint(self) -> None:
-        QMessageBox.information(
-            self,
-            "Windows UAC 提权",
-            "追加或删除网卡 IP 会弹出系统 UAC 窗口，点「是」后才会写入当前有线网卡。\n"
-            "不会改默认网关，只追加辅助地址。",
+    def _restore_toolchain_card(self) -> None:
+        if not hasattr(self, "_toolchain_card"):
+            return
+        facts = getattr(self, "_last_detect_facts", None) or {}
+        okmap = getattr(self, "_last_detect_ok", None) or {}
+        if not facts and not okmap:
+            return
+        items = [detect.CheckItem(str(k), str(k), bool(v)) for k, v in okmap.items()]
+        self._toolchain_card.apply_report(
+            detect.EnvReport(bool(getattr(self, "_last_detect_distro_ok", False)), items, facts=dict(facts))
         )
+
+    def _mark_uac_ready(self) -> None:
+        btn = getattr(getattr(self, "_share_page", None), "btn_uac", None)
+        if btn is not None:
+            btn.setToolTip("已授权：本次运行追加/删除 IP 不再弹出 UAC")
+
+    def _on_uac_hint(self) -> None:
+        if self._busy:
+            return
+
+        def work() -> None:
+            self._ui(lambda: self._set_busy(True, "等待 UAC 授权…"))
+            status, msg = netip.ensure_elevation(on_line=lambda line: self.sig_log.emit(line))
+
+            def done() -> None:
+                self._append_log(f"[net] {msg}")
+                self._set_busy(False, "已授权" if status == "ok" else "就绪")
+                if status == "ok":
+                    self._mark_uac_ready()
+                    self._show_toast(msg)
+                elif status == "cancelled":
+                    QMessageBox.information(self, "Windows UAC", msg)
+                else:
+                    QMessageBox.critical(self, "Windows UAC", msg)
+
+            self._ui(done)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _refresh_env_hint(self) -> None:
         if self._env_hint_lbl is None:
@@ -1406,6 +1453,9 @@ class MainWindow(QMainWindow):
                 "env_slim_export": bool(self._env_slim),
                 "env_replace_on_import": bool(self._env_replace),
                 "env_ready": bool(self._env_ready),
+                "last_detect_facts": dict(getattr(self, "_last_detect_facts", {}) or {}),
+                "last_detect_ok": dict(getattr(self, "_last_detect_ok", {}) or {}),
+                "last_detect_distro_ok": bool(getattr(self, "_last_detect_distro_ok", False)),
             }
         )
 
@@ -1914,6 +1964,8 @@ class MainWindow(QMainWindow):
                 self._refresh_eth_list()
                 self._set_busy(False, "就绪" if status in ("ok", "exists") else f"失败: {msg}")
                 if status in ("ok", "exists"):
+                    if netip.elevation_ready():
+                        self._mark_uac_ready()
                     QMessageBox.information(self, "网卡 IP", msg)
                 else:
                     QMessageBox.critical(self, "网卡 IP", msg)
@@ -1943,6 +1995,8 @@ class MainWindow(QMainWindow):
                 self._refresh_eth_list()
                 self._set_busy(False, "就绪" if status == "ok" else f"失败: {msg}")
                 if status == "ok":
+                    if netip.elevation_ready():
+                        self._mark_uac_ready()
                     QMessageBox.information(self, "网卡 IP", msg)
                 else:
                     QMessageBox.critical(self, "网卡 IP", msg)
@@ -2024,6 +2078,10 @@ class MainWindow(QMainWindow):
         self._persist()
         try:
             self._share.stop()
+        except Exception:
+            pass
+        try:
+            netip.stop_helper()
         except Exception:
             pass
         event.accept()
@@ -2258,7 +2316,12 @@ class MainWindow(QMainWindow):
                     if not it.ok and it.fix:
                         lines.append(f"      → {it.fix}")
                 self._set_env_box("\n".join(lines) or "(无结果)")
+                self._last_detect_facts = dict(report.facts or {})
+                self._last_detect_ok = {i.key: bool(i.ok) for i in report.items}
+                self._last_detect_distro_ok = bool(report.distro_ok)
                 self._apply_env_ready(report.ready)
+                if hasattr(self, "_toolchain_card"):
+                    self._toolchain_card.apply_report(report)
                 self._append_log("==== 检测结束 ====")
                 self._set_busy(False, "环境就绪" if report.ready else "环境不完整")
                 if report.ready:

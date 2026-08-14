@@ -252,6 +252,11 @@ QLabel#SpecValOk {{
     font-weight: 600;
     background: transparent;
 }}
+QLabel#SpecValBad {{
+    color: {C["warn"]};
+    font-size: 12px;
+    background: transparent;
+}}
 
 /* ---- 3. 输入 / 下拉 ---- */
 QLineEdit, QComboBox, QSpinBox, QLineEdit#PathEdit {{

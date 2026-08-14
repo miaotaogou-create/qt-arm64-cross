@@ -88,19 +88,110 @@ DISTRO_PRESETS: list[dict[str, str]] = [
         "supported": "0",
     },
     {
-        "name": "Kirin-ARM64-SDK",
+        "name": "Kylin-ARM64-SDK",
         "tag": "国产麒麟适配",
         "meta": "Qt 5.12.8 · GCC 8.3.0",
         "supported": "0",
     },
 ]
 
-TOOLCHAIN_SPECS: list[tuple[str, str, str]] = [
-    ("目标架构", "Linux ARM64 (aarch64)", "accent"),
-    ("GCC 交叉编译器", "aarch64-linux-gnu-gcc 9.4", "text"),
-    ("Qt 库版本", "Qt 5.14.2 (Desktop/EGLFS)", "text"),
-    ("Multilib 支持", "Readelf, Pkg-config, CCACHE", "ok"),
+TOOLCHAIN_SPEC_KEYS: list[tuple[str, str]] = [
+    ("arch", "目标架构"),
+    ("gcc", "GCC 交叉编译器"),
+    ("qt", "Qt 库版本"),
+    ("sysroot", "SYSROOT"),
+    ("tools", "辅助工具"),
 ]
+
+
+class ToolchainSpecsCard(QFrame):
+    """工具链明细：检测后写入真实版本，未检测时显示等待。"""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("Card")
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(20, 16, 20, 16)
+        lay.setSpacing(0)
+        lay.addWidget(card_header("cpu", "工具链及 SYSROOT 明细", icon_color="#14B8A6"))
+
+        body = QVBoxLayout()
+        body.setContentsMargins(0, 8, 0, 0)
+        body.setSpacing(0)
+        self._vals: dict[str, QLabel] = {}
+        for i, (key, title) in enumerate(TOOLCHAIN_SPEC_KEYS):
+            row = QFrame()
+            row.setObjectName("SpecRow")
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(0, 7, 0, 7)
+            kk = QLabel(title)
+            kk.setObjectName("SpecKey")
+            vv = QLabel("等待检测…")
+            vv.setObjectName("SpecVal")
+            vv.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            rl.addWidget(kk)
+            rl.addWidget(vv, 1)
+            body.addWidget(row)
+            body.addWidget(hline(spec=True))
+            self._vals[key] = vv
+        lay.addLayout(body)
+
+    def _set(self, key: str, text: str, kind: str) -> None:
+        lb = self._vals.get(key)
+        if lb is None:
+            return
+        lb.setText(text)
+        name = {"accent": "SpecValAccent", "ok": "SpecValOk", "bad": "SpecValBad"}.get(kind, "SpecVal")
+        lb.setObjectName(name)
+        lb.style().unpolish(lb)
+        lb.style().polish(lb)
+
+    def apply_report(self, report) -> None:
+        facts = dict(getattr(report, "facts", None) or {})
+        ok = {i.key: i.ok for i in getattr(report, "items", [])}
+        if not getattr(report, "distro_ok", False):
+            tip = "未检测到发行版" if ok.get("distro") is False else "WSL 不可用"
+            for key, _title in TOOLCHAIN_SPEC_KEYS:
+                self._set(key, tip, "bad")
+            return
+
+        machine = facts.get("gcc_machine") or ""
+        if machine and machine != "missing":
+            self._set("arch", f"Linux ARM64 ({machine})", "accent")
+        else:
+            self._set("arch", "未检测到交叉编译器", "bad")
+
+        gcc_ver = facts.get("gcc_ver") or ""
+        if gcc_ver and gcc_ver != "missing":
+            self._set("gcc", f"aarch64-linux-gnu-gcc {gcc_ver}", "ok")
+        else:
+            self._set("gcc", "未安装", "bad")
+
+        qt_ver = facts.get("qt_version") or ""
+        if ok.get("qt_widgets") and qt_ver and qt_ver not in ("unknown", "missing"):
+            self._set("qt", f"Qt {qt_ver}", "ok")
+        else:
+            self._set("qt", "未安装", "bad")
+
+        rootfs = facts.get("rootfs_path") or "/opt/arm64-rootfs"
+        code = facts.get("rootfs_codename") or ""
+        if ok.get("rootfs"):
+            extra = f" ({code})" if code else ""
+            self._set("sysroot", f"{rootfs}{extra}", "ok")
+        else:
+            self._set("sysroot", "未就绪", "bad")
+
+        bits = [
+            ("Readelf", ok.get("cross_readelf")),
+            ("Pkg-config", ok.get("pkg_config")),
+            ("CCACHE", ok.get("ccache_bin")),
+        ]
+        tools = " · ".join(name if yes else f"{name} 缺" for name, yes in bits)
+        self._set("tools", tools, "ok" if all(yes for _n, yes in bits) else "bad")
+
+
+def build_toolchain_specs() -> ToolchainSpecsCard:
+    return ToolchainSpecsCard()
 
 
 class PresetCard(QFrame):
@@ -287,37 +378,3 @@ class ResponsivePresetHost(QWidget):
         win = self.window()
         w = win.width() if win is not None else event.size().width()
         self.update_responsive_layout(w)
-
-
-def build_toolchain_specs() -> QFrame:
-    frame = QFrame()
-    frame.setObjectName("Card")
-    lay = QVBoxLayout(frame)
-    lay.setContentsMargins(20, 16, 20, 16)
-    lay.setSpacing(0)
-    lay.addWidget(card_header("cpu", "工具链及 SYSROOT 明细", icon_color="#14B8A6"))
-
-    body = QVBoxLayout()
-    body.setContentsMargins(0, 8, 0, 0)
-    body.setSpacing(0)
-    for k, v, kind in TOOLCHAIN_SPECS:
-        row = QFrame()
-        row.setObjectName("SpecRow")
-        rl = QHBoxLayout(row)
-        rl.setContentsMargins(0, 7, 0, 7)
-        kk = QLabel(k)
-        kk.setObjectName("SpecKey")
-        vv = QLabel(v)
-        if kind == "accent":
-            vv.setObjectName("SpecValAccent")
-        elif kind == "ok":
-            vv.setObjectName("SpecValOk")
-        else:
-            vv.setObjectName("SpecVal")
-        vv.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        rl.addWidget(kk)
-        rl.addWidget(vv, 1)
-        body.addWidget(row)
-        body.addWidget(hline(spec=True))
-    lay.addLayout(body)
-    return frame

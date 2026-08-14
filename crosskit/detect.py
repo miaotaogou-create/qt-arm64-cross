@@ -22,6 +22,7 @@ class CheckItem:
 class EnvReport:
     distro_ok: bool
     items: list[CheckItem] = field(default_factory=list)
+    facts: dict[str, str] = field(default_factory=dict)
 
     @property
     def ready(self) -> bool:
@@ -170,6 +171,7 @@ def detect(distro: str = wsl.DEFAULT_DISTRO, on_line=None) -> EnvReport:
         "cross_readelf": "readelf",
         "pkg_config": "pkg-config",
         "cmake_bin": "cmake（仅 CMake 工程需要）",
+        "ccache_bin": "ccache",
         "rootfs": f"sysroot {parsed.get('rootfs_codename', '/opt/arm64-rootfs')}",
         "rootfs_glibc": "sysroot 为 focal",
         "qt_widgets": "Qt 目标库 libQt5Widgets",
@@ -184,4 +186,4 @@ def detect(distro: str = wsl.DEFAULT_DISTRO, on_line=None) -> EnvReport:
     if code != 0 and not items:
         items.append(CheckItem("env_check", "env_check.sh", False, "检查 WSL 是否可执行 bash"))
 
-    return EnvReport(True, items)
+    return EnvReport(True, items, facts=parsed)

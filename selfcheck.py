@@ -89,6 +89,48 @@ def main() -> None:
         share.stop()
     assert not share.running
 
+    from PySide6.QtWidgets import QApplication
+    from gui.env_panel import DISTRO_PRESETS, ToolchainSpecsCard
+    from crosskit import netip as netipmod
+
+    assert DISTRO_PRESETS[0]["name"] == "Ubuntu-20.04"
+    assert DISTRO_PRESETS[0]["supported"] == "1"
+    assert DISTRO_PRESETS[2]["name"] == "Kylin-ARM64-SDK"
+    assert DISTRO_PRESETS[2]["supported"] == "0"
+    assert all(p["name"] != "Kirin-ARM64-SDK" for p in DISTRO_PRESETS)
+
+    helper = netipmod._HELPER_PS1.format(dir=r"C:\Temp\qtarm64-netip-helper", ppid=1234)
+    assert r"C:\Temp\qtarm64-netip-helper" in helper
+    assert "{dir}" not in helper
+    assert "$ppid = 1234" in helper
+    report = detect.EnvReport(
+        True,
+        [
+            detect.CheckItem("qt_widgets", "Qt", True),
+            detect.CheckItem("rootfs", "sysroot", True),
+            detect.CheckItem("cross_readelf", "r", True),
+            detect.CheckItem("pkg_config", "p", True),
+            detect.CheckItem("ccache_bin", "c", True),
+        ],
+        facts={
+            "gcc_ver": "9.4.0",
+            "gcc_machine": "aarch64-linux-gnu",
+            "qt_version": "5.14.2",
+            "rootfs_path": "/opt/arm64-rootfs",
+            "rootfs_codename": "focal",
+        },
+    )
+    assert report.facts["gcc_ver"] == "9.4.0"
+
+    qapp = QApplication.instance() or QApplication([])
+    assert qapp is not None
+    card = ToolchainSpecsCard()
+    card.apply_report(report)
+    assert "9.4.0" in card._vals["gcc"].text()
+    assert "5.14.2" in card._vals["qt"].text()
+    assert "/opt/arm64-rootfs" in card._vals["sysroot"].text()
+    assert "aarch64-linux-gnu" in card._vals["arch"].text()
+
     print("selfcheck OK")
 
 

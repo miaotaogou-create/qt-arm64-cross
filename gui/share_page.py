@@ -344,6 +344,7 @@ class SharePage(QWidget):
         self.btn_uac.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_uac.setIcon(make_svg_icon("shield", "#F59E0B", 14, pad_right=4))
         self.btn_uac.setIconSize(QSize(18, 14))
+        self.btn_uac.setToolTip("点一次授权后，本次运行追加/删除 IP 不再弹出 UAC")
         head.addWidget(self.btn_uac, 0, Qt.AlignmentFlag.AlignVCenter)
         lay.addLayout(head)
         lay.addWidget(hline())

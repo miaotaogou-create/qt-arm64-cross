@@ -1,4 +1,4 @@
 """App version (BUILD rewritten by build_exe.ps1)."""
 
 VERSION = "1.2.0"
-BUILD = "2026.8.14+4b7905f"
+BUILD = "2026.8.14+39cba8e"
