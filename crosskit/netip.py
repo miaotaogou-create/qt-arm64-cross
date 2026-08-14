@@ -153,10 +153,13 @@ def _run_elevated_ps1(script: str, on_line=None) -> int:
     ps1 = Path(path)
     try:
         ps1.write_text(script, encoding="utf-8-sig")
+        # -WindowStyle Hidden：UAC 仍会弹，但管理员 PowerShell 黑框不出现
+        ps1_arg = str(ps1).replace("'", "''")
         wrapper = (
             f"$p = Start-Process -FilePath 'powershell.exe' "
-            f"-ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','{ps1}') "
-            f"-Verb RunAs -Wait -PassThru; "
+            f"-ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass',"
+            f"'-WindowStyle','Hidden','-File','{ps1_arg}') "
+            f"-Verb RunAs -WindowStyle Hidden -Wait -PassThru; "
             f"if ($null -eq $p) {{ exit 1223 }}; exit $p.ExitCode"
         )
         if on_line:
