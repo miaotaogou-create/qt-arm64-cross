@@ -16,32 +16,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # 从 images/图标.png 生成多尺寸 app.ico + app.png
-$genPy = Join-Path $env:TEMP ("qtarm64-gen-icon-" + [guid]::NewGuid().ToString("N").Substring(0,8) + ".py")
-$genBody = @"
-from pathlib import Path
-from PIL import Image
-root = Path(r'$($root.Replace("'", "''"))')
-img_dir = root / 'images'
-if not img_dir.is_dir():
-    raise SystemExit('images/ missing')
-cands = [p for p in img_dir.glob('*.png') if p.name.lower() != 'app.png']
-if not cands:
-    raise SystemExit('no source png in images/')
-src = next((p for p in cands if '\u56fe\u6807' in p.name), cands[0])
-im = Image.open(src).convert('RGBA')
-sizes = [(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)]
-ico = img_dir / 'app.ico'
-im.save(ico, format='ICO', sizes=sizes)
-(im.resize((256,256), Image.Resampling.LANCZOS)).save(img_dir / 'app.png', 'PNG')
-print(f'ICON_OK src={src.name} ico={ico.stat().st_size}')
-"@
-[System.IO.File]::WriteAllText($genPy, $genBody, [System.Text.UTF8Encoding]::new($false))
-try {
-  python $genPy
-  if ($LASTEXITCODE -ne 0) { throw "gen app icon failed" }
-} finally {
-  Remove-Item -Force $genPy -ErrorAction SilentlyContinue
-}
+python (Join-Path $root "tools\gen_app_icon.py")
+if ($LASTEXITCODE -ne 0) { throw "gen app icon failed" }
 
 if (Test-Path ".\build") { Remove-Item -Recurse -Force ".\build" }
 if (Test-Path ".\QtArm64Cross.exe") { Remove-Item -Force ".\QtArm64Cross.exe" }
