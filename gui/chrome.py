@@ -42,7 +42,9 @@ class ReadyPill(QFrame):
         lay.setSpacing(6)
         if show_check:
             lay.setContentsMargins(6, 0, 12, 0)
-            self._circle = CircleCheckIcon(16, C["ok"] if ok else C["warn"], circle=True)
+            self._circle = CircleCheckIcon(
+                16, C["ok"] if ok else C["warn"], circle=True, mark="check" if ok else "alert"
+            )
             lay.addWidget(self._circle, 0, Qt.AlignmentFlag.AlignVCenter)
         else:
             lay.setContentsMargins(12, 0, 12, 0)
@@ -62,6 +64,7 @@ class ReadyPill(QFrame):
         self._label.setStyleSheet(self._text_qss(ok))
         if self._circle is not None:
             self._circle.set_color(C["ok"] if ok else C["warn"])
+            self._circle.set_mark("check" if ok else "alert")
         self.update()
 
     def paintEvent(self, _e) -> None:  # noqa: N802

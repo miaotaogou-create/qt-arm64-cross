@@ -337,7 +337,7 @@ class CheckAwareLabel(QLabel):
 
 
 class CircleCheckIcon(QWidget):
-    """空心圆 + 直线对号。"""
+    """空心圆 + 对号 / 叹号（就绪用对号，未就绪用叹号）。"""
 
     def __init__(
         self,
@@ -345,37 +345,55 @@ class CircleCheckIcon(QWidget):
         color: str = "#FFFFFF",
         *,
         circle: bool = True,
+        mark: str = "check",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setFixedSize(size, size)
         self._color = QColor(color)
         self._circle = circle
+        self._mark = "alert" if mark == "alert" else "check"
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
     def set_color(self, color: str) -> None:
         self._color = QColor(color)
         self.update()
 
+    def set_mark(self, mark: str) -> None:
+        self._mark = "alert" if mark == "alert" else "check"
+        self.update()
+
     def paintEvent(self, _e) -> None:  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w = self.width()
+        pw = max(1.5, w * 0.09)
         if self._circle:
-            pen = QPen(self._color, max(1.5, w * 0.09))
+            pen = QPen(self._color, pw)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             p.setPen(pen)
             p.setBrush(Qt.BrushStyle.NoBrush)
             m = max(1, int(w * 0.08))
             p.drawEllipse(m, m, w - 2 * m, w - 2 * m)
-        paint_straight_check(
-            p,
-            cx=w / 2,
-            cy=w / 2,
-            size=w * 0.62,
-            color=self._color,
-            pen_width=max(1.6, w * 0.11),
-        )
+        if self._mark == "alert":
+            pen = QPen(self._color, max(1.6, w * 0.11))
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            p.setPen(pen)
+            cx = w / 2.0
+            p.drawLine(QPointF(cx, w * 0.28), QPointF(cx, w * 0.55))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(self._color)
+            r = max(1.2, w * 0.07)
+            p.drawEllipse(QPointF(cx, w * 0.72), r, r)
+        else:
+            paint_straight_check(
+                p,
+                cx=w / 2,
+                cy=w / 2,
+                size=w * 0.62,
+                color=self._color,
+                pen_width=max(1.6, w * 0.11),
+            )
         p.end()
 
 
