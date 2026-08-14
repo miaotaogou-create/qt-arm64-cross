@@ -43,7 +43,7 @@ if (-not (Test-Path -LiteralPath $icoPath)) { throw "app.ico missing" }
 $addDataTools = $toolsDir + ";tools"
 $addDataImages = $imagesDir + ";images"
 
-# 单文件绿色便携；不 collect-all PySide6，避免把 WebEngine/3D/QML 打进去
+# onefile portable; do not --collect-all PySide6 (WebEngine/3D/QML bloat)
 python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx `
   --name QtArm64Cross `
   --icon $icoPath `

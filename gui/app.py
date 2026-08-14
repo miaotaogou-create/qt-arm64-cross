@@ -300,7 +300,14 @@ class ToastNotification(QWidget):
 
 from crosskit import build as buildmod
 from crosskit import detect, envpack, jobs, netip, settings, wsl, wsl_setup
-from crosskit.httpshare import DirectoryShare, ensure_firewall_allow, ethernet_ipv4, guess_share_dir
+from crosskit.httpshare import (
+    DirectoryShare,
+    default_route_ipv4,
+    ensure_firewall_allow,
+    ethernet_ipv4,
+    guess_share_dir,
+    lan_ipv4,
+)
 from gui.adv_panel import AdvancedOptionsPanel
 from gui.chrome import EdgeResizer, TitleChrome, make_ready_pill, set_ready_pill
 from gui.console_card import BuildLogConsoleCard
@@ -1840,59 +1847,58 @@ class MainWindow(QMainWindow):
 
         def work() -> None:
             err: str | None = None
-            primary = local = ""
-            eth: list = []
-            ok, detail = False, ""
             try:
                 self._ui(lambda: self._append_log(f"[http] 监听目录: {directory}"))
-                self._ui(lambda: self._share_state_lbl.setText("启动中 · 监听端口…"))
                 self._share.start(directory, port)
-                self._ui(lambda: self._share_state_lbl.setText("启动中 · 防火墙…"))
-                self._ui(lambda: self._append_log("[http] 尝试放行防火墙…"))
-                ensure_firewall_allow(port, on_line=lambda line: self.sig_log.emit(line))
-                primary = self._share.primary_url()
-                local = self._share.local_url()
-                self._ui(lambda: self._share_state_lbl.setText("启动中 · 解析网卡…"))
-                self._ui(lambda: self._append_log("[http] 解析局域网地址…"))
-                eth = ethernet_ipv4()
-                self._ui(lambda: self._share_state_lbl.setText("启动中 · 本机自检…"))
-                self._ui(lambda: self._append_log("[http] 本机自检…"))
-                ok, detail = self._share.probe_local()
             except OSError as e:
                 err = str(e)
 
-            def done() -> None:
-                if err:
+            if err:
+                def fail() -> None:
                     self._append_log(f"[http] 启动失败: {err}")
                     self._share_page.set_running(False)
                     self._set_busy(False, "共享启动失败")
                     QMessageBox.critical(self, "错误", f"无法监听端口 {port}: {err}")
-                    return
+
+                self._ui(fail)
+                return
+
+            local = self._share.local_url()
+            ips = lan_ipv4()
+            quick_ip = default_route_ipv4() or (ips[0] if ips else "127.0.0.1")
+            primary = f"http://{quick_ip}:{port}/"
+            ok, detail = self._share.probe_local()
+
+            def live() -> None:
                 self.ed_share_urls.setText(primary or "—")
                 self._share_page.set_loop_url(local or f"http://127.0.0.1:{port}/")
+                self._share_page.set_running(True, f"运行中 · 端口 {port}")
                 self._share_page.refresh_manifest(directory)
                 self._share_state_lbl.setToolTip(f"运行中 · 端口 {port}")
                 self._set_http_dot(True)
                 self._persist()
                 self._append_log(f"[http] 共享已启动: {directory}")
                 self._append_log(f"[http] 本机测试: {local}")
-                if eth:
-                    self._append_log(f"[http] 局域网地址: {primary}")
-                else:
-                    self._append_log(f"[http] 未检测到有线网卡，局域网地址退回: {primary}")
+                self._append_log(f"[http] 局域网地址: {primary}")
                 self._append_log(f"[http] 本机自检: {detail}")
-                if not ok:
-                    QMessageBox.warning(
-                        self,
-                        "本机自检失败",
-                        "服务已启动，但本机探测未通过。\n"
-                        "若浏览器也打不开，请换端口（如 18080），并确认代理绕过 127.0.0.1。",
-                    )
-                self._append_log("[http] 客户机示例: wget <局域网地址><包名>.tar.gz")
                 self._set_busy(False, f"HTTP 共享中 :{port}")
                 self._pill(f"共享 :{port}", "#99F6E4")
 
-            self._ui(done)
+            self._ui(live)
+
+            ensure_firewall_allow(port, on_line=lambda line: self.sig_log.emit(line))
+            eth = ethernet_ipv4()
+            if eth and self._share.running:
+                better = self._share.primary_url()
+
+                def refresh_lan() -> None:
+                    if not self._share.running or not better:
+                        return
+                    self.ed_share_urls.setText(better)
+                    self._share_page.refresh_qr()
+                    self._append_log(f"[http] 有线网卡地址: {better}")
+
+                self._ui(refresh_lan)
 
         threading.Thread(target=work, daemon=True).start()
 

@@ -160,7 +160,7 @@ def guess_share_dir(project: str, app_name: str = "") -> Path | None:
 class _ShareHandler(SimpleHTTPRequestHandler):
     """目录列表；异常也回正文，避免浏览器只看到空响应。"""
 
-    protocol_version = "HTTP/1.1"
+    protocol_version = "HTTP/1.0"
 
     def log_message(self, fmt: str, *args) -> None:
         # 不往 stderr 打，GUI 无控制台时无意义
@@ -213,6 +213,7 @@ class DirectoryShare:
 
         self._thread = threading.Thread(target=serve, daemon=True)
         self._thread.start()
+        time.sleep(0.05)
 
     def stop(self) -> None:
         httpd = self._httpd
@@ -245,19 +246,30 @@ class DirectoryShare:
         return [f"http://{ip}:{self.port}/" for ip in ips]
 
     def probe_local(self) -> tuple[bool, str]:
-        """绕过系统代理探测本机服务是否真在响应。"""
-        url = self.local_url()
-        if not url:
+        """直连 127.0.0.1，不走系统代理（urllib 遇到代理会一直挂）。"""
+        if not self.running:
             return False, "未启动"
         try:
-            import urllib.request
-
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            with opener.open(url, timeout=5) as r:
-                body = r.read(64)
-                if r.status == 200 and body:
-                    return True, f"OK HTTP {r.status}"
-                return False, f"异常 HTTP {r.status} 空正文={not body}"
+            with socket.create_connection(("127.0.0.1", int(self.port)), timeout=2) as s:
+                s.settimeout(2)
+                s.sendall(
+                    b"GET / HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+                )
+                chunks: list[bytes] = []
+                n = 0
+                while n < 96:
+                    buf = s.recv(96 - n)
+                    if not buf:
+                        break
+                    chunks.append(buf)
+                    n += len(buf)
+            data = b"".join(chunks)
+            if not data:
+                return False, "空响应"
+            line = data.split(b"\r\n", 1)[0].decode("ascii", "replace")
+            if line.startswith("HTTP/1.") and " 200 " in f" {line} ":
+                return True, "OK HTTP 200"
+            return False, line
         except Exception as e:
             return False, f"{type(e).__name__}: {e}"
 
