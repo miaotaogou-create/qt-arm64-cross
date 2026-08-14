@@ -15,6 +15,34 @@ if ($LASTEXITCODE -ne 0) {
   if ($LASTEXITCODE -ne 0) { throw "pip install qrcode[pil] failed" }
 }
 
+# 从 images/图标.png 生成多尺寸 app.ico + app.png
+$genPy = Join-Path $env:TEMP ("qtarm64-gen-icon-" + [guid]::NewGuid().ToString("N").Substring(0,8) + ".py")
+$genBody = @"
+from pathlib import Path
+from PIL import Image
+root = Path(r'$($root.Replace("'", "''"))')
+img_dir = root / 'images'
+if not img_dir.is_dir():
+    raise SystemExit('images/ missing')
+cands = [p for p in img_dir.glob('*.png') if p.name.lower() != 'app.png']
+if not cands:
+    raise SystemExit('no source png in images/')
+src = next((p for p in cands if '\u56fe\u6807' in p.name), cands[0])
+im = Image.open(src).convert('RGBA')
+sizes = [(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)]
+ico = img_dir / 'app.ico'
+im.save(ico, format='ICO', sizes=sizes)
+(im.resize((256,256), Image.Resampling.LANCZOS)).save(img_dir / 'app.png', 'PNG')
+print(f'ICON_OK src={src.name} ico={ico.stat().st_size}')
+"@
+[System.IO.File]::WriteAllText($genPy, $genBody, [System.Text.UTF8Encoding]::new($false))
+try {
+  python $genPy
+  if ($LASTEXITCODE -ne 0) { throw "gen app icon failed" }
+} finally {
+  Remove-Item -Force $genPy -ErrorAction SilentlyContinue
+}
+
 if (Test-Path ".\build") { Remove-Item -Recurse -Force ".\build" }
 if (Test-Path ".\QtArm64Cross.exe") { Remove-Item -Force ".\QtArm64Cross.exe" }
 Get-ChildItem -Filter "QtArm64Cross.smoke_ok" -ErrorAction SilentlyContinue | Remove-Item -Force
@@ -33,22 +61,29 @@ $verBody = '"""App version (BUILD rewritten by build_exe.ps1)."""' + $nl + $nl +
 
 $runPy = Join-Path $root "run.py"
 $toolsDir = Join-Path $root "tools"
-$addData = $toolsDir + ";tools"
+$imagesDir = Join-Path $root "images"
+$icoPath = Join-Path $imagesDir "app.ico"
+if (-not (Test-Path -LiteralPath $icoPath)) { throw "app.ico missing" }
+$addDataTools = $toolsDir + ";tools"
+$addDataImages = $imagesDir + ";images"
 
 python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx `
   --name QtArm64Cross `
+  --icon $icoPath `
   --distpath $root `
   --workpath (Join-Path $root "build\pyi") `
   --specpath (Join-Path $root "build") `
   --collect-all PySide6 `
   --hidden-import gui.app `
   --hidden-import gui.theme `
+  --hidden-import crosskit.resources `
   --hidden-import qrcode `
   --hidden-import qrcode.image.pil `
   --hidden-import PIL `
   --hidden-import PIL.Image `
   --collect-submodules qrcode `
-  --add-data $addData `
+  --add-data $addDataTools `
+  --add-data $addDataImages `
   $runPy
 
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller exit $LASTEXITCODE" }
@@ -75,7 +110,7 @@ $tmp = Join-Path $env:TEMP ("qtarm-empty-smoke-" + [guid]::NewGuid().ToString("N
 New-Item -ItemType Directory -Path $tmp | Out-Null
 Copy-Item $exe (Join-Path $tmp "QtArm64Cross.exe")
 Invoke-Smoke (Join-Path $tmp "QtArm64Cross.exe") $tmp
-try { Remove-Item -Recurse -Force $tmp -ErrorAction Stop } catch { Write-Host "cleanup tmp skipped" }
+try { Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue } catch { Write-Host "cleanup tmp skipped" }
 
 Write-Host "=== gui launch ==="
 $g = Start-Process -FilePath $exe -PassThru -WorkingDirectory $root

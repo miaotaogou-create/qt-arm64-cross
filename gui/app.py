@@ -23,6 +23,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import (
     QColor,
     QFont,
+    QIcon,
     QMouseEvent,
     QPainter,
     QPainterPath,
@@ -2410,9 +2411,16 @@ class MainWindow(QMainWindow):
 def main() -> None:
     import sys
 
+    from crosskit.resources import app_icon_path
+
     app = QApplication(sys.argv)
+    icon_path = app_icon_path()
+    if icon_path is not None:
+        app.setWindowIcon(QIcon(str(icon_path)))
     apply_theme(app)
     win = MainWindow()
+    if icon_path is not None:
+        win.setWindowIcon(QIcon(str(icon_path)))
     win.show()
     raise SystemExit(app.exec())
 
